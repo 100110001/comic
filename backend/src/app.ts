@@ -7,7 +7,10 @@ import { router } from './routes/index';
 const app = express();
 
 app.use(cors());
-app.use(morgan('[:date[iso]] :method :url :status :response-time ms'));
+morgan.token('decoded-url', (req) => {
+  try { return decodeURIComponent(req.url ?? ''); } catch { return req.url ?? ''; }
+});
+app.use(morgan('[:date[iso]] :method :decoded-url :status :response-time ms'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
