@@ -52,7 +52,8 @@ dart format lib/
 
 # 构建安装包
 flutter build apk --release                  # Android APK
-flutter build windows --release              # Windows 可执行文件
+flutter build windows --release              # 编译 Windows 可执行文件（产物在 build\windows\x64\runner\Release\）
+# 然后用 Inno Setup Compiler 打开 installer.iss，按 F9 编译 → 生成 installer\comic-setup.exe
 flutter build web                            # Web 静态文件
 flutter pub run msix:create                  # Windows MSIX 安装包（需先 build windows）
 
