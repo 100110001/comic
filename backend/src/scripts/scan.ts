@@ -2,7 +2,8 @@ import fs from "fs";
 import path from "path";
 import { progress, done } from "../utils/progress";
 
-const COMIC_ROOT = "E:\\comic";
+import { config } from "../config";
+const COMIC_ROOT = config.comicRoot;
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
 
 interface ImageFile {

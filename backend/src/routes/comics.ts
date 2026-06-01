@@ -4,8 +4,9 @@ import fs from "fs";
 import path from "path";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
+import { config } from "../config";
 
-const COMIC_ROOT = "E:\\comic";
+const COMIC_ROOT = config.comicRoot;
 
 function getComicFolder(coverPath: string): string {
   const rel = coverPath.replace(COMIC_ROOT + "\\", "");

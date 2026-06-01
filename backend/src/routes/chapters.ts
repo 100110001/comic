@@ -3,10 +3,11 @@ import type { Request, Response } from "express";
 import { imageSize } from "image-size";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
+import { config } from "../config";
 
 export const chaptersRouter = Router();
 
-const COMIC_ROOT = "E:\\comic";
+const COMIC_ROOT = config.comicRoot;
 
 function toUrl(filePath: string): string {
   return (

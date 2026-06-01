@@ -3,6 +3,7 @@ import path from "path";
 import cors from "cors";
 import morgan from "morgan";
 import { router } from "./routes/index";
+import { config } from "./config";
 
 const app = express();
 
@@ -23,7 +24,7 @@ app.get("/", (_req, res) => {
 });
 
 app.use(express.static(path.join(process.cwd(), "public")));
-app.use("/static", express.static("E:\\comic"));
+app.use("/static", express.static(config.comicRoot));
 app.use("/api", router);
 
 export default app;
