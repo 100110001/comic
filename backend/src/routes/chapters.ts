@@ -4,6 +4,7 @@ import { imageSize } from "image-size";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
 import { config } from "../config";
+import { cacheGet, cacheSet } from "../db/redis";
 
 export const chaptersRouter = Router();
 
@@ -39,6 +40,14 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
 
+    const cacheKey = `chapter:${id}:images`;
+    const cached = await cacheGet<unknown[]>(cacheKey);
+    if (cached) {
+      console.log(`[cache hit] ${cacheKey}`);
+      return ok(res, cached);
+    }
+    console.log(`[cache miss] ${cacheKey}`);
+
     const chapter = await db("chapters").where({ id }).first();
     if (!chapter) return fail(res, "Chapter not found", 1, 404);
 
@@ -58,6 +67,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
       height: img.height,
     }));
 
+    await cacheSet(cacheKey, data);
     ok(res, data);
   } catch (err) {
     fail(res, "Failed to fetch images", 1, 500);

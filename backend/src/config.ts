@@ -37,4 +37,8 @@ export const config = {
     password: env("DB_PASSWORD") ?? "",
     name: env("DB_NAME") ?? "",
   },
+  redis: {
+    host: env("REDIS_HOST") ?? "127.0.0.1",
+    port: parseInt(env("REDIS_PORT") ?? "6379"),
+  },
 };

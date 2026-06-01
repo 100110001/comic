@@ -1,6 +1,7 @@
 import { config, validateConfig } from "./config";
 import app from "./app";
 import { db } from "./db/knex";
+import { redis } from "./db/redis";
 
 process.on("uncaughtException", (err) =>
   console.error("[uncaughtException]", err),
@@ -19,6 +20,13 @@ try {
 async function start() {
   await db.raw("SELECT 1");
   console.log("Database connected");
+
+  try {
+    await redis.connect();
+    console.log("Redis connected");
+  } catch {
+    console.warn("Redis unavailable — caching disabled");
+  }
 
   app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);
