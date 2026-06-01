@@ -1,33 +1,158 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
   <meta charset="UTF-8">
   <title>Comic API 测试</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: monospace; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
-    header { padding: 16px 24px; border-bottom: 1px solid #21262d; display: flex; align-items: center; gap: 12px; }
-    header h1 { font-size: 16px; color: #58a6ff; }
-    .container { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 53px); }
-    .sidebar { border-right: 1px solid #21262d; overflow-y: auto; }
-    .endpoint { padding: 10px 16px; cursor: pointer; border-bottom: 1px solid #161b22; display: flex; align-items: center; gap: 8px; font-size: 13px; }
-    .endpoint:hover { background: #161b22; }
-    .endpoint.active { background: #1f2937; border-left: 2px solid #58a6ff; }
-    .method { font-size: 11px; font-weight: bold; padding: 2px 6px; border-radius: 3px; min-width: 38px; text-align: center; }
-    .get { background: #033a16; color: #3fb950; }
-    .url { color: #8b949e; }
-    .main { display: flex; flex-direction: column; }
-    .toolbar { padding: 12px 16px; border-bottom: 1px solid #21262d; display: flex; gap: 8px; align-items: center; }
-    #url-input { flex: 1; background: #161b22; border: 1px solid #30363d; color: #c9d1d9; padding: 6px 10px; border-radius: 6px; font-family: monospace; font-size: 13px; }
-    #send-btn { background: #238636; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
-    #send-btn:hover { background: #2ea043; }
-    .response-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-    .response-meta { padding: 8px 16px; border-bottom: 1px solid #21262d; font-size: 12px; color: #8b949e; display: flex; gap: 16px; }
-    .status-ok { color: #3fb950; }
-    .status-err { color: #f85149; }
-    #response-body { flex: 1; overflow: auto; padding: 16px; font-size: 13px; line-height: 1.6; white-space: pre; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: monospace;
+      background: #0d1117;
+      color: #c9d1d9;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #21262d;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 16px;
+      color: #58a6ff;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: calc(100vh - 53px);
+    }
+
+    .sidebar {
+      border-right: 1px solid #21262d;
+      overflow-y: auto;
+    }
+
+    .endpoint {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #161b22;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+    }
+
+    .endpoint:hover {
+      background: #161b22;
+    }
+
+    .endpoint.active {
+      background: #1f2937;
+      border-left: 2px solid #58a6ff;
+    }
+
+    .method {
+      font-size: 11px;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 3px;
+      min-width: 38px;
+      text-align: center;
+    }
+
+    .get {
+      background: #033a16;
+      color: #3fb950;
+    }
+
+    .url {
+      color: #8b949e;
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .toolbar {
+      padding: 12px 16px;
+      border-bottom: 1px solid #21262d;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    #url-input {
+      flex: 1;
+      background: #161b22;
+      border: 1px solid #30363d;
+      color: #c9d1d9;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 13px;
+    }
+
+    #send-btn {
+      background: #238636;
+      color: #fff;
+      border: none;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    #send-btn:hover {
+      background: #2ea043;
+    }
+
+    .response-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .response-meta {
+      padding: 8px 16px;
+      border-bottom: 1px solid #21262d;
+      font-size: 12px;
+      color: #8b949e;
+      display: flex;
+      gap: 16px;
+    }
+
+    .status-ok {
+      color: #3fb950;
+    }
+
+    .status-err {
+      color: #f85149;
+    }
+
+    #response-body {
+      flex: 1;
+      overflow: auto;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
   </style>
 </head>
+
 <body>
   <header>
     <h1>Comic API 测试台</h1>
@@ -52,17 +177,17 @@
 
   <script>
     const ENDPOINTS = [
-      { method: 'GET', url: '/api/health',  label: 'Health 检查' },
-      { method: 'GET', url: '/api/comics',  label: '所有漫画' },
+      { method: 'GET', url: '/api/health', label: 'Health 检查' },
+      { method: 'GET', url: '/api/comics', label: '所有漫画' },
     ];
 
     const sidebar = document.getElementById('sidebar');
     const urlInput = document.getElementById('url-input');
-    const sendBtn  = document.getElementById('send-btn');
-    const body     = document.getElementById('response-body');
+    const sendBtn = document.getElementById('send-btn');
+    const body = document.getElementById('response-body');
     const metaStatus = document.getElementById('meta-status');
-    const metaTime   = document.getElementById('meta-time');
-    const metaSize   = document.getElementById('meta-size');
+    const metaTime = document.getElementById('meta-time');
+    const metaSize = document.getElementById('meta-size');
 
     ENDPOINTS.forEach((ep, i) => {
       const el = document.createElement('div');
@@ -91,7 +216,7 @@
         const ms = Date.now() - t0;
         const text = await res.text();
         let display = text;
-        try { display = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+        try { display = JSON.stringify(JSON.parse(text), null, 2); } catch { }
 
         metaStatus.textContent = `${res.status} ${res.statusText}`;
         metaStatus.className = res.ok ? 'status-ok' : 'status-err';
@@ -109,4 +234,5 @@
     urlInput.addEventListener('keydown', e => e.key === 'Enter' && send());
   </script>
 </body>
+
 </html>

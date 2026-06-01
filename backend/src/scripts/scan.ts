@@ -16,9 +16,18 @@ interface Chapter {
 }
 
 interface Comic {
-  name: string;
+  name: string;   // 原始文件夹名
+  title: string;  // 解析后的漫画名
+  author: string | null;
   path: string;
   chapters: Chapter[];
+}
+
+// "[作者] 漫画名" → { author, title }
+function parseFolderName(name: string): { author: string | null; title: string } {
+  const match = name.match(/^\[([^\]]+)\]\s*(.+)$/);
+  if (match) return { author: match[1]!.trim(), title: match[2]!.trim() };
+  return { author: null, title: name.trim() };
 }
 
 function collectImages(dir: string): ImageFile[] {
@@ -38,7 +47,8 @@ function scanComics(root: string): Comic[] {
     const comicPath = path.join(root, comicName);
     if (!fs.statSync(comicPath).isDirectory()) continue;
 
-    const comic: Comic = { name: comicName, path: comicPath, chapters: [] };
+    const { author, title } = parseFolderName(comicName);
+    const comic: Comic = { name: comicName, title, author, path: comicPath, chapters: [] };
     const entries = fs.readdirSync(comicPath);
 
     // 检测漫画根目录是否直接含有图片（无章节层）
@@ -70,7 +80,8 @@ function printTree(comics: Comic[]) {
   let totalImages = 0;
 
   for (const comic of comics) {
-    console.log(`\n📚 ${comic.name}`);
+    const authorTag = comic.author ? ` (${comic.author})` : '';
+    console.log(`\n📚 ${comic.title}${authorTag}`);
     for (const chapter of comic.chapters) {
       console.log(`  📂 ${chapter.name}  (${chapter.images.length} 张)`);
       totalChapters++;
