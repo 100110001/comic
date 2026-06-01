@@ -2,16 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import { progress, done } from '../utils/progress';
 dotenv.config();
 
 const SCAN_FILE = path.join(__dirname, '../../data/scan.json');
 
-interface ImageFile { filename: string; path: string; }
+interface ImageFile { filename: string; path: string; width: number | null; height: number | null; }
 interface Chapter   { name: string; path: string; images: ImageFile[]; }
 interface Comic     { name: string; title: string; author: string | null; path: string; chapters: Chapter[]; }
 
 async function seed() {
   const comics: Comic[] = JSON.parse(fs.readFileSync(SCAN_FILE, 'utf-8'));
+  const total = comics.length;
 
   const conn = await mysql.createConnection({
     host:     process.env.DB_HOST     ?? 'localhost',
@@ -24,9 +26,11 @@ async function seed() {
 
   let comicCount = 0, chapterCount = 0, imageCount = 0;
 
-  for (const comic of comics) {
-    const coverPath = comic.chapters[0]?.images[0]?.path ?? null;
+  for (let idx = 0; idx < comics.length; idx++) {
+    const comic = comics[idx]!;
+    progress('导入', idx + 1, total, comic.title.slice(0, 35));
 
+    const coverPath = comic.chapters[0]?.images[0]?.path ?? null;
     const [comicResult] = await conn.execute<mysql.ResultSetHeader>(
       'INSERT IGNORE INTO comics (title, author, cover_path) VALUES (?, ?, ?)',
       [comic.title, comic.author, coverPath]
@@ -61,9 +65,11 @@ async function seed() {
 
       if (chapter.images.length === 0) continue;
 
-      const imageValues = chapter.images.map((img, pi) => [chapterId, img.filename, img.path, pi]);
+      const imageValues = chapter.images.map((img, pi) =>
+        [chapterId, img.filename, img.path, pi, img.width, img.height]
+      );
       await conn.query(
-        'INSERT IGNORE INTO images (chapter_id, filename, path, page_number) VALUES ?',
+        'INSERT IGNORE INTO images (chapter_id, filename, path, page_number, width, height) VALUES ?',
         [imageValues]
       );
       imageCount += chapter.images.length;
@@ -71,7 +77,7 @@ async function seed() {
   }
 
   await conn.end();
-  console.log(`导入完成 — 漫画: ${comicCount}  章节: ${chapterCount}  图片: ${imageCount}`);
+  done(`导入完成 — 漫画: ${comicCount}  章节: ${chapterCount}  图片: ${imageCount}`);
 }
 
 seed().catch(err => {

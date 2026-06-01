@@ -1,5 +1,7 @@
 import fs from 'fs';
 import path from 'path';
+import { imageSize } from 'image-size';
+import { progress, done } from '../utils/progress';
 
 const COMIC_ROOT = 'E:\\comic';
 const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
@@ -7,6 +9,8 @@ const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
 interface ImageFile {
   filename: string;
   path: string;
+  width: number | null;
+  height: number | null;
 }
 
 interface Chapter {
@@ -36,22 +40,33 @@ function collectImages(dir: string): ImageFile[] {
       const fullPath = path.join(dir, f);
       return fs.statSync(fullPath).isFile() && IMAGE_EXTS.has(path.extname(f).toLowerCase());
     })
-    .map(f => ({ filename: f, path: path.join(dir, f) }));
+    .map(f => {
+      const fullPath = path.join(dir, f);
+      let width: number | null = null;
+      let height: number | null = null;
+      try {
+        const dim = imageSize(fullPath);
+        width = dim.width ?? null;
+        height = dim.height ?? null;
+      } catch {}
+      return { filename: f, path: fullPath, width, height };
+    });
 }
 
 function scanComics(root: string): Comic[] {
   const comics: Comic[] = [];
+  const allDirs = fs.readdirSync(root).filter(n => !n.startsWith('.') && fs.statSync(path.join(root, n)).isDirectory());
+  const total = allDirs.length;
 
-  for (const comicName of fs.readdirSync(root)) {
-    if (comicName.startsWith('.')) continue;
+  for (let i = 0; i < allDirs.length; i++) {
+    const comicName = allDirs[i]!;
+    progress('扫描', i + 1, total, comicName.slice(0, 40));
+
     const comicPath = path.join(root, comicName);
-    if (!fs.statSync(comicPath).isDirectory()) continue;
-
     const { author, title } = parseFolderName(comicName);
     const comic: Comic = { name: comicName, title, author, path: comicPath, chapters: [] };
     const entries = fs.readdirSync(comicPath);
 
-    // 检测漫画根目录是否直接含有图片（无章节层）
     const rootImages = collectImages(comicPath);
     if (rootImages.length > 0) {
       comic.chapters.push({ name: '默认', path: comicPath, images: rootImages });
@@ -60,16 +75,13 @@ function scanComics(root: string): Comic[] {
     for (const chapterName of entries) {
       const chapterPath = path.join(comicPath, chapterName);
       if (!fs.statSync(chapterPath).isDirectory()) continue;
-
       const images = collectImages(chapterPath);
       if (images.length > 0) {
         comic.chapters.push({ name: chapterName, path: chapterPath, images });
       }
     }
 
-    if (comic.chapters.length > 0) {
-      comics.push(comic);
-    }
+    if (comic.chapters.length > 0) comics.push(comic);
   }
 
   return comics;
@@ -96,8 +108,9 @@ function printTree(comics: Comic[]) {
 const OUTPUT = path.join(__dirname, '../../data/scan.json');
 
 const comics = scanComics(COMIC_ROOT);
+done('扫描完成');
 printTree(comics);
 
 fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
 fs.writeFileSync(OUTPUT, JSON.stringify(comics, null, 2), 'utf-8');
-console.log(`\n已保存到 ${OUTPUT}`);
+console.log(`已保存到 ${OUTPUT}`);

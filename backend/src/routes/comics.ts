@@ -11,7 +11,7 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     if (isNaN(id)) return fail(res, "Invalid id");
 
     const [comics] = await pool.query(
-      "SELECT id, title, author, cover_path, status, created_at FROM comics WHERE id = ?",
+      "SELECT id, title, author, cover_path, created_at FROM comics WHERE id = ?",
       [id]
     ) as any;
     if (!comics.length) return fail(res, "Comic not found", 1, 404);
@@ -36,7 +36,7 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
     const [countRows] = await pool.query("SELECT COUNT(*) AS total FROM comics") as any;
     const total = countRows[0].total as number;
     const [rows] = await pool.query(
-      "SELECT id, title, author, cover_path, status, created_at FROM comics ORDER BY title LIMIT ? OFFSET ?",
+      "SELECT id, title, author, cover_path, created_at FROM comics ORDER BY title LIMIT ? OFFSET ?",
       [pageSize, offset]
     );
 

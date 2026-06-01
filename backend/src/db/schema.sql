@@ -11,12 +11,10 @@ CREATE TABLE IF NOT EXISTS comics (
   author      VARCHAR(100)  DEFAULT NULL,
   description TEXT          DEFAULT NULL,
   cover_path  VARCHAR(500)  DEFAULT NULL,         -- 封面图片相对路径
-  status      TINYINT       NOT NULL DEFAULT 0,   -- 0=连载中 1=已完结
   created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-  INDEX idx_title (title),
-  INDEX idx_status (status)
+  INDEX idx_title (title)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 章节
@@ -39,7 +37,7 @@ CREATE TABLE IF NOT EXISTS images (
   filename     VARCHAR(255)  NOT NULL,            -- 原始文件名
   path         VARCHAR(500)  NOT NULL,            -- 存储相对路径
   page_number  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
-  width        SMALLINT UNSIGNED DEFAULT NULL,    -- 可选：图片宽高，供前端预加载布局用
+  width        SMALLINT UNSIGNED DEFAULT NULL,
   height       SMALLINT UNSIGNED DEFAULT NULL,
   created_at   DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
