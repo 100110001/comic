@@ -1,15 +1,15 @@
-import knex from 'knex';
-import { config } from '../config';
+import knex from "knex";
+import { config } from "../config";
 
 export const db = knex({
-  client: 'mysql2',
+  client: "mysql2",
   connection: {
-    host:     config.db.host,
-    port:     config.db.port,
-    user:     config.db.user,
+    host: config.db.host,
+    port: config.db.port,
+    user: config.db.user,
     password: config.db.password,
     database: config.db.name,
-    charset:  'utf8mb4',
+    charset: "utf8mb4",
   },
   pool: { min: 0, max: 10 },
 });

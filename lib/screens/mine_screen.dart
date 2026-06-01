@@ -35,7 +35,9 @@ class _MineScreenState extends State<MineScreen> {
     final sw = Stopwatch()..start();
 
     try {
-      final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 10));
       sw.stop();
       String body;
       try {
@@ -92,10 +94,15 @@ class _MineScreenState extends State<MineScreen> {
               spacing: 8,
               runSpacing: 8,
               children: _endpoints
-                  .map((p) => ElevatedButton(
-                        onPressed: _loading ? null : () => _test(p),
-                        child: Text(p.split('?')[0], style: const TextStyle(fontSize: 11)),
-                      ))
+                  .map(
+                    (p) => ElevatedButton(
+                      onPressed: _loading ? null : () => _test(p),
+                      child: Text(
+                        p.split('?')[0],
+                        style: const TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  )
                   .toList(),
             ),
           ),
@@ -107,18 +114,28 @@ class _MineScreenState extends State<MineScreen> {
               child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: _statusColor,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       _status == 0 ? 'ERROR' : '$_status',
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text('${_ms}ms', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    '${_ms}ms',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -130,7 +147,10 @@ class _MineScreenState extends State<MineScreen> {
                     padding: const EdgeInsets.all(12),
                     child: SelectableText(
                       _result,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                      ),
                     ),
                   ),
           ),

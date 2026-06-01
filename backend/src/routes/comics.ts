@@ -69,7 +69,11 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
 
     const comic = await db("comics")
       .select(
-        "comics.id", "comics.title", "comics.author", "comics.cover_path", "comics.created_at",
+        "comics.id",
+        "comics.title",
+        "comics.author",
+        "comics.cover_path",
+        "comics.created_at",
         db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
         db.raw("COUNT(DISTINCT images.id) as image_count"),
       )

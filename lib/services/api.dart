@@ -18,7 +18,9 @@ class ApiService {
     int pageSize = 20,
     String keyword = '',
   }) async {
-    final q = keyword.isNotEmpty ? '&keyword=${Uri.encodeComponent(keyword)}' : '';
+    final q = keyword.isNotEmpty
+        ? '&keyword=${Uri.encodeComponent(keyword)}'
+        : '';
     final data = await _get(
       '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q',
     );

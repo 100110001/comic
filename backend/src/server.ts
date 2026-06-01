@@ -1,20 +1,24 @@
-import { config, validateConfig } from './config';
-import app from './app';
-import { db } from './db/knex';
+import { config, validateConfig } from "./config";
+import app from "./app";
+import { db } from "./db/knex";
 
-process.on('uncaughtException',  (err) => console.error('[uncaughtException]', err));
-process.on('unhandledRejection', (err) => console.error('[unhandledRejection]', err));
+process.on("uncaughtException", (err) =>
+  console.error("[uncaughtException]", err),
+);
+process.on("unhandledRejection", (err) =>
+  console.error("[unhandledRejection]", err),
+);
 
 try {
   validateConfig();
 } catch (err) {
-  console.error('[Config Error]', (err as Error).message);
+  console.error("[Config Error]", (err as Error).message);
   process.exit(1);
 }
 
 async function start() {
-  await db.raw('SELECT 1');
-  console.log('Database connected');
+  await db.raw("SELECT 1");
+  console.log("Database connected");
 
   app.listen(config.port, () => {
     console.log(`Server running on http://localhost:${config.port}`);
@@ -22,6 +26,6 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.error('Failed to start:', err);
+  console.error("Failed to start:", err);
   process.exit(1);
 });
