@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import { imageSize } from 'image-size';
-import { pool } from '../db/pool';
+import { db } from '../db/knex';
 import { ok, fail } from '../utils/response';
 
 export const chaptersRouter = Router();
@@ -22,10 +22,7 @@ async function fillDimensions(images: any[]) {
         const dim = imageSize(img.path);
         img.width  = dim.width  ?? null;
         img.height = dim.height ?? null;
-        await pool.execute(
-          'UPDATE images SET width = ?, height = ? WHERE id = ?',
-          [img.width, img.height, img.id]
-        );
+        await db('images').where({ id: img.id }).update({ width: img.width, height: img.height });
       } catch {}
     })
   );
@@ -36,15 +33,13 @@ chaptersRouter.get('/:id/images', async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, 'Invalid id');
 
-    const [chapters] = await pool.query(
-      'SELECT id, title FROM chapters WHERE id = ?', [id]
-    ) as any;
-    if (!chapters.length) return fail(res, 'Chapter not found', 1, 404);
+    const chapter = await db('chapters').where({ id }).first();
+    if (!chapter) return fail(res, 'Chapter not found', 1, 404);
 
-    const [images] = await pool.query(
-      'SELECT id, filename, path, page_number, width, height FROM images WHERE chapter_id = ? ORDER BY page_number',
-      [id]
-    ) as any;
+    const images = await db('images')
+      .where({ chapter_id: id })
+      .select('id', 'filename', 'path', 'page_number', 'width', 'height')
+      .orderBy('page_number');
 
     await fillDimensions(images);
 

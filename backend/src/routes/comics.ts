@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { pool } from "../db/pool";
+import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
 
 export const comicsRouter = Router();
@@ -12,26 +12,36 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
       100,
       Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
     );
-    const offset = (pageOffset - 1) * pageSize;
     const keyword = String(req.query.keyword ?? "").trim();
-    const like = `%${keyword}%`;
 
-    const countSql = keyword
-      ? "SELECT COUNT(*) AS total FROM comics WHERE title LIKE ? OR author LIKE ?"
-      : "SELECT COUNT(*) AS total FROM comics";
-    const countParams = keyword ? [like, like] : [];
+    let query = db("comics").select(
+      "id",
+      "title",
+      "author",
+      "cover_path",
+      "created_at",
+    );
 
-    const listSql = keyword
-      ? `SELECT id, title, author, cover_path, created_at FROM comics WHERE title LIKE ? OR author LIKE ? ORDER BY title LIMIT ${pageSize} OFFSET ${offset}`
-      : `SELECT id, title, author, cover_path, created_at FROM comics ORDER BY title LIMIT ${pageSize} OFFSET ${offset}`;
-    const listParams = keyword ? [like, like] : [];
+    if (keyword) {
+      query = query
+        .where("title", "like", `%${keyword}%`)
+        .orWhere("author", "like", `%${keyword}%`);
+    }
 
-    const [countRows] = (await pool.execute(countSql, countParams)) as any;
-    const total = countRows[0].total as number;
-    const [rows] = await pool.execute(listSql, listParams);
+    const total = await query
+      .clone()
+      .clearSelect()
+      .count("* as total")
+      .first()
+      .then((r) => Number((r as any).total));
+    const rows = await query
+      .orderBy("title")
+      .limit(pageSize)
+      .offset((pageOffset - 1) * pageSize);
 
     ok(res, rows, { pageOffset, pageSize, total });
   } catch (err) {
+    console.error("[comics]", err);
     fail(res, "Failed to fetch comics", 1, 500);
   }
 });
@@ -41,18 +51,18 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
 
-    const [comics] = (await pool.query(
-      "SELECT id, title, author, cover_path, created_at FROM comics WHERE id = ?",
-      [id],
-    )) as any;
-    if (!comics.length) return fail(res, "Comic not found", 1, 404);
+    const comic = await db("comics")
+      .select("id", "title", "author", "cover_path", "created_at")
+      .where({ id })
+      .first();
+    if (!comic) return fail(res, "Comic not found", 1, 404);
 
-    const [chapters] = (await pool.query(
-      "SELECT id, title, sort_order FROM chapters WHERE comic_id = ? ORDER BY sort_order",
-      [id],
-    )) as any;
+    const chapters = await db("chapters")
+      .select("id", "title", "sort_order")
+      .where({ comic_id: id })
+      .orderBy("sort_order");
 
-    ok(res, { ...comics[0], chapters });
+    ok(res, { ...comic, chapters });
   } catch (err) {
     fail(res, "Failed to fetch comic", 1, 500);
   }

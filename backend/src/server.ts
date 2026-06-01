@@ -1,14 +1,12 @@
 import dotenv from 'dotenv';
 dotenv.config();
 import app from './app';
-import { pool } from './db/pool';
+import { db } from './db/knex';
 
-const PORT = process.env.PORT ?? 3000;
+const PORT = process.env.PORT ?? 8888;
 
 async function start() {
-  const conn = await pool.getConnection();
-  await conn.ping();
-  conn.release();
+  await db.raw('SELECT 1');
   console.log('Database connected');
 
   app.listen(PORT, () => {
