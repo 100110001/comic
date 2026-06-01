@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { imageSize } from 'image-size';
 import { progress, done } from '../utils/progress';
 
 const COMIC_ROOT = 'E:\\comic';
@@ -9,8 +8,6 @@ const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif']);
 interface ImageFile {
   filename: string;
   path: string;
-  width: number | null;
-  height: number | null;
 }
 
 interface Chapter {
@@ -42,14 +39,7 @@ function collectImages(dir: string): ImageFile[] {
     })
     .map(f => {
       const fullPath = path.join(dir, f);
-      let width: number | null = null;
-      let height: number | null = null;
-      try {
-        const dim = imageSize(fullPath);
-        width = dim.width ?? null;
-        height = dim.height ?? null;
-      } catch {}
-      return { filename: f, path: fullPath, width, height };
+      return { filename: f, path: fullPath };
     });
 }
 

@@ -7,7 +7,7 @@ dotenv.config();
 
 const SCAN_FILE = path.join(__dirname, '../../data/scan.json');
 
-interface ImageFile { filename: string; path: string; width: number | null; height: number | null; }
+interface ImageFile { filename: string; path: string; }
 interface Chapter   { name: string; path: string; images: ImageFile[]; }
 interface Comic     { name: string; title: string; author: string | null; path: string; chapters: Chapter[]; }
 
@@ -66,10 +66,10 @@ async function seed() {
       if (chapter.images.length === 0) continue;
 
       const imageValues = chapter.images.map((img, pi) =>
-        [chapterId, img.filename, img.path, pi, img.width, img.height]
+        [chapterId, img.filename, img.path, pi]
       );
       await conn.query(
-        'INSERT IGNORE INTO images (chapter_id, filename, path, page_number, width, height) VALUES ?',
+        'INSERT IGNORE INTO images (chapter_id, filename, path, page_number) VALUES ?',
         [imageValues]
       );
       imageCount += chapter.images.length;
