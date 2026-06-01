@@ -7,16 +7,20 @@ import '../models/image_item.dart';
 
 class ApiService {
   static Future<Map<String, dynamic>> _get(String path) async {
-    final res = await http.get(Uri.parse('$baseUrl$path'));
+    final url = '$baseUrl$path';
+    print('[API] GET $url');
+    final res = await http.get(Uri.parse(url));
     return jsonDecode(res.body);
   }
 
   static Future<({List<Comic> list, int total})> getComics({
     int pageOffset = 1,
     int pageSize = 20,
+    String keyword = '',
   }) async {
+    final q = keyword.isNotEmpty ? '&keyword=${Uri.encodeComponent(keyword)}' : '';
     final data = await _get(
-      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize',
+      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q',
     );
     final list = (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
     return (list: list, total: data['total'] as int);

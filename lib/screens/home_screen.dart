@@ -15,7 +15,9 @@ class _HomeScreenState extends State<HomeScreen> {
   int _pageOffset = 1;
   int _total = 0;
   bool _loading = false;
+  String _keyword = '';
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -32,7 +34,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _search(String keyword) async {
+    _keyword = keyword;
+    setState(() {
+      _comics.clear();
+      _pageOffset = 1;
+      _total = 0;
+    });
+    await _loadMore();
   }
 
   Future<void> _refresh() async {
@@ -51,6 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final r = await ApiService.getComics(
         pageOffset: _pageOffset,
         pageSize: 30,
+        keyword: _keyword,
       );
       setState(() {
         _comics.addAll(r.list);
@@ -68,7 +82,26 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161b22),
-        title: const Text('漫画库', style: TextStyle(color: Colors.white)),
+        title: TextField(
+          controller: _searchController,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: '搜索漫画、作者…',
+            hintStyle: const TextStyle(color: Color(0xFF8b949e)),
+            border: InputBorder.none,
+            prefixIcon: const Icon(Icons.search, color: Color(0xFF8b949e), size: 20),
+            suffixIcon: _keyword.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.close, color: Color(0xFF8b949e), size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      _search('');
+                    },
+                  )
+                : null,
+          ),
+          onSubmitted: _search,
+        ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: const Color(0xFF21262d)),
