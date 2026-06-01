@@ -15,16 +15,22 @@ class ApiService {
     int pageOffset = 1,
     int pageSize = 20,
   }) async {
-    final data = await _get('/api/comics?pageOffset=$pageOffset&pageSize=$pageSize');
+    final data = await _get(
+      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize',
+    );
     final list = (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
     return (list: list, total: data['total'] as int);
   }
 
-  static Future<({Comic comic, List<Chapter> chapters})> getComic(int id) async {
+  static Future<({Comic comic, List<Chapter> chapters})> getComic(
+    int id,
+  ) async {
     final data = await _get('/api/comics/$id');
     final d = data['data'];
     final comic = Comic.fromJson(d);
-    final chapters = (d['chapters'] as List).map((e) => Chapter.fromJson(e)).toList();
+    final chapters = (d['chapters'] as List)
+        .map((e) => Chapter.fromJson(e))
+        .toList();
     return (comic: comic, chapters: chapters);
   }
 

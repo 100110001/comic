@@ -14,9 +14,9 @@ class ImageItem {
   });
 
   factory ImageItem.fromJson(Map<String, dynamic> j) => ImageItem(
-        id: j['id'],
-        filename: j['filename'],
-        pageNumber: j['pageNumber'],
-        url: '$baseUrl${j['url']}',
-      );
+    id: j['id'],
+    filename: j['filename'],
+    pageNumber: j['pageNumber'],
+    url: '$baseUrl${j['url']}',
+  );
 }

@@ -36,8 +36,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(widget.title,
-            style: const TextStyle(color: Colors.white, fontSize: 15)),
+        title: Text(
+          widget.title,
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -89,7 +91,7 @@ class _LazyImageState extends State<_LazyImage> {
             child: CircularProgressIndicator(
               value: progress.expectedTotalBytes != null
                   ? progress.cumulativeBytesLoaded /
-                      progress.expectedTotalBytes!
+                        progress.expectedTotalBytes!
                   : null,
             ),
           ),

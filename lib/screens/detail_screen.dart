@@ -71,9 +71,13 @@ class _Header extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: comic.coverUrl != null
-                ? Image.network(comic.coverUrl!,
-                    width: 100, height: 140, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholder())
+                ? Image.network(
+                    comic.coverUrl!,
+                    width: 100,
+                    height: 140,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _placeholder(),
+                  )
                 : _placeholder(),
           ),
           const SizedBox(width: 14),
@@ -81,12 +85,23 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(comic.title,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  comic.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
-                  Text(comic.author!,
-                      style: const TextStyle(color: Color(0xFF8b949e), fontSize: 13)),
+                  Text(
+                    comic.author!,
+                    style: const TextStyle(
+                      color: Color(0xFF8b949e),
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -97,10 +112,11 @@ class _Header extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        width: 100, height: 140,
-        color: const Color(0xFF21262d),
-        child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-      );
+    width: 100,
+    height: 140,
+    color: const Color(0xFF21262d),
+    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+  );
 }
 
 class _ChapterList extends StatelessWidget {
@@ -117,16 +133,15 @@ class _ChapterList extends StatelessWidget {
       itemBuilder: (ctx, i) {
         final ch = chapters[i];
         return ListTile(
-          title: Text(ch.title,
-              style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14)),
+          title: Text(
+            ch.title,
+            style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14),
+          ),
           trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ReaderScreen(
-                chapterId: ch.id,
-                title: ch.title,
-              ),
+              builder: (_) => ReaderScreen(chapterId: ch.id, title: ch.title),
             ),
           ),
         );

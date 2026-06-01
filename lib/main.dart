@@ -16,9 +16,7 @@ class ComicApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0d1117),
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF58a6ff),
-        ),
+        colorScheme: const ColorScheme.dark(primary: Color(0xFF58a6ff)),
       ),
       home: const MainShell(),
     );
@@ -35,10 +33,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _screens = [
-    HomeScreen(),
-    MineScreen(),
-  ];
+  static const _screens = [HomeScreen(), MineScreen()];
 
   @override
   Widget build(BuildContext context) {

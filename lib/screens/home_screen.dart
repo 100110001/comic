@@ -39,7 +39,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_loading || _comics.length >= _total && _total > 0) return;
     setState(() => _loading = true);
     try {
-      final r = await ApiService.getComics(pageOffset: _pageOffset, pageSize: 30);
+      final r = await ApiService.getComics(
+        pageOffset: _pageOffset,
+        pageSize: 30,
+      );
       setState(() {
         _comics.addAll(r.list);
         _total = r.total;
@@ -130,7 +133,7 @@ class _ComicCard extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        color: const Color(0xFF21262d),
-        child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-      );
+    color: const Color(0xFF21262d),
+    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+  );
 }
