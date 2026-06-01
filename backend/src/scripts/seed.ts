@@ -25,9 +25,11 @@ async function seed() {
   let comicCount = 0, chapterCount = 0, imageCount = 0;
 
   for (const comic of comics) {
+    const coverPath = comic.chapters[0]?.images[0]?.path ?? null;
+
     const [comicResult] = await conn.execute<mysql.ResultSetHeader>(
-      'INSERT IGNORE INTO comics (title, author) VALUES (?, ?)',
-      [comic.title, comic.author]
+      'INSERT IGNORE INTO comics (title, author, cover_path) VALUES (?, ?, ?)',
+      [comic.title, comic.author, coverPath]
     );
 
     let comicId = comicResult.insertId;
