@@ -7,10 +7,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final List<Comic> _comics = [];
   int _pageOffset = 1;
   int _total = 0;
@@ -36,6 +36,11 @@ class _HomeScreenState extends State<HomeScreen> {
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void searchAuthor(String author) {
+    _searchController.text = author;
+    _search(author);
   }
 
   Future<void> _search(String keyword) async {

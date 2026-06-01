@@ -4,7 +4,8 @@ import '../services/api.dart';
 import 'detail_screen.dart';
 
 class RandomScreen extends StatefulWidget {
-  const RandomScreen({super.key});
+  final void Function(String)? onAuthorTap;
+  const RandomScreen({super.key, this.onAuthorTap});
 
   @override
   State<RandomScreen> createState() => _RandomScreenState();
@@ -62,7 +63,7 @@ class _RandomScreenState extends State<RandomScreen> {
                   mainAxisSpacing: 10,
                 ),
                 itemCount: _comics.length,
-                itemBuilder: (ctx, i) => _ComicCard(comic: _comics[i]),
+                itemBuilder: (ctx, i) => _ComicCard(comic: _comics[i], onAuthorTap: widget.onAuthorTap),
               ),
             ),
     );
@@ -71,7 +72,8 @@ class _RandomScreenState extends State<RandomScreen> {
 
 class _ComicCard extends StatelessWidget {
   final Comic comic;
-  const _ComicCard({required this.comic});
+  final void Function(String)? onAuthorTap;
+  const _ComicCard({required this.comic, this.onAuthorTap});
 
   @override
   Widget build(BuildContext context) {
@@ -83,7 +85,7 @@ class _ComicCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
+          MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id, onAuthorTap: onAuthorTap)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

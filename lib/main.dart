@@ -33,13 +33,24 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  final _homeKey = GlobalKey<HomeScreenState>();
 
-  static const _screens = [HomeScreen(), RandomScreen(), MineScreen()];
+  void _searchOnHome(String author) {
+    setState(() => _index = 0);
+    _homeKey.currentState?.searchAuthor(author);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(index: _index, children: _screens),
+      body: IndexedStack(
+        index: _index,
+        children: [
+          HomeScreen(key: _homeKey),
+          RandomScreen(onAuthorTap: _searchOnHome),
+          const MineScreen(),
+        ],
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
