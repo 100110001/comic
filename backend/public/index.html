@@ -1,10 +1,16 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh">
 
 <head>
   <meta charset="UTF-8">
   <title>Comic API 测试</title>
   <style>
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -82,6 +88,8 @@
     .main {
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .toolbar {
@@ -179,6 +187,8 @@
     const ENDPOINTS = [
       { method: 'GET', url: '/api/health', label: 'Health 检查' },
       { method: 'GET', url: '/api/comics', label: '所有漫画' },
+      { method: 'GET', url: '/api/comics/1',          label: '漫画详情' },
+      { method: 'GET', url: '/api/chapters/1/images', label: '章节图片' },
     ];
 
     const sidebar = document.getElementById('sidebar');

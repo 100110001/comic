@@ -14,6 +14,7 @@ app.get('/', (_req, res) => {
 });
 
 app.use(express.static(path.join(process.cwd(), 'public')));
+app.use('/static', express.static('E:\\comic'));
 app.use('/api', router);
 
 export default app;

@@ -5,6 +5,28 @@ import { ok, fail } from "../utils/response";
 
 export const comicsRouter = Router();
 
+comicsRouter.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) return fail(res, "Invalid id");
+
+    const [comics] = await pool.query(
+      "SELECT id, title, author, cover_path, status, created_at FROM comics WHERE id = ?",
+      [id]
+    ) as any;
+    if (!comics.length) return fail(res, "Comic not found", 1, 404);
+
+    const [chapters] = await pool.query(
+      "SELECT id, title, sort_order FROM chapters WHERE comic_id = ? ORDER BY sort_order",
+      [id]
+    ) as any;
+
+    ok(res, { ...comics[0], chapters });
+  } catch (err) {
+    fail(res, "Failed to fetch comic", 1, 500);
+  }
+});
+
 comicsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const pageOffset = Math.max(1, parseInt(String(req.query.pageOffset ?? 1)));
