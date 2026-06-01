@@ -89,10 +89,18 @@ class _HomeScreenState extends State<HomeScreen> {
             hintText: '搜索漫画、作者…',
             hintStyle: const TextStyle(color: Color(0xFF8b949e)),
             border: InputBorder.none,
-            prefixIcon: const Icon(Icons.search, color: Color(0xFF8b949e), size: 20),
+            prefixIcon: const Icon(
+              Icons.search,
+              color: Color(0xFF8b949e),
+              size: 20,
+            ),
             suffixIcon: _keyword.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, color: Color(0xFF8b949e), size: 18),
+                    icon: const Icon(
+                      Icons.close,
+                      color: Color(0xFF8b949e),
+                      size: 18,
+                    ),
                     onPressed: () {
                       _searchController.clear();
                       _search('');
@@ -110,22 +118,26 @@ class _HomeScreenState extends State<HomeScreen> {
       body: RefreshIndicator(
         onRefresh: _refresh,
         child: GridView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(12),
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 160,
-          childAspectRatio: 0.58,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
+          controller: _scrollController,
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 160,
+            childAspectRatio: 0.58,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+          ),
+          itemCount: _comics.length + (_loading ? 1 : 0),
+          itemBuilder: (ctx, i) {
+            if (i == _comics.length) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return _ComicCard(
+              comic: _comics[i],
+              onSearch: _search,
+              searchController: _searchController,
+            );
+          },
         ),
-        itemCount: _comics.length + (_loading ? 1 : 0),
-        itemBuilder: (ctx, i) {
-          if (i == _comics.length) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          return _ComicCard(comic: _comics[i]);
-        },
-      ),
       ),
     );
   }
@@ -133,7 +145,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
 class _ComicCard extends StatelessWidget {
   final Comic comic;
-  const _ComicCard({required this.comic});
+  final Future<void> Function(String) onSearch;
+  final TextEditingController searchController;
+
+  const _ComicCard({
+    required this.comic,
+    required this.onSearch,
+    required this.searchController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -143,10 +162,16 @@ class _ComicCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
-        ),
+        onTap: () async {
+          final keyword = await Navigator.push<String>(
+            context,
+            MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
+          );
+          if (keyword != null && keyword.isNotEmpty) {
+            searchController.text = keyword;
+            onSearch(keyword);
+          }
+        },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -162,21 +187,28 @@ class _ComicCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
-                          errorBuilder: (context, error, stack) => _placeholder(),
+                          errorBuilder: (context, error, stack) =>
+                              _placeholder(),
                         )
                       : _placeholder(),
                   Positioned(
                     right: 4,
                     bottom: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         '${comic.chapterCount}话 · ${comic.imageCount}P',
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ),

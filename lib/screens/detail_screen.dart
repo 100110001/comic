@@ -39,7 +39,10 @@ class _DetailScreenState extends State<DetailScreen> {
         title: const Text('确认删除'),
         content: Text('删除《${_comic?.title}》将同时删除本地文件，不可恢复。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('删除', style: TextStyle(color: Colors.red)),
@@ -122,11 +125,16 @@ class _Header extends StatelessWidget {
                 ),
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
-                  Text(
-                    comic.author!,
-                    style: const TextStyle(
-                      color: Color(0xFF8b949e),
-                      fontSize: 13,
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context, comic.author),
+                    child: Text(
+                      comic.author!,
+                      style: const TextStyle(
+                        color: Color(0xFF58a6ff),
+                        fontSize: 13,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Color(0xFF58a6ff),
+                      ),
                     ),
                   ),
                 ],
