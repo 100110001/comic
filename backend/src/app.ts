@@ -1,11 +1,13 @@
 import express from 'express';
 import path from 'path';
 import cors from 'cors';
+import morgan from 'morgan';
 import { router } from './routes/index';
 
 const app = express();
 
 app.use(cors());
+app.use(morgan('[:date[iso]] :method :url :status :response-time ms'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
