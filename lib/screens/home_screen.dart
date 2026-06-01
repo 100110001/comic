@@ -35,6 +35,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  Future<void> _refresh() async {
+    setState(() {
+      _comics.clear();
+      _pageOffset = 1;
+      _total = 0;
+    });
+    await _loadMore();
+  }
+
   Future<void> _loadMore() async {
     if (_loading || _comics.length >= _total && _total > 0) return;
     setState(() => _loading = true);
@@ -65,12 +74,14 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(height: 1, color: const Color(0xFF21262d)),
         ),
       ),
-      body: GridView.builder(
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: GridView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.all(12),
         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 180,
-          childAspectRatio: 0.65,
+          maxCrossAxisExtent: 160,
+          childAspectRatio: 0.58,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
         ),
@@ -82,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return _ComicCard(comic: _comics[i]);
         },
       ),
+      ),
     );
   }
 }
@@ -92,42 +104,61 @@ class _ComicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+    return Card(
+      color: Colors.white,
+      elevation: 2,
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 封面：固定 3:4 宽高比，撑满卡片宽度
+            AspectRatio(
+              aspectRatio: 3 / 4,
               child: comic.coverUrl != null
                   ? Image.network(
                       comic.coverUrl!,
                       fit: BoxFit.cover,
                       width: double.infinity,
-                      errorBuilder: (_, __, ___) => _placeholder(),
+                      height: double.infinity,
+                      errorBuilder: (context, error, stack) => _placeholder(),
                     )
                   : _placeholder(),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            comic.title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
-          if (comic.author != null)
-            Text(
-              comic.author!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF8b949e), fontSize: 11),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    comic.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF1a1a1a),
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (comic.author != null)
+                    Text(
+                      comic.author!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 11,
+                      ),
+                    ),
+                ],
+              ),
             ),
-        ],
+          ],
+        ),
       ),
     );
   }
