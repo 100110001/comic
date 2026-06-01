@@ -81,6 +81,11 @@
       color: #3fb950;
     }
 
+    .delete {
+      background: #3d0000;
+      color: #f85149;
+    }
+
     .url {
       color: #8b949e;
     }
@@ -189,6 +194,7 @@
       { method: 'GET', url: '/api/comics', label: '所有漫画' },
       { method: 'GET', url: '/api/comics/1',          label: '漫画详情' },
       { method: 'GET', url: '/api/chapters/1/images', label: '章节图片' },
+      { method: 'DELETE', url: '/api/comics/1', label: '删除漫画' },
     ];
 
     const sidebar = document.getElementById('sidebar');
@@ -208,13 +214,19 @@
         document.querySelectorAll('.endpoint').forEach(e => e.classList.remove('active'));
         el.classList.add('active');
         urlInput.value = location.origin + ep.url;
+        currentMethod = ep.method;
+        sendBtn.textContent = ep.method === 'DELETE' ? '删除' : '发送';
+        sendBtn.style.background = ep.method === 'DELETE' ? '#b91c1c' : '#238636';
         send();
       };
       sidebar.appendChild(el);
     });
 
+    let currentMethod = 'GET';
+
     async function send() {
       const url = urlInput.value.trim();
+      if (currentMethod === 'DELETE' && !confirm(确定要删除吗？\n)) return;
       body.textContent = '请求中…';
       metaStatus.textContent = '—';
       metaTime.textContent = '—';
@@ -222,7 +234,7 @@
 
       const t0 = Date.now();
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { method: currentMethod });
         const ms = Date.now() - t0;
         const text = await res.text();
         let display = text;

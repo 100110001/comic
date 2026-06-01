@@ -32,6 +32,26 @@ class _DetailScreenState extends State<DetailScreen> {
     });
   }
 
+  Future<void> _delete() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: Text('删除《${_comic?.title}》将同时删除本地文件，不可恢复。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    await ApiService.deleteComic(widget.comicId);
+    if (mounted) Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -43,6 +63,13 @@ class _DetailScreenState extends State<DetailScreen> {
           _comic?.title ?? '',
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
+        actions: [
+          if (_comic != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: _delete,
+            ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

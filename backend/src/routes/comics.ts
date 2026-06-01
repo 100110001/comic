@@ -1,7 +1,16 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import fs from "fs";
+import path from "path";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
+
+const COMIC_ROOT = "E:\\comic";
+
+function getComicFolder(coverPath: string): string {
+  const rel = coverPath.replace(COMIC_ROOT + "\\", "");
+  return path.join(COMIC_ROOT, rel.split("\\")[0]!);
+}
 
 export const comicsRouter = Router();
 
@@ -65,5 +74,31 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     ok(res, { ...comic, chapters });
   } catch (err) {
     fail(res, "Failed to fetch comic", 1, 500);
+  }
+});
+
+comicsRouter.delete("/:id", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) return fail(res, "Invalid id");
+
+    const comic = await db("comics").where({ id }).first();
+    if (!comic) return fail(res, "Comic not found", 1, 404);
+
+    // 删本地文件夹
+    if (comic.cover_path) {
+      const folder = getComicFolder(comic.cover_path);
+      if (fs.existsSync(folder)) {
+        fs.rmSync(folder, { recursive: true, force: true });
+      }
+    }
+
+    // 删数据库（cascade 自动删 chapters + images）
+    await db("comics").where({ id }).delete();
+
+    ok(res, { id });
+  } catch (err) {
+    console.error("[delete comic]", err);
+    fail(res, "Failed to delete comic", 1, 500);
   }
 });

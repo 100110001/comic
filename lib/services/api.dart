@@ -38,6 +38,13 @@ class ApiService {
     return (comic: comic, chapters: chapters);
   }
 
+  static Future<void> deleteComic(int id) async {
+    final url = '$baseUrl/api/comics/$id';
+    final res = await http.delete(Uri.parse(url));
+    final data = jsonDecode(res.body);
+    if (data['code'] != 0) throw Exception(data['message']);
+  }
+
   static Future<List<ImageItem>> getChapterImages(int chapterId) async {
     final data = await _get('/api/chapters/$chapterId/images');
     return (data['data'] as List).map((e) => ImageItem.fromJson(e)).toList();
