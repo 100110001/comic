@@ -1,3 +1,5 @@
+import '../config.dart';
+
 class Comic {
   final int id;
   final String title;
@@ -29,6 +31,6 @@ class Comic {
     final rel = coverPath!
         .replaceAll('\\', '/')
         .replaceFirst(RegExp(r'^.*?/comic/'), '');
-    return 'http://localhost:8888/static/$rel';
+    return '$baseUrl/static/$rel';
   }
 }
