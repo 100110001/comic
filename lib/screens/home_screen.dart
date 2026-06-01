@@ -153,15 +153,35 @@ class _ComicCard extends StatelessWidget {
             // 封面：固定 3:4 宽高比，撑满卡片宽度
             AspectRatio(
               aspectRatio: 3 / 4,
-              child: comic.coverUrl != null
-                  ? Image.network(
-                      comic.coverUrl!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      height: double.infinity,
-                      errorBuilder: (context, error, stack) => _placeholder(),
-                    )
-                  : _placeholder(),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  comic.coverUrl != null
+                      ? Image.network(
+                          comic.coverUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          height: double.infinity,
+                          errorBuilder: (context, error, stack) => _placeholder(),
+                        )
+                      : _placeholder(),
+                  Positioned(
+                    right: 4,
+                    bottom: 4,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '${comic.chapterCount}话 · ${comic.imageCount}P',
+                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),

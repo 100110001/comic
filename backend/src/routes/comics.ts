@@ -23,18 +23,24 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
     );
     const keyword = String(req.query.keyword ?? "").trim();
 
-    let query = db("comics").select(
-      "id",
-      "title",
-      "author",
-      "cover_path",
-      "created_at",
-    );
+    let query = db("comics")
+      .select(
+        "comics.id",
+        "comics.title",
+        "comics.author",
+        "comics.cover_path",
+        "comics.created_at",
+        db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
+        db.raw("COUNT(DISTINCT images.id) as image_count"),
+      )
+      .leftJoin("chapters", "comics.id", "chapters.comic_id")
+      .leftJoin("images", "chapters.id", "images.chapter_id")
+      .groupBy("comics.id");
 
     if (keyword) {
       query = query
-        .where("title", "like", `%${keyword}%`)
-        .orWhere("author", "like", `%${keyword}%`);
+        .where("comics.title", "like", `%${keyword}%`)
+        .orWhere("comics.author", "like", `%${keyword}%`);
     }
 
     const total = await query
@@ -61,8 +67,15 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     if (isNaN(id)) return fail(res, "Invalid id");
 
     const comic = await db("comics")
-      .select("id", "title", "author", "cover_path", "created_at")
-      .where({ id })
+      .select(
+        "comics.id", "comics.title", "comics.author", "comics.cover_path", "comics.created_at",
+        db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
+        db.raw("COUNT(DISTINCT images.id) as image_count"),
+      )
+      .leftJoin("chapters", "comics.id", "chapters.comic_id")
+      .leftJoin("images", "chapters.id", "images.chapter_id")
+      .where("comics.id", id)
+      .groupBy("comics.id")
       .first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 

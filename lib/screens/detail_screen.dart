@@ -130,6 +130,14 @@ class _Header extends StatelessWidget {
                     ),
                   ),
                 ],
+                const SizedBox(height: 8),
+                Text(
+                  '${comic.chapterCount}话 · ${comic.imageCount}P',
+                  style: const TextStyle(
+                    color: Color(0xFF58a6ff),
+                    fontSize: 12,
+                  ),
+                ),
               ],
             ),
           ),
