@@ -192,8 +192,9 @@
     const ENDPOINTS = [
       { method: 'GET', url: '/api/health', label: 'Health 检查' },
       { method: 'GET', url: '/api/comics', label: '所有漫画' },
-      { method: 'GET', url: '/api/comics/1',          label: '漫画详情' },
+      { method: 'GET', url: '/api/comics/1', label: '漫画详情' },
       { method: 'GET', url: '/api/chapters/1/images', label: '章节图片' },
+      { method: 'GET', url: '/api/comics/random', label: '随机漫画' },
       { method: 'DELETE', url: '/api/comics/1', label: '删除漫画' },
     ];
 
@@ -226,7 +227,7 @@
 
     async function send() {
       const url = urlInput.value.trim();
-      if (currentMethod === 'DELETE' && !confirm(确定要删除吗？\n)) return;
+      if (currentMethod === 'DELETE' && !confirm(`确定要删除吗？\n${url}`)) return;
       body.textContent = '请求中…';
       metaStatus.textContent = '—';
       metaTime.textContent = '—';

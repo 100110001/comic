@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/home_screen.dart';
+import 'screens/random_screen.dart';
 import 'screens/mine_screen.dart';
 
 void main() {
@@ -33,7 +34,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _screens = [HomeScreen(), MineScreen()];
+  static const _screens = [HomeScreen(), RandomScreen(), MineScreen()];
 
   @override
   Widget build(BuildContext context) {
@@ -47,6 +48,7 @@ class _MainShellState extends State<MainShell> {
         unselectedItemColor: const Color(0xFF8b949e),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: '漫画'),
+          BottomNavigationBarItem(icon: Icon(Icons.shuffle), label: '随机'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
         ],
       ),

@@ -13,8 +13,25 @@ function getComicFolder(coverPath: string): string {
   return path.join(COMIC_ROOT, rel.split("\\")[0]!);
 }
 
+function comicQuery() {
+  return db("comics")
+    .select(
+      "comics.id",
+      "comics.title",
+      "comics.author",
+      "comics.cover_path",
+      "comics.created_at",
+      db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
+      db.raw("COUNT(DISTINCT images.id) as image_count"),
+    )
+    .leftJoin("chapters", "comics.id", "chapters.comic_id")
+    .leftJoin("images", "chapters.id", "images.chapter_id")
+    .groupBy("comics.id");
+}
+
 export const comicsRouter = Router();
 
+// 列表（分页 + 搜索）
 comicsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const pageOffset = Math.max(1, parseInt(String(req.query.pageOffset ?? 1)));
@@ -24,20 +41,7 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
     );
     const keyword = String(req.query.keyword ?? "").trim();
 
-    let query = db("comics")
-      .select(
-        "comics.id",
-        "comics.title",
-        "comics.author",
-        "comics.cover_path",
-        "comics.created_at",
-        db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
-        db.raw("COUNT(DISTINCT images.id) as image_count"),
-      )
-      .leftJoin("chapters", "comics.id", "chapters.comic_id")
-      .leftJoin("images", "chapters.id", "images.chapter_id")
-      .groupBy("comics.id");
-
+    let query = comicQuery();
     if (keyword) {
       query = query
         .where("comics.title", "like", `%${keyword}%`)
@@ -51,37 +55,38 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
       .first()
       .then((r) => Number((r as any).total));
     const rows = await query
-      .orderBy("title")
+      .orderBy("comics.title")
       .limit(pageSize)
       .offset((pageOffset - 1) * pageSize);
 
     ok(res, rows, { pageOffset, pageSize, total });
   } catch (err) {
-    console.error("[comics]", err);
     fail(res, "Failed to fetch comics", 1, 500);
   }
 });
 
+// 随机（必须在 /:id 前注册）
+comicsRouter.get("/random", async (req: Request, res: Response) => {
+  try {
+    const size = Math.min(
+      100,
+      Math.max(1, parseInt(String(req.query.pageSize ?? 30))),
+    );
+    res.setHeader("Cache-Control", "no-store");
+    const rows = await comicQuery().orderByRaw("RAND()").limit(size);
+    ok(res, rows, { pageSize: size, total: (rows as any[]).length });
+  } catch (err) {
+    fail(res, "Failed to fetch random comics", 1, 500);
+  }
+});
+
+// 详情
 comicsRouter.get("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
 
-    const comic = await db("comics")
-      .select(
-        "comics.id",
-        "comics.title",
-        "comics.author",
-        "comics.cover_path",
-        "comics.created_at",
-        db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
-        db.raw("COUNT(DISTINCT images.id) as image_count"),
-      )
-      .leftJoin("chapters", "comics.id", "chapters.comic_id")
-      .leftJoin("images", "chapters.id", "images.chapter_id")
-      .where("comics.id", id)
-      .groupBy("comics.id")
-      .first();
+    const comic = await comicQuery().where("comics.id", id).first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 
     const chapters = await db("chapters")
@@ -95,6 +100,7 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
   }
 });
 
+// 删除
 comicsRouter.delete("/:id", async (req: Request, res: Response) => {
   try {
     const id = parseInt(String(req.params.id));
@@ -103,17 +109,13 @@ comicsRouter.delete("/:id", async (req: Request, res: Response) => {
     const comic = await db("comics").where({ id }).first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 
-    // 删本地文件夹
     if (comic.cover_path) {
       const folder = getComicFolder(comic.cover_path);
-      if (fs.existsSync(folder)) {
+      if (fs.existsSync(folder))
         fs.rmSync(folder, { recursive: true, force: true });
-      }
     }
 
-    // 删数据库（cascade 自动删 chapters + images）
     await db("comics").where({ id }).delete();
-
     ok(res, { id });
   } catch (err) {
     console.error("[delete comic]", err);

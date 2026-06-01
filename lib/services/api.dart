@@ -17,12 +17,14 @@ class ApiService {
     int pageOffset = 1,
     int pageSize = 20,
     String keyword = '',
+    bool random = false,
   }) async {
     final q = keyword.isNotEmpty
         ? '&keyword=${Uri.encodeComponent(keyword)}'
         : '';
+    final r = random ? '&random=1' : '';
     final data = await _get(
-      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q',
+      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q$r',
     );
     final list = (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
     return (list: list, total: data['total'] as int);
@@ -38,6 +40,17 @@ class ApiService {
         .map((e) => Chapter.fromJson(e))
         .toList();
     return (comic: comic, chapters: chapters);
+  }
+
+  static Future<List<Comic>> getRandomComics({int pageSize = 30}) async {
+    final data = await _get('/api/comics/random?pageSize=$pageSize');
+    return (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
+  }
+
+  static Future<Comic> getRandomComic() async {
+    final list = await getRandomComics(pageSize: 1);
+    if (list.isEmpty) throw Exception('No comics found');
+    return list[0];
   }
 
   static Future<void> deleteComic(int id) async {
