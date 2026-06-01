@@ -6,7 +6,8 @@ import 'reader_screen.dart';
 
 class DetailScreen extends StatefulWidget {
   final int comicId;
-  const DetailScreen({super.key, required this.comicId});
+  final void Function(String)? onAuthorTap;
+  const DetailScreen({super.key, required this.comicId, this.onAuthorTap});
 
   @override
   State<DetailScreen> createState() => _DetailScreenState();
@@ -78,7 +79,7 @@ class _DetailScreenState extends State<DetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                _Header(comic: _comic!),
+                _Header(comic: _comic!, onAuthorTap: widget.onAuthorTap),
                 const Divider(color: Color(0xFF21262d), height: 1),
                 Expanded(child: _ChapterList(chapters: _chapters)),
               ],
@@ -89,7 +90,8 @@ class _DetailScreenState extends State<DetailScreen> {
 
 class _Header extends StatelessWidget {
   final Comic comic;
-  const _Header({required this.comic});
+  final void Function(String)? onAuthorTap;
+  const _Header({required this.comic, this.onAuthorTap});
 
   @override
   Widget build(BuildContext context) {
@@ -126,7 +128,10 @@ class _Header extends StatelessWidget {
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context, comic.author),
+                    onTap: () {
+                      onAuthorTap?.call(comic.author!);
+                      Navigator.pop(context);
+                    },
                     child: Text(
                       comic.author!,
                       style: const TextStyle(

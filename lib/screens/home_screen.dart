@@ -162,16 +162,18 @@ class _ComicCard extends StatelessWidget {
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () async {
-          final keyword = await Navigator.push<String>(
-            context,
-            MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id)),
-          );
-          if (keyword != null && keyword.isNotEmpty) {
-            searchController.text = keyword;
-            onSearch(keyword);
-          }
-        },
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DetailScreen(
+              comicId: comic.id,
+              onAuthorTap: (author) {
+                searchController.text = author;
+                onSearch(author);
+              },
+            ),
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
