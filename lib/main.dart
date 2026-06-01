@@ -48,7 +48,7 @@ class _MainShellState extends State<MainShell> {
         unselectedItemColor: const Color(0xFF8b949e),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: '漫画'),
-          BottomNavigationBarItem(icon: Icon(Icons.shuffle), label: '随机'),
+          BottomNavigationBarItem(icon: Icon(Icons.send), label: '发现'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
         ],
       ),
