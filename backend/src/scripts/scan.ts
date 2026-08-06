@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { progress, done } from "../utils/progress";
+import { compareChapterTitle } from "../utils/chapterSort";
 
 import { config } from "../config";
 const COMIC_ROOT = config.comicRoot;
@@ -75,7 +76,7 @@ function scanComics(root: string): Comic[] {
       path: comicPath,
       chapters: [],
     };
-    const entries = fs.readdirSync(comicPath);
+    const entries = fs.readdirSync(comicPath).sort(compareChapterTitle);
 
     const rootImages = collectImages(comicPath);
     if (rootImages.length > 0) {
