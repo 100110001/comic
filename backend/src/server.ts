@@ -24,6 +24,8 @@ async function start() {
   try {
     await redis.connect();
     console.log("Redis connected");
+    await redis.flushdb();
+    console.log("Redis cache cleared");
   } catch {
     console.warn("Redis unavailable — caching disabled");
   }
