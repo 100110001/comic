@@ -4,6 +4,7 @@
   "description": "Comic app backend API",
   "main": "dist/server.js",
   "scripts": {
+    "predev": "ts-node src/scripts/kill-port.ts",
     "dev": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

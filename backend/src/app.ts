@@ -24,7 +24,12 @@ app.get("/", (_req, res) => {
 });
 
 app.use(express.static(path.join(process.cwd(), "public")));
-app.use("/static", express.static(config.comicRoot));
+app.use(
+  "/static",
+  express.static(config.comicRoot, {
+    maxAge: "1h",
+  }),
+);
 app.use("/api", router);
 
 export default app;
