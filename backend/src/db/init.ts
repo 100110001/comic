@@ -15,9 +15,16 @@ async function init() {
 
   const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
   await conn.query(sql);
+
+  await conn.query("SET FOREIGN_KEY_CHECKS = 0");
+  await conn.query("TRUNCATE TABLE images");
+  await conn.query("TRUNCATE TABLE chapters");
+  await conn.query("TRUNCATE TABLE comics");
+  await conn.query("SET FOREIGN_KEY_CHECKS = 1");
+
   await conn.end();
 
-  console.log("Database initialized successfully");
+  console.log("Database initialized and cleared successfully");
 }
 
 init().catch((err) => {
