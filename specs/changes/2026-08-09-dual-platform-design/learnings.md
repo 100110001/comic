@@ -80,3 +80,7 @@
 - **修复**：`_performInitialJump` 多帧重试（上限 120 帧 ≈ 2s），直到 `maxScrollExtent` 能覆盖目标偏移；跳转期间抑制"接近底部自动续章"，避免被误触发切到下一章。
 - 章节切换会使旧的重试循环作废（`_jumpGeneration` 代数标记 + 越界保护）。
 - `_init` 失败兜底路径补上 `initialPage`，不再丢失定位。
+
+## 决策：继续阅读另行 define
+
+- 继续阅读的进一步优化（跳转精度、续读入口形态等）不在本轮继续，已列入 plan 的 Deferred to Follow-Up Work，后续单独走 define → plan → implement → harvest。
