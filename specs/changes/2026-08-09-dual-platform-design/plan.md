@@ -175,6 +175,8 @@ flowchart TB
 
 ### U5. 桌面阅读器：单页大图 + 滚轮翻页 + 本章进度条 + 目录侧栏
 
+**Status:** shipped
+
 - **Goal:** 桌面端阅读体验为单页大图，滚轮翻页，底部本章进度条可拖动跳转，目录以侧边面板呈现。
 - **Requirements:** R9, R10, R11, R12（对应 F2、AE2）
 - **Dependencies:** U4

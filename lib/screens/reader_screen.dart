@@ -1,7 +1,11 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../models/chapter.dart';
 import '../models/image_item.dart';
+import '../platform.dart';
 import '../services/api.dart';
+import '../widgets/chapter_drawer.dart';
+import '../widgets/reader_progress_bar.dart';
 
 class ReaderScreen extends StatefulWidget {
   final int comicId;
@@ -80,6 +84,24 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   Future<void> _prevChapter() async {
     if (_hasPrev) await _goToChapter(_chapterIndex - 1);
+  }
+
+  void _nextPage() {
+    if (_images.isEmpty) return;
+    if (_currentPage < _images.length - 1) {
+      setState(() => _currentPage++);
+    } else {
+      _autoContinue();
+    }
+  }
+
+  void _prevPage() {
+    if (_images.isEmpty) return;
+    if (_currentPage > 0) {
+      setState(() => _currentPage--);
+    } else {
+      _prevChapter();
+    }
   }
 
   /// 自动续章：主体形态在越过本章最后一页时调用。
@@ -177,6 +199,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     return Scaffold(
       backgroundColor: Colors.black,
+      endDrawer: isDesktop && _chapters.isNotEmpty
+          ? ChapterDrawer(
+              chapters: _chapters,
+              currentIndex: _chapterIndex,
+              onSelect: (i) {
+                Navigator.pop(context);
+                _goToChapter(i);
+              },
+            )
+          : null,
       appBar: AppBar(
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -185,6 +217,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
+          if (isDesktop)
+            IconButton(
+              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
+              tooltip: '目录',
+              onPressed: _chapters.isEmpty
+                  ? null
+                  : () => Scaffold.of(context).openEndDrawer(),
+            ),
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Colors.white),
             tooltip: '上一章',
@@ -199,12 +239,64 @@ class _ReaderScreenState extends State<ReaderScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              controller: _scrollController,
-              cacheExtent: 800,
-              itemCount: _images.length,
-              itemBuilder: (ctx, i) => _LazyImage(url: _images[i].url),
+          : isDesktop
+          ? _buildPagedBody(context)
+          : _buildScrollBody(),
+    );
+  }
+
+  Widget _buildScrollBody() {
+    return ListView.builder(
+      controller: _scrollController,
+      cacheExtent: 800,
+      itemCount: _images.length,
+      itemBuilder: (ctx, i) => _LazyImage(url: _images[i].url),
+    );
+  }
+
+  Widget _buildPagedBody(BuildContext context) {
+    if (_images.isEmpty) {
+      return const Center(
+        child: Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
+      );
+    }
+    final page = _currentPage.clamp(0, _images.length - 1).toInt();
+    return Listener(
+      onPointerSignal: (event) {
+        if (event is PointerScrollEvent) {
+          if (event.scrollDelta.dy > 0) {
+            _nextPage();
+          } else {
+            _prevPage();
+          }
+        }
+      },
+      child: Column(
+        children: [
+          Expanded(
+            child: Container(
+              color: Colors.black,
+              alignment: Alignment.center,
+              child: Image.network(
+                _images[page].url,
+                fit: BoxFit.contain,
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(child: CircularProgressIndicator());
+                },
+                errorBuilder: (_, _, _) => const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                ),
+              ),
             ),
+          ),
+          ReaderProgressBar(
+            currentPage: page,
+            totalPages: _images.length,
+            onSeek: (p) => setState(() => _currentPage = p),
+          ),
+        ],
+      ),
     );
   }
 }

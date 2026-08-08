@@ -28,3 +28,11 @@
 - 上一章/下一章按钮放在阅读器 AppBar（无对应章节时禁用）；滚动接近本章底部时自动续章（`_onScroll` 内判定）。
 - 进度保存仍为离开阅读器时一次，章节切换后保存的是当前章节与页码。
 - 章节列表加载失败时降级为直接加载传入的章节，不阻塞阅读。
+
+## U5 桌面阅读器
+
+- 桌面主体为单页大图（`BoxFit.contain` 居中），`Listener.onPointerSignal` 监听滚轮：向下滚下一页、向上滚回上一页。
+- 页首向上/页尾向下触发章节切换（`_prevChapter`/`_autoContinue`）。
+- 底部常驻 `ReaderProgressBar`（本章第 N/M 页 + Slider 拖动跳页）；单页章节时隐藏 Slider 只显示文字。
+- 目录用 `Scaffold.endDrawer` 侧边面板（`ChapterDrawer`），AppBar 目录按钮打开。
+- `clamp` 返回 num，索引/滑块值需 `.toInt()`/`.toDouble()` 转换。
