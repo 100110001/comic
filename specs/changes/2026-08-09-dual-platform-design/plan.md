@@ -221,6 +221,8 @@ flowchart TB
 
 ### U8. 桌面侧栏页面：最近阅读 / 收藏
 
+**Status:** shipped
+
 - **Goal:** 桌面侧边栏的"最近阅读/收藏"入口呈现对应列表页，数据与手机"我的"一致。
 - **Requirements:** R2
 - **Dependencies:** U2

@@ -49,3 +49,9 @@
 - `getComic` 返回值扩展为含 `progress`（`{chapterId, pageNumber}?`）的记录类型，详情页据此显示"继续阅读"按钮。
 - 宽屏（≥720px）下详情页为"左侧 330px 信息栏 + 右侧章节列表"，窄屏保持纵向；继续阅读按钮在信息区。
 - 继续阅读定位时章节标题从已加载的章节列表反查，找不到则传空标题。
+
+## U8 桌面侧栏页面
+
+- 最近阅读/收藏列表抽成共享组件 `lib/widgets/reading_lists.dart`（`RecentReadingList`/`FavoritesList`），手机"我的"tab 与桌面侧栏页共用。
+- 桌面侧栏三个入口（首页/最近阅读/收藏）用 `IndexedStack` 切换，最近阅读与收藏各自包一层 `_PageScaffold`（AppBar + 列表）。
+- `flutter build web --release` 通过，确认双端代码可整体编译。

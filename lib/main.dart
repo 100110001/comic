@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'platform.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
+import 'widgets/reading_lists.dart';
 
 void main() {
   runApp(const ComicApp());
@@ -110,8 +111,8 @@ class _DesktopShellState extends State<DesktopShell> {
               index: _index,
               children: const [
                 HomeScreen(),
-                _PlaceholderPage(title: '最近阅读'),
-                _PlaceholderPage(title: '收藏'),
+                _PageScaffold(title: '最近阅读', child: RecentReadingList()),
+                _PageScaffold(title: '收藏', child: FavoritesList()),
               ],
             ),
           ),
@@ -121,9 +122,10 @@ class _DesktopShellState extends State<DesktopShell> {
   }
 }
 
-class _PlaceholderPage extends StatelessWidget {
+class _PageScaffold extends StatelessWidget {
   final String title;
-  const _PlaceholderPage({required this.title});
+  final Widget child;
+  const _PageScaffold({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -133,9 +135,7 @@ class _PlaceholderPage extends StatelessWidget {
         backgroundColor: const Color(0xFF161b22),
         title: Text(title, style: const TextStyle(color: Colors.white)),
       ),
-      body: const Center(
-        child: Text('建设中', style: TextStyle(color: Color(0xFF8b949e))),
-      ),
+      body: child,
     );
   }
 }
