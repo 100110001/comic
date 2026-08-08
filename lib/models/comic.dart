@@ -26,7 +26,7 @@ class Comic {
     coverPath: j['cover_path'],
     chapterCount: int.tryParse(j['chapter_count']?.toString() ?? '0') ?? 0,
     imageCount: int.tryParse(j['image_count']?.toString() ?? '0') ?? 0,
-    favorited: j['favorited'] == true,
+    favorited: j['favorited'] == true || j['favorited'] == 1,
   );
 
   Comic withFavorited(bool value) => Comic(
