@@ -127,6 +127,8 @@ flowchart TB
 
 ### U4. 卡片收藏角标 + 详情返回同步（首页）
 
+**Status:** shipped
+
 - **Goal:** 首页卡片显示红心角标；从详情页返回后原地同步收藏状态。
 - **Requirements:** R2, R3, R4
 - **Dependencies:** U2, U3
@@ -138,6 +140,8 @@ flowchart TB
 
 ### U5. 搜索页角标 + 返回同步
 
+**Status:** shipped
+
 - **Goal:** 搜索结果卡片显示收藏角标，返回时同步状态。
 - **Requirements:** R2, R3, R4, R9
 - **Dependencies:** U1, U2
@@ -146,6 +150,8 @@ flowchart TB
 - **Verification:** 搜索结果的收藏漫画显示红心；详情取消收藏返回后同步。
 
 ### U6. 首页底部悬浮续读条
+
+**Status:** shipped
 
 - **Goal:** 移除顶部"最近阅读"卡片，改为底部悬浮条；网格预留底部空间。
 - **Requirements:** R10–R16

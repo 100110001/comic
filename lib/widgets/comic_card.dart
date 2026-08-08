@@ -33,6 +33,23 @@ class ComicCard extends StatelessWidget {
                           errorBuilder: (_, _, _) => _placeholder(),
                         )
                       : _placeholder(),
+                  if (comic.favorited)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Icon(
+                          Icons.favorite,
+                          color: Color(0xFFf778ba),
+                          size: 14,
+                        ),
+                      ),
+                    ),
                   Positioned(
                     right: 4,
                     bottom: 4,

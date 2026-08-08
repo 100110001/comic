@@ -70,6 +70,32 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  Future<void> _syncFavorites() async {
+    try {
+      final favs = await ApiService.getFavorites();
+      if (!mounted) return;
+      final ids = favs.map((c) => c.id).toSet();
+      final updated = List<Comic>.from(_comics);
+      var changed = false;
+      for (var i = 0; i < updated.length; i++) {
+        final fav = ids.contains(updated[i].id);
+        if (fav != updated[i].favorited) {
+          updated[i] = updated[i].withFavorited(fav);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setState(
+          () => _comics
+            ..clear()
+            ..addAll(updated),
+        );
+      }
+    } catch (_) {
+      // 同步失败不阻塞
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,12 +142,15 @@ class _SearchScreenState extends State<SearchScreen> {
                       controller: _scrollController,
                       comics: _comics,
                       loading: _loading,
-                      onTap: (comic) => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(comicId: comic.id),
-                        ),
-                      ),
+                      onTap: (comic) async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailScreen(comicId: comic.id),
+                          ),
+                        );
+                        _syncFavorites();
+                      },
                     ),
             ),
     );

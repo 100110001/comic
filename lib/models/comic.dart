@@ -29,6 +29,16 @@ class Comic {
     favorited: j['favorited'] == true,
   );
 
+  Comic withFavorited(bool value) => Comic(
+    id: id,
+    title: title,
+    author: author,
+    coverPath: coverPath,
+    chapterCount: chapterCount,
+    imageCount: imageCount,
+    favorited: value,
+  );
+
   String? get coverUrl {
     if (coverPath == null) return null;
     final rel = coverPath!

@@ -18,12 +18,14 @@ int comicGridColumns(double width) {
 class ComicGrid extends StatelessWidget {
   final List<Comic> comics;
   final bool loading;
+  final double bottomPadding;
   final ScrollController? controller;
   final void Function(Comic comic)? onTap;
   const ComicGrid({
     super.key,
     required this.comics,
     required this.loading,
+    this.bottomPadding = 0,
     this.controller,
     this.onTap,
   });
@@ -45,7 +47,7 @@ class ComicGrid extends StatelessWidget {
             final childAspectRatio = cardWidth / (cardWidth * 4 / 3 + 48);
             return GridView.builder(
               controller: controller,
-              padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomPadding),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 childAspectRatio: childAspectRatio,

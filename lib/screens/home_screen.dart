@@ -127,6 +127,32 @@ class HomeScreenState extends State<HomeScreen> {
 
   int _newSeed() => Random().nextInt(1 << 31);
 
+  Future<void> _syncFavorites() async {
+    try {
+      final favs = await ApiService.getFavorites();
+      if (!mounted) return;
+      final ids = favs.map((c) => c.id).toSet();
+      final updated = List<Comic>.from(_comics);
+      var changed = false;
+      for (var i = 0; i < updated.length; i++) {
+        final fav = ids.contains(updated[i].id);
+        if (fav != updated[i].favorited) {
+          updated[i] = updated[i].withFavorited(fav);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setState(
+          () => _comics
+            ..clear()
+            ..addAll(updated),
+        );
+      }
+    } catch (_) {
+      // 同步失败不阻塞
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
@@ -186,31 +212,47 @@ class HomeScreenState extends State<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: Column(
+        child: Stack(
           children: [
-            if (_recent != null)
-              _ContinueCard(entry: _recent!, onReturn: _refreshRecent),
-            Expanded(
-              child: _loading && _comics.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : ComicGrid(
-                      controller: _scrollController,
-                      comics: _comics,
-                      loading: _loading,
-                      onTap: (comic) => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(
-                            comicId: comic.id,
-                            onAuthorTap: (author) {
-                              _searchController.text = author;
-                              _search(author);
-                            },
-                          ),
+            Column(
+              children: [
+                Expanded(
+                  child: _loading && _comics.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : ComicGrid(
+                          controller: _scrollController,
+                          comics: _comics,
+                          loading: _loading,
+                          bottomPadding: _recent != null ? 96 : 0,
+                          onTap: (comic) async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(
+                                  comicId: comic.id,
+                                  onAuthorTap: (author) {
+                                    _searchController.text = author;
+                                    _search(author);
+                                  },
+                                ),
+                              ),
+                            );
+                            _syncFavorites();
+                          },
                         ),
-                      ),
-                    ),
+                ),
+              ],
             ),
+            if (_recent != null)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: _FloatingContinueBar(
+                  entry: _recent!,
+                  onReturn: _refreshRecent,
+                ),
+              ),
           ],
         ),
       ),
@@ -218,16 +260,19 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _ContinueCard extends StatelessWidget {
+class _FloatingContinueBar extends StatelessWidget {
   final ReadingProgressEntry entry;
   final Future<void> Function()? onReturn;
-  const _ContinueCard({required this.entry, this.onReturn});
+  const _FloatingContinueBar({required this.entry, this.onReturn});
 
   @override
   Widget build(BuildContext context) {
     final comic = entry.comic;
     return Material(
-      color: const Color(0xFF161b22),
+      color: const Color(0xFF1f2937),
+      elevation: 6,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () async {
           await Navigator.push(
@@ -244,14 +289,14 @@ class _ContinueCard extends StatelessWidget {
           await onReturn?.call();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: SizedBox(
-                  width: 52,
-                  height: 70,
+                  width: 44,
+                  height: 60,
                   child: comic.coverUrl != null
                       ? Image.network(
                           comic.coverUrl!,
