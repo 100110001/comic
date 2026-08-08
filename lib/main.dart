@@ -96,6 +96,7 @@ class DesktopShell extends StatefulWidget {
 
 class _DesktopShellState extends State<DesktopShell> {
   int _index = 0;
+  final _authorsKey = GlobalKey<FavoriteAuthorsListState>();
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +106,11 @@ class _DesktopShellState extends State<DesktopShell> {
           NavigationRail(
             backgroundColor: const Color(0xFF161b22),
             selectedIndex: _index,
-            onDestinationSelected: (i) => setState(() => _index = i),
+            onDestinationSelected: (i) {
+              setState(() => _index = i);
+              // 切到"收藏作者"页时刷新，避免展示收藏后的旧状态
+              if (i == 3) _authorsKey.currentState?.reload();
+            },
             labelType: NavigationRailLabelType.all,
             selectedIconTheme: const IconThemeData(color: Color(0xFF58a6ff)),
             unselectedIconTheme: const IconThemeData(color: Color(0xFF8b949e)),
@@ -131,16 +136,25 @@ class _DesktopShellState extends State<DesktopShell> {
                 selectedIcon: Icon(Icons.favorite),
                 label: Text('收藏'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.star_border),
+                selectedIcon: Icon(Icons.star),
+                label: Text('收藏作者'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1, color: Color(0xFF21262d)),
           Expanded(
             child: IndexedStack(
               index: _index,
-              children: const [
-                HomeScreen(),
-                _PageScaffold(title: '最近阅读', child: RecentReadingList()),
-                _PageScaffold(title: '收藏', child: FavoritesList()),
+              children: [
+                const HomeScreen(),
+                const _PageScaffold(title: '最近阅读', child: RecentReadingList()),
+                const _PageScaffold(title: '收藏', child: FavoritesList()),
+                _PageScaffold(
+                  title: '收藏作者',
+                  child: FavoriteAuthorsList(key: _authorsKey),
+                ),
               ],
             ),
           ),

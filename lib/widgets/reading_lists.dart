@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
+import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
 import '../services/api.dart';
 import '../screens/detail_screen.dart';
+import '../screens/search_screen.dart';
 
 class RecentReadingList extends StatefulWidget {
   const RecentReadingList({super.key});
@@ -84,6 +86,98 @@ class FavoritesList extends StatefulWidget {
 
   @override
   State<FavoritesList> createState() => _FavoritesListState();
+}
+
+class FavoriteAuthorsList extends StatefulWidget {
+  const FavoriteAuthorsList({super.key});
+
+  @override
+  State<FavoriteAuthorsList> createState() => FavoriteAuthorsListState();
+}
+
+class FavoriteAuthorsListState extends State<FavoriteAuthorsList> {
+  List<FavoriteAuthor> _items = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    reload();
+  }
+
+  Future<void> reload() async {
+    try {
+      final list = await ApiService.getFavoriteAuthors();
+      if (mounted) setState(() => _items = list);
+    } catch (_) {
+      // 加载失败保持现状，下拉可重试
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: reload,
+      child: _loading && _items.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
+          ? ListView(
+              children: const [
+                SizedBox(height: 120),
+                Center(
+                  child: Text(
+                    '暂无收藏作者',
+                    style: TextStyle(color: Color(0xFF8b949e)),
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _items.length,
+              separatorBuilder: (_, _) => const Divider(
+                color: Color(0xFF21262d),
+                height: 1,
+                indent: 16,
+              ),
+              itemBuilder: (ctx, i) {
+                final item = _items[i];
+                return ListTile(
+                  leading: const Icon(Icons.star, color: Color(0xFFf5c542)),
+                  title: Text(
+                    item.author,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
+                  subtitle: Text(
+                    '${item.comicCount} 部作品',
+                    style: const TextStyle(
+                      color: Color(0xFF8b949e),
+                      fontSize: 12,
+                    ),
+                  ),
+                  trailing: const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF8b949e),
+                  ),
+                  onTap: () async {
+                    await Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            SearchScreen(initialKeyword: item.author),
+                      ),
+                    );
+                    reload();
+                  },
+                );
+              },
+            ),
+    );
+  }
 }
 
 class _FavoritesListState extends State<FavoritesList> {
