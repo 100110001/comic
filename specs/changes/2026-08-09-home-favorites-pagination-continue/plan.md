@@ -99,6 +99,8 @@ flowchart TB
 
 ### U2. 前端数据层：Comic.favorited + 种子分页 API
 
+**Status:** shipped
+
 - **Goal:** `Comic` 模型携带收藏状态；`ApiService` 支持种子分页请求。
 - **Requirements:** R1, R5, R7
 - **Dependencies:** U1
@@ -109,6 +111,8 @@ flowchart TB
 - **Verification:** 能正确解析 favorited；分页请求带 seed 且返回 total。
 
 ### U3. 首页：随机种子分页 + 动态页大小
+
+**Status:** shipped
 
 - **Goal:** 首页随机网格改为种子分页：滚动加载、刷新换种子、页大小 = 列数 × 6。
 - **Requirements:** R5, R6, R7, R8
