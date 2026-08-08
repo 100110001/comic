@@ -174,13 +174,52 @@ class _ReaderScreenState extends State<ReaderScreen> {
         break;
       }
     }
-    _currentPage = page;
+    if (page != _currentPage) setState(() => _currentPage = page);
     // 滚动接近本章底部时自动续章
     if (_hasNext &&
         !_loading &&
         offset >= _scrollController.position.maxScrollExtent - 200) {
       _autoContinue();
     }
+  }
+
+  void _jumpToPage(int page) {
+    if (!_scrollController.hasClients || _extents.isEmpty) return;
+    if (page < 0 || page >= _extents.length) return;
+    final max = _scrollController.position.maxScrollExtent;
+    _scrollController.jumpTo(_extents[page].clamp(0.0, max));
+  }
+
+  void _openMobileDirectory() {
+    if (_chapters.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161b22),
+      builder: (ctx) => SafeArea(
+        child: ListView.builder(
+          itemCount: _chapters.length,
+          itemBuilder: (ctx, i) {
+            final selected = i == _chapterIndex;
+            return ListTile(
+              selected: selected,
+              title: Text(
+                _chapters[i].title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: selected ? const Color(0xFF58a6ff) : Colors.white,
+                  fontSize: 13,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(ctx);
+                _goToChapter(i);
+              },
+            );
+          },
+        ),
+      ),
+    );
   }
 
   void _saveProgress() {
@@ -217,14 +256,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
-          if (isDesktop)
-            IconButton(
-              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
-              tooltip: '目录',
-              onPressed: _chapters.isEmpty
-                  ? null
-                  : () => Scaffold.of(context).openEndDrawer(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
+            tooltip: '目录',
+            onPressed: _chapters.isEmpty
+                ? null
+                : isDesktop
+                ? () => Scaffold.of(context).openEndDrawer()
+                : _openMobileDirectory,
+          ),
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Colors.white),
             tooltip: '上一章',
@@ -241,7 +281,28 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ? const Center(child: CircularProgressIndicator())
           : isDesktop
           ? _buildPagedBody(context)
-          : _buildScrollBody(),
+          : _buildMobileBody(),
+    );
+  }
+
+  Widget _buildMobileBody() {
+    return Stack(
+      children: [
+        _buildScrollBody(),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: ReaderProgressBar(
+              currentPage: _currentPage,
+              totalPages: _images.length,
+              onSeek: _jumpToPage,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

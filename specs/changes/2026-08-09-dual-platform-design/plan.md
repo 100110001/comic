@@ -191,6 +191,8 @@ flowchart TB
 
 ### U6. 手机阅读器：连续滚动 + 进度条 + 目录抽屉 + 自动续章
 
+**Status:** shipped
+
 - **Goal:** 手机端保持竖向连续滚动，叠加本章进度条与快速跳转，目录用底部抽屉，滚动到章末自动续章。
 - **Requirements:** R10, R13, R14, R15（对应 F3、AE3）
 - **Dependencies:** U4

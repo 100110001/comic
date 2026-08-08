@@ -36,3 +36,10 @@
 - 底部常驻 `ReaderProgressBar`（本章第 N/M 页 + Slider 拖动跳页）；单页章节时隐藏 Slider 只显示文字。
 - 目录用 `Scaffold.endDrawer` 侧边面板（`ChapterDrawer`），AppBar 目录按钮打开。
 - `clamp` 返回 num，索引/滑块值需 `.toInt()`/`.toDouble()` 转换。
+
+## U6 手机阅读器
+
+- 手机主体保持竖向 `ListView`，底部叠加 `SafeArea` 内的 `ReaderProgressBar`（本章第 N/M 页 + Slider 拖动跳页）。
+- 页码随滚动更新改为"页码变化时才 setState"（避免每个滚动帧都重建进度条）。
+- 目录按钮双端共用：桌面打开 `endDrawer`，手机 `showModalBottomSheet` 抽屉。
+- 滚动接近底部自动续章（U4 已在 `_onScroll` 接入）。
