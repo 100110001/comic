@@ -222,10 +222,41 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  void _openDirectory(BuildContext buttonContext) {
-    if (_chapters.isEmpty) return;
-    if (isDesktopAt(MediaQuery.of(buttonContext).size.width)) {
-      Scaffold.of(buttonContext).openEndDrawer();
+  Future<void> _ensureChapters() async {
+    if (_chapters.isNotEmpty) return;
+    try {
+      final r = await ApiService.getComic(widget.comicId);
+      if (!mounted || _chapters.isNotEmpty) return;
+      final targetId = _currentChapter?.id ?? widget.chapterId;
+      final idx = r.chapters.indexWhere((c) => c.id == targetId);
+      setState(() {
+        _chapters = r.chapters;
+        _chapterIndex = idx < 0 ? 0 : idx;
+      });
+    } catch (_) {
+      // 章节列表仍不可用
+    }
+  }
+
+  Future<void> _openDirectory(BuildContext buttonContext) async {
+    final desktop = isDesktopAt(MediaQuery.of(buttonContext).size.width);
+    if (_chapters.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('正在加载章节…')));
+      await _ensureChapters();
+      if (!mounted) return;
+      if (_chapters.isEmpty) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('暂无章节信息')));
+        return;
+      }
+    }
+    if (desktop) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Scaffold.of(buttonContext).openEndDrawer();
+      });
     } else {
       _openMobileDirectory();
     }
@@ -266,29 +297,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
-          if (_chapters.isNotEmpty)
-            Builder(
-              builder: (buttonContext) => IconButton(
-                icon: const Icon(
-                  Icons.format_list_bulleted,
-                  color: Colors.white,
-                ),
-                tooltip: '目录',
-                onPressed: () => _openDirectory(buttonContext),
-              ),
+          Builder(
+            builder: (buttonContext) => IconButton(
+              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
+              tooltip: '目录',
+              onPressed: () => _openDirectory(buttonContext),
             ),
-          if (_hasPrev)
-            IconButton(
-              icon: const Icon(Icons.chevron_left, color: Colors.white),
-              tooltip: '上一章',
-              onPressed: _prevChapter,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_left,
+              color: _hasPrev ? Colors.white : const Color(0xFF484f58),
             ),
-          if (_hasNext)
-            IconButton(
-              icon: const Icon(Icons.chevron_right, color: Colors.white),
-              tooltip: '下一章',
-              onPressed: _nextChapter,
+            tooltip: '上一章',
+            onPressed: _hasPrev ? _prevChapter : null,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: _hasNext ? Colors.white : const Color(0xFF484f58),
             ),
+            tooltip: '下一章',
+            onPressed: _hasNext ? _nextChapter : null,
+          ),
         ],
       ),
       body: _loading
