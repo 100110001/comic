@@ -4,6 +4,7 @@ import '../config.dart';
 import '../models/comic.dart';
 import '../models/chapter.dart';
 import '../models/image_item.dart';
+import '../models/reading_progress_entry.dart';
 
 class ApiService {
   static Future<Map<String, dynamic>> _get(String path) async {
@@ -30,16 +31,19 @@ class ApiService {
     return (list: list, total: data['total'] as int);
   }
 
-  static Future<({Comic comic, List<Chapter> chapters})> getComic(
-    int id,
-  ) async {
+  static Future<({Comic comic, List<Chapter> chapters, bool favorited})>
+  getComic(int id) async {
     final data = await _get('/api/comics/$id');
     final d = data['data'];
     final comic = Comic.fromJson(d);
     final chapters = (d['chapters'] as List)
         .map((e) => Chapter.fromJson(e))
         .toList();
-    return (comic: comic, chapters: chapters);
+    return (
+      comic: comic,
+      chapters: chapters,
+      favorited: d['favorited'] == true,
+    );
   }
 
   static Future<List<Comic>> getRandomComics({int pageSize = 30}) async {
@@ -53,15 +57,44 @@ class ApiService {
     return list[0];
   }
 
-  static Future<void> deleteComic(int id) async {
-    final url = '$baseUrl/api/comics/$id';
-    final res = await http.delete(Uri.parse(url));
+  static Future<List<ImageItem>> getChapterImages(int chapterId) async {
+    final data = await _get('/api/chapters/$chapterId/images');
+    return (data['data'] as List).map((e) => ImageItem.fromJson(e)).toList();
+  }
+
+  static Future<List<ReadingProgressEntry>> getRecent() async {
+    final data = await _get('/api/mine/recent');
+    return (data['data'] as List)
+        .map((e) => ReadingProgressEntry.fromJson(e))
+        .toList();
+  }
+
+  static Future<List<Comic>> getFavorites() async {
+    final data = await _get('/api/mine/favorites');
+    return (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
+  }
+
+  static Future<void> updateProgress({
+    required int comicId,
+    required int chapterId,
+    required int pageNumber,
+  }) async {
+    final url = '$baseUrl/api/comics/$comicId/progress';
+    final res = await http.put(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'chapterId': chapterId, 'pageNumber': pageNumber}),
+    );
     final data = jsonDecode(res.body);
     if (data['code'] != 0) throw Exception(data['message']);
   }
 
-  static Future<List<ImageItem>> getChapterImages(int chapterId) async {
-    final data = await _get('/api/chapters/$chapterId/images');
-    return (data['data'] as List).map((e) => ImageItem.fromJson(e)).toList();
+  static Future<void> setFavorite(int comicId, bool favorited) async {
+    final url = '$baseUrl/api/comics/$comicId/favorite';
+    final res = favorited
+        ? await http.post(Uri.parse(url))
+        : await http.delete(Uri.parse(url));
+    final data = jsonDecode(res.body);
+    if (data['code'] != 0) throw Exception(data['message']);
   }
 }

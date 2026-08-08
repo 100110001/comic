@@ -63,7 +63,10 @@ class _RandomScreenState extends State<RandomScreen> {
                   mainAxisSpacing: 10,
                 ),
                 itemCount: _comics.length,
-                itemBuilder: (ctx, i) => _ComicCard(comic: _comics[i], onAuthorTap: widget.onAuthorTap),
+                itemBuilder: (ctx, i) => _ComicCard(
+                  comic: _comics[i],
+                  onAuthorTap: widget.onAuthorTap,
+                ),
               ),
             ),
     );
@@ -85,7 +88,10 @@ class _ComicCard extends StatelessWidget {
       child: InkWell(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => DetailScreen(comicId: comic.id, onAuthorTap: onAuthorTap)),
+          MaterialPageRoute(
+            builder: (_) =>
+                DetailScreen(comicId: comic.id, onAuthorTap: onAuthorTap),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,21 +105,28 @@ class _ComicCard extends StatelessWidget {
                       ? Image.network(
                           comic.coverUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stack) => _placeholder(),
+                          errorBuilder: (context, error, stack) =>
+                              _placeholder(),
                         )
                       : _placeholder(),
                   Positioned(
                     right: 4,
                     bottom: 4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         '${comic.chapterCount}话 · ${comic.imageCount}P',
-                        style: const TextStyle(color: Colors.white, fontSize: 10),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
                       ),
                     ),
                   ),
@@ -129,14 +142,20 @@ class _ComicCard extends StatelessWidget {
                     comic.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Color(0xFF1a1a1a), fontSize: 12),
+                    style: const TextStyle(
+                      color: Color(0xFF1a1a1a),
+                      fontSize: 12,
+                    ),
                   ),
                   if (comic.author != null)
                     Text(
                       comic.author!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Color(0xFF888888), fontSize: 11),
+                      style: const TextStyle(
+                        color: Color(0xFF888888),
+                        fontSize: 11,
+                      ),
                     ),
                 ],
               ),
@@ -148,7 +167,7 @@ class _ComicCard extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-        color: const Color(0xFF21262d),
-        child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-      );
+    color: const Color(0xFF21262d),
+    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+  );
 }
