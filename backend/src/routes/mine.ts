@@ -35,7 +35,7 @@ mineRouter.get("/recent", async (_req: Request, res: Response) => {
 mineRouter.get("/favorites", async (_req: Request, res: Response) => {
   try {
     const rows = await comicQuery()
-      .join("favorites", "favorites.comic_id", "comics.id")
+      .whereNotNull("favorites.comic_id")
       .orderBy("favorites.created_at", "desc");
 
     ok(res, rows);
