@@ -1,161 +1,244 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import '../config.dart';
+import '../models/comic.dart';
+import '../models/reading_progress_entry.dart';
+import '../services/api.dart';
+import 'detail_screen.dart';
+import 'reader_screen.dart';
 
-class MineScreen extends StatefulWidget {
+class MineScreen extends StatelessWidget {
   const MineScreen({super.key});
 
   @override
-  State<MineScreen> createState() => _MineScreenState();
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0d1117),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFF161b22),
+          title: const Text('我的', style: TextStyle(color: Colors.white)),
+          bottom: const TabBar(
+            indicatorColor: Color(0xFF58a6ff),
+            labelColor: Color(0xFF58a6ff),
+            unselectedLabelColor: Color(0xFF8b949e),
+            tabs: [
+              Tab(text: '最近阅读'),
+              Tab(text: '收藏'),
+            ],
+          ),
+        ),
+        body: const TabBarView(children: [_RecentList(), _FavoritesList()]),
+      ),
+    );
+  }
 }
 
-class _MineScreenState extends State<MineScreen> {
-  String _result = '点击下方按钮测试接口';
-  bool _loading = false;
-  int? _status;
-  int? _ms;
+class _RecentList extends StatefulWidget {
+  const _RecentList();
 
-  static const _endpoints = [
-    '/api/health',
-    '/api/comics?pageOffset=1&pageSize=5',
-    '/api/comics/1',
-    '/api/chapters/1/images',
-  ];
+  @override
+  State<_RecentList> createState() => _RecentListState();
+}
 
-  Future<void> _test(String path) async {
-    setState(() {
-      _loading = true;
-      _result = '请求中…';
-      _status = null;
-      _ms = null;
-    });
+class _RecentListState extends State<_RecentList> {
+  List<ReadingProgressEntry> _items = [];
+  bool _loading = true;
 
-    final url = '$baseUrl$path';
-    final sw = Stopwatch()..start();
-
-    try {
-      final res = await http
-          .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 10));
-      sw.stop();
-      String body;
-      try {
-        body = const JsonEncoder.withIndent('  ').convert(jsonDecode(res.body));
-      } catch (_) {
-        body = res.body;
-      }
-      setState(() {
-        _status = res.statusCode;
-        _ms = sw.elapsedMilliseconds;
-        _result = body;
-      });
-    } catch (e) {
-      sw.stop();
-      setState(() {
-        _status = 0;
-        _ms = sw.elapsedMilliseconds;
-        _result = e.toString();
-      });
-    } finally {
-      setState(() => _loading = false);
-    }
+  @override
+  void initState() {
+    super.initState();
+    _load();
   }
 
-  Color get _statusColor {
-    if (_status == null) return Colors.grey;
-    if (_status == 0) return Colors.red;
-    if (_status! < 300) return Colors.green;
-    return Colors.orange;
+  Future<void> _load() async {
+    try {
+      final list = await ApiService.getRecent();
+      if (mounted) setState(() => _items = list);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('接口测试'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(24),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Text(
-              baseUrl,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ),
-        ),
-      ),
-      body: Column(
-        children: [
-          // 端点按钮
-          Padding(
-            padding: const EdgeInsets.all(8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _endpoints
-                  .map(
-                    (p) => ElevatedButton(
-                      onPressed: _loading ? null : () => _test(p),
-                      child: Text(
-                        p.split('?')[0],
-                        style: const TextStyle(fontSize: 11),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          ),
-          const Divider(),
-          // 状态栏
-          if (_status != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      _status == 0 ? 'ERROR' : '$_status',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: _loading && _items.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
+          ? ListView(
+              children: const [
+                SizedBox(height: 120),
+                Center(
+                  child: Text(
+                    '暂无最近阅读',
+                    style: TextStyle(color: Color(0xFF8b949e)),
                   ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${_ms}ms',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _items.length,
+              separatorBuilder: (_, _) => const Divider(
+                color: Color(0xFF21262d),
+                height: 1,
+                indent: 76,
               ),
-            ),
-          // 响应内容
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(12),
-                    child: SelectableText(
-                      _result,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
+              itemBuilder: (ctx, i) {
+                final e = _items[i];
+                return _EntryTile(
+                  coverUrl: e.comic.coverUrl,
+                  title: e.comic.title,
+                  author: e.comic.author,
+                  subtitle: '${e.chapterTitle} · 第${e.pageNumber + 1}页',
+                  onTap: () async {
+                    await Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                        builder: (_) => ReaderScreen(
+                          comicId: e.comic.id,
+                          chapterId: e.chapterId,
+                          title: e.chapterTitle,
+                          initialPage: e.pageNumber,
+                        ),
                       ),
-                    ),
-                  ),
-          ),
-        ],
-      ),
+                    );
+                    _load();
+                  },
+                );
+              },
+            ),
     );
   }
+}
+
+class _FavoritesList extends StatefulWidget {
+  const _FavoritesList();
+
+  @override
+  State<_FavoritesList> createState() => _FavoritesListState();
+}
+
+class _FavoritesListState extends State<_FavoritesList> {
+  List<Comic> _items = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await ApiService.getFavorites();
+      if (mounted) setState(() => _items = list);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: _loading && _items.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
+          ? ListView(
+              children: const [
+                SizedBox(height: 120),
+                Center(
+                  child: Text(
+                    '暂无收藏',
+                    style: TextStyle(color: Color(0xFF8b949e)),
+                  ),
+                ),
+              ],
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: _items.length,
+              separatorBuilder: (_, _) => const Divider(
+                color: Color(0xFF21262d),
+                height: 1,
+                indent: 76,
+              ),
+              itemBuilder: (ctx, i) {
+                final comic = _items[i];
+                return _EntryTile(
+                  coverUrl: comic.coverUrl,
+                  title: comic.title,
+                  author: comic.author,
+                  subtitle: '${comic.chapterCount}话 · ${comic.imageCount}P',
+                  onTap: () async {
+                    await Navigator.push(
+                      ctx,
+                      MaterialPageRoute(
+                        builder: (_) => DetailScreen(comicId: comic.id),
+                      ),
+                    );
+                    _load();
+                  },
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _EntryTile extends StatelessWidget {
+  final String? coverUrl;
+  final String title;
+  final String? author;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _EntryTile({
+    required this.coverUrl,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.author,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: SizedBox(
+          width: 52,
+          height: 68,
+          child: coverUrl != null
+              ? Image.network(
+                  coverUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _placeholder(),
+                )
+              : _placeholder(),
+        ),
+      ),
+      title: Text(
+        title,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+      ),
+      subtitle: Text(
+        author != null ? '$subtitle · $author' : subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
+    );
+  }
+
+  Widget _placeholder() => Container(
+    color: const Color(0xFF21262d),
+    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+  );
 }

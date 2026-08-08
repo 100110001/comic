@@ -17,6 +17,8 @@ class _DetailScreenState extends State<DetailScreen> {
   Comic? _comic;
   List<Chapter> _chapters = [];
   bool _loading = true;
+  bool _favorited = false;
+  bool _favoriteBusy = false;
 
   @override
   void initState() {
@@ -29,31 +31,21 @@ class _DetailScreenState extends State<DetailScreen> {
     setState(() {
       _comic = r.comic;
       _chapters = r.chapters;
+      _favorited = r.favorited;
       _loading = false;
     });
   }
 
-  Future<void> _delete() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: Text('删除《${_comic?.title}》将同时删除本地文件，不可恢复。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除', style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    await ApiService.deleteComic(widget.comicId);
-    if (mounted) Navigator.pop(context);
+  Future<void> _toggleFavorite() async {
+    if (_favoriteBusy) return;
+    setState(() => _favoriteBusy = true);
+    try {
+      final next = !_favorited;
+      await ApiService.setFavorite(widget.comicId, next);
+      if (mounted) setState(() => _favorited = next);
+    } finally {
+      if (mounted) setState(() => _favoriteBusy = false);
+    }
   }
 
   @override
@@ -70,8 +62,12 @@ class _DetailScreenState extends State<DetailScreen> {
         actions: [
           if (_comic != null)
             IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: _delete,
+              tooltip: _favorited ? '取消收藏' : '收藏',
+              icon: Icon(
+                _favorited ? Icons.favorite : Icons.favorite_border,
+                color: _favorited ? const Color(0xFFf778ba) : Colors.white,
+              ),
+              onPressed: _favoriteBusy ? null : _toggleFavorite,
             ),
         ],
       ),
@@ -81,7 +77,12 @@ class _DetailScreenState extends State<DetailScreen> {
               children: [
                 _Header(comic: _comic!, onAuthorTap: widget.onAuthorTap),
                 const Divider(color: Color(0xFF21262d), height: 1),
-                Expanded(child: _ChapterList(chapters: _chapters)),
+                Expanded(
+                  child: _ChapterList(
+                    comicId: widget.comicId,
+                    chapters: _chapters,
+                  ),
+                ),
               ],
             ),
     );
@@ -108,7 +109,7 @@ class _Header extends StatelessWidget {
                     width: 100,
                     height: 140,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _placeholder(),
+                    errorBuilder: (_, _, _) => _placeholder(),
                   )
                 : _placeholder(),
           ),
@@ -168,15 +169,16 @@ class _Header extends StatelessWidget {
 }
 
 class _ChapterList extends StatelessWidget {
+  final int comicId;
   final List<Chapter> chapters;
-  const _ChapterList({required this.chapters});
+  const _ChapterList({required this.comicId, required this.chapters});
 
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: chapters.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           const Divider(color: Color(0xFF21262d), height: 1, indent: 16),
       itemBuilder: (ctx, i) {
         final ch = chapters[i];
@@ -189,7 +191,11 @@ class _ChapterList extends StatelessWidget {
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(
-              builder: (_) => ReaderScreen(chapterId: ch.id, title: ch.title),
+              builder: (_) => ReaderScreen(
+                comicId: comicId,
+                chapterId: ch.id,
+                title: ch.title,
+              ),
             ),
           ),
         );
