@@ -7,6 +7,7 @@ class Comic {
   final String? coverPath;
   final int chapterCount;
   final int imageCount;
+  final bool favorited;
 
   const Comic({
     required this.id,
@@ -15,6 +16,7 @@ class Comic {
     this.coverPath,
     this.chapterCount = 0,
     this.imageCount = 0,
+    this.favorited = false,
   });
 
   factory Comic.fromJson(Map<String, dynamic> j) => Comic(
@@ -24,6 +26,17 @@ class Comic {
     coverPath: j['cover_path'],
     chapterCount: int.tryParse(j['chapter_count']?.toString() ?? '0') ?? 0,
     imageCount: int.tryParse(j['image_count']?.toString() ?? '0') ?? 0,
+    favorited: j['favorited'] == true || j['favorited'] == 1,
+  );
+
+  Comic withFavorited(bool value) => Comic(
+    id: id,
+    title: title,
+    author: author,
+    coverPath: coverPath,
+    chapterCount: chapterCount,
+    imageCount: imageCount,
+    favorited: value,
   );
 
   String? get coverUrl {

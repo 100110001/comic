@@ -1,9 +1,10 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../services/api.dart';
-import '../widgets/comic_card.dart';
+import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
@@ -24,14 +25,16 @@ class HomeScreenState extends State<HomeScreen> {
   int _pageOffset = 1;
   int _total = 0;
   bool _loading = false;
+  int _seed = 0;
+  double _viewportWidth = 0;
 
   @override
   void initState() {
     super.initState();
+    _seed = _newSeed();
     _loadGrid();
     _loadRecent();
     _scrollController.addListener(() {
-      if (_keyword.isEmpty) return;
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
         _loadGrid();
@@ -77,6 +80,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    _seed = _newSeed();
     setState(() {
       _comics.clear();
       _pageOffset = 1;
@@ -87,20 +91,25 @@ class HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadGrid() async {
     if (_loading) return;
-    if (_keyword.isNotEmpty && _comics.length >= _total && _total > 0) {
-      return;
-    }
+    if (_comics.length >= _total && _total > 0) return;
     setState(() => _loading = true);
     try {
       if (_keyword.isEmpty) {
-        // 随机模式：全量加载，刷新即重排
-        final list = await ApiService.getRandomLibrary();
-        if (!mounted) return;
-        setState(
-          () => _comics
-            ..clear()
-            ..addAll(list),
+        // 随机模式：按种子分页加载，页大小 = 列数 × 6
+        final columns = comicGridColumns(
+          _viewportWidth > 0 ? _viewportWidth : 600,
         );
+        final r = await ApiService.getRandomPage(
+          seed: _seed,
+          pageOffset: _pageOffset,
+          pageSize: columns * 6,
+        );
+        if (!mounted) return;
+        setState(() {
+          _comics.addAll(r.list);
+          _total = r.total;
+          _pageOffset++;
+        });
       } else {
         final r = await ApiService.getComics(
           pageOffset: _pageOffset,
@@ -119,8 +128,36 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  int _newSeed() => Random().nextInt(1 << 31);
+
+  Future<void> _refreshComicFavorited(int comicId) async {
+    try {
+      final r = await ApiService.getComic(comicId);
+      if (!mounted) return;
+      final updated = List<Comic>.from(_comics);
+      var changed = false;
+      for (var i = 0; i < updated.length; i++) {
+        if (updated[i].id == comicId &&
+            updated[i].favorited != r.comic.favorited) {
+          updated[i] = updated[i].withFavorited(r.comic.favorited);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setState(
+          () => _comics
+            ..clear()
+            ..addAll(updated),
+        );
+      }
+    } catch (_) {
+      // 同步失败不阻塞
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _viewportWidth = MediaQuery.of(context).size.width;
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
@@ -178,49 +215,47 @@ class HomeScreenState extends State<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
-        child: Column(
+        child: Stack(
           children: [
-            if (_recent != null)
-              _ContinueCard(entry: _recent!, onReturn: _refreshRecent),
-            Expanded(
-              child: _loading && _comics.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
-                  : GridView.builder(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            childAspectRatio: 0.58,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                      itemCount: _comics.length + (_loading ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i == _comics.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final comic = _comics[i];
-                        return ComicCard(
-                          comic: comic,
-                          onTap: () => Navigator.push(
-                            ctx,
-                            MaterialPageRoute(
-                              builder: (_) => DetailScreen(
-                                comicId: comic.id,
-                                onAuthorTap: (author) {
-                                  _searchController.text = author;
-                                  _search(author);
-                                },
+            Column(
+              children: [
+                Expanded(
+                  child: _loading && _comics.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : ComicGrid(
+                          controller: _scrollController,
+                          comics: _comics,
+                          loading: _loading,
+                          bottomPadding: _recent != null ? 96 : 0,
+                          onTap: (comic) async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(
+                                  comicId: comic.id,
+                                  onAuthorTap: (author) {
+                                    _searchController.text = author;
+                                    _search(author);
+                                  },
+                                ),
                               ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                            );
+                            _refreshComicFavorited(comic.id);
+                          },
+                        ),
+                ),
+              ],
             ),
+            if (_recent != null)
+              Positioned(
+                left: 16,
+                right: 16,
+                bottom: 16,
+                child: _FloatingContinueBar(
+                  entry: _recent!,
+                  onReturn: _refreshRecent,
+                ),
+              ),
           ],
         ),
       ),
@@ -228,16 +263,19 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _ContinueCard extends StatelessWidget {
+class _FloatingContinueBar extends StatelessWidget {
   final ReadingProgressEntry entry;
   final Future<void> Function()? onReturn;
-  const _ContinueCard({required this.entry, this.onReturn});
+  const _FloatingContinueBar({required this.entry, this.onReturn});
 
   @override
   Widget build(BuildContext context) {
     final comic = entry.comic;
     return Material(
-      color: const Color(0xFF161b22),
+      color: const Color(0xFF1f2937),
+      elevation: 6,
+      borderRadius: BorderRadius.circular(12),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () async {
           await Navigator.push(
@@ -254,14 +292,14 @@ class _ContinueCard extends StatelessWidget {
           await onReturn?.call();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
           child: Row(
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: SizedBox(
-                  width: 52,
-                  height: 70,
+                  width: 44,
+                  height: 60,
                   child: comic.coverUrl != null
                       ? Image.network(
                           comic.coverUrl!,

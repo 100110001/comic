@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
 import '../services/api.dart';
-import '../widgets/comic_card.dart';
+import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
@@ -70,6 +70,31 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
+  Future<void> _refreshComicFavorited(int comicId) async {
+    try {
+      final r = await ApiService.getComic(comicId);
+      if (!mounted) return;
+      final updated = List<Comic>.from(_comics);
+      var changed = false;
+      for (var i = 0; i < updated.length; i++) {
+        if (updated[i].id == comicId &&
+            updated[i].favorited != r.comic.favorited) {
+          updated[i] = updated[i].withFavorited(r.comic.favorited);
+          changed = true;
+        }
+      }
+      if (changed) {
+        setState(
+          () => _comics
+            ..clear()
+            ..addAll(updated),
+        );
+      }
+    } catch (_) {
+      // 同步失败不阻塞
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,33 +137,18 @@ class _SearchScreenState extends State<SearchScreen> {
                         ),
                       ],
                     )
-                  : GridView.builder(
+                  : ComicGrid(
                       controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            childAspectRatio: 0.58,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
-                          ),
-                      itemCount: _comics.length + (_loading ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i == _comics.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final comic = _comics[i];
-                        return ComicCard(
-                          comic: comic,
-                          onTap: () => Navigator.push(
-                            ctx,
-                            MaterialPageRoute(
-                              builder: (_) => DetailScreen(comicId: comic.id),
-                            ),
+                      comics: _comics,
+                      loading: _loading,
+                      onTap: (comic) async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailScreen(comicId: comic.id),
                           ),
                         );
+                        _refreshComicFavorited(comic.id);
                       },
                     ),
             ),

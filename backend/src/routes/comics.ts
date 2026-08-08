@@ -13,9 +13,11 @@ export function comicQuery() {
       "comics.created_at",
       db.raw("COUNT(DISTINCT chapters.id) as chapter_count"),
       db.raw("COUNT(DISTINCT images.id) as image_count"),
+      db.raw("COUNT(DISTINCT favorites.comic_id) > 0 as favorited"),
     )
     .leftJoin("chapters", "comics.id", "chapters.comic_id")
     .leftJoin("images", "chapters.id", "images.chapter_id")
+    .leftJoin("favorites", "favorites.comic_id", "comics.id")
     .groupBy("comics.id");
 }
 
@@ -26,6 +28,8 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const pageOffset = Math.max(1, parseInt(String(req.query.pageOffset ?? 1)));
     const random = req.query.random === "1";
+    const seed = parseInt(String(req.query.seed ?? ""));
+    const hasSeed = Number.isInteger(seed);
     const pageSize = Math.min(
       random ? 500 : 100,
       Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
@@ -39,16 +43,22 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
         .orWhere("comics.author", "like", `%${keyword}%`);
     }
 
-    const total = await query
-      .clone()
-      .clearSelect()
-      .count("* as total")
+    let totalQuery = db("comics");
+    if (keyword) {
+      totalQuery = totalQuery
+        .where("comics.title", "like", `%${keyword}%`)
+        .orWhere("comics.author", "like", `%${keyword}%`);
+    }
+    const total = await totalQuery
+      .countDistinct({ total: "comics.id" })
       .first()
       .then((r) => Number((r as any).total));
-    const rows = await (random
-      ? query.orderByRaw("RAND()")
-      : query.orderBy("comics.title")
-    )
+    const ordered = random
+      ? hasSeed
+        ? query.orderByRaw("RAND(?)", [seed])
+        : query.orderByRaw("RAND()")
+      : query.orderBy("comics.title");
+    const rows = await ordered
       .limit(pageSize)
       .offset((pageOffset - 1) * pageSize);
 

@@ -20,13 +20,15 @@ class ApiService {
     int pageSize = 20,
     String keyword = '',
     bool random = false,
+    int? seed,
   }) async {
     final q = keyword.isNotEmpty
         ? '&keyword=${Uri.encodeComponent(keyword)}'
         : '';
     final r = random ? '&random=1' : '';
+    final sd = seed != null ? '&seed=$seed' : '';
     final data = await _get(
-      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q$r',
+      '/api/comics?pageOffset=$pageOffset&pageSize=$pageSize$q$r$sd',
     );
     final list = (data['data'] as List).map((e) => Comic.fromJson(e)).toList();
     return (list: list, total: data['total'] as int);
@@ -36,6 +38,20 @@ class ApiService {
   static Future<List<Comic>> getRandomLibrary() async {
     final r = await getComics(random: true, pageSize: 500);
     return r.list;
+  }
+
+  /// 按随机种子取一页（种子保证同会话内顺序稳定、分页不重复）。
+  static Future<({List<Comic> list, int total})> getRandomPage({
+    required int seed,
+    required int pageOffset,
+    required int pageSize,
+  }) {
+    return getComics(
+      random: true,
+      seed: seed,
+      pageOffset: pageOffset,
+      pageSize: pageSize,
+    );
   }
 
   static Future<
