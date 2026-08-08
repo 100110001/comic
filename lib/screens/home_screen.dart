@@ -26,6 +26,7 @@ class HomeScreenState extends State<HomeScreen> {
   int _total = 0;
   bool _loading = false;
   int _seed = 0;
+  double _viewportWidth = 0;
 
   @override
   void initState() {
@@ -95,7 +96,9 @@ class HomeScreenState extends State<HomeScreen> {
     try {
       if (_keyword.isEmpty) {
         // 随机模式：按种子分页加载，页大小 = 列数 × 6
-        final columns = comicGridColumns(MediaQuery.of(context).size.width);
+        final columns = comicGridColumns(
+          _viewportWidth > 0 ? _viewportWidth : 600,
+        );
         final r = await ApiService.getRandomPage(
           seed: _seed,
           pageOffset: _pageOffset,
@@ -155,6 +158,7 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _viewportWidth = MediaQuery.of(context).size.width;
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
