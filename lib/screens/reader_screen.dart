@@ -386,11 +386,15 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Widget _buildScrollBody() {
+    final width = MediaQuery.of(context).size.width;
     return ListView.builder(
       controller: _scrollController,
       cacheExtent: 800,
       itemCount: _images.length,
-      itemBuilder: (ctx, i) => _LazyImage(url: _images[i].url),
+      itemBuilder: (ctx, i) => _LazyImage(
+        url: _images[i].url,
+        height: _estimatedHeight(_images[i], width),
+      ),
     );
   }
 
@@ -443,7 +447,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
 class _LazyImage extends StatefulWidget {
   final String url;
-  const _LazyImage({required this.url});
+  final double height;
+  const _LazyImage({required this.url, required this.height});
 
   @override
   State<_LazyImage> createState() => _LazyImageState();
@@ -462,34 +467,45 @@ class _LazyImageState extends State<_LazyImage> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_visible) {
-      return const SizedBox(width: double.infinity, height: 600);
-    }
-
-    return Image.network(
-      widget.url,
+    // 固定高度渲染：高度 = 视口宽 × 图片高/宽，与预估滚动偏移一致，
+    // 图片加载不改变布局，跳转可精确到页。
+    return SizedBox(
       width: double.infinity,
-      fit: BoxFit.fitWidth,
-      loadingBuilder: (_, child, progress) {
-        if (progress == null) return child;
-        return SizedBox(
-          height: 400,
-          child: Center(
-            child: CircularProgressIndicator(
-              value: progress.expectedTotalBytes != null
-                  ? progress.cumulativeBytesLoaded /
-                        progress.expectedTotalBytes!
-                  : null,
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stack) => const SizedBox(
-        height: 200,
-        child: Center(
-          child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
-        ),
+      height: widget.height,
+      child: ClipRect(
+        child: !_visible
+            ? _loadingBox()
+            : Image.network(
+                widget.url,
+                width: double.infinity,
+                height: widget.height,
+                fit: BoxFit.fitWidth,
+                loadingBuilder: (_, child, progress) {
+                  if (progress == null) return child;
+                  return _loadingBox(progress: progress);
+                },
+                errorBuilder: (_, _, _) => _errorBox(),
+              ),
       ),
     );
   }
+
+  Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
+    color: const Color(0xFF161b22),
+    child: Center(
+      child: progress != null && progress.expectedTotalBytes != null
+          ? CircularProgressIndicator(
+              value:
+                  progress.cumulativeBytesLoaded / progress.expectedTotalBytes!,
+            )
+          : const CircularProgressIndicator(),
+    ),
+  );
+
+  Widget _errorBox() => ColoredBox(
+    color: const Color(0xFF161b22),
+    child: const Center(
+      child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+    ),
+  );
 }
