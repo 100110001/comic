@@ -66,3 +66,12 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   CONSTRAINT fk_progress_comic FOREIGN KEY (comic_id) REFERENCES comics(id) ON DELETE CASCADE,
   CONSTRAINT fk_progress_chapter FOREIGN KEY (chapter_id) REFERENCES chapters(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 收藏作者（作者按名字去重）
+CREATE TABLE IF NOT EXISTS favorite_authors (
+  id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  author     VARCHAR(100) NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE KEY uq_favorite_authors_author (author)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

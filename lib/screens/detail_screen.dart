@@ -19,6 +19,8 @@ class _DetailScreenState extends State<DetailScreen> {
   bool _loading = true;
   bool _favorited = false;
   bool _favoriteBusy = false;
+  bool _authorFavorited = false;
+  bool _authorFavoriteBusy = false;
   ({int chapterId, int pageNumber})? _progress;
 
   @override
@@ -33,6 +35,7 @@ class _DetailScreenState extends State<DetailScreen> {
       _comic = r.comic;
       _chapters = r.chapters;
       _favorited = r.favorited;
+      _authorFavorited = r.authorFavorited;
       _progress = r.progress;
       _loading = false;
     });
@@ -47,6 +50,18 @@ class _DetailScreenState extends State<DetailScreen> {
       if (mounted) setState(() => _favorited = next);
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
+    }
+  }
+
+  Future<void> _toggleAuthorFavorite() async {
+    if (_authorFavoriteBusy || _comic?.author == null) return;
+    setState(() => _authorFavoriteBusy = true);
+    try {
+      final next = !_authorFavorited;
+      await ApiService.setAuthorFavorite(_comic!.author!, next);
+      if (mounted) setState(() => _authorFavorited = next);
+    } finally {
+      if (mounted) setState(() => _authorFavoriteBusy = false);
     }
   }
 
@@ -110,6 +125,10 @@ class _DetailScreenState extends State<DetailScreen> {
                 final header = _Header(
                   comic: _comic!,
                   onAuthorTap: widget.onAuthorTap,
+                  authorFavorited: _authorFavorited,
+                  onToggleAuthorFavorite: _authorFavoriteBusy
+                      ? null
+                      : _toggleAuthorFavorite,
                   progress: _progress,
                   onContinue: _progress == null
                       ? null
@@ -149,11 +168,15 @@ class _DetailScreenState extends State<DetailScreen> {
 class _Header extends StatelessWidget {
   final Comic comic;
   final void Function(String)? onAuthorTap;
+  final bool authorFavorited;
+  final VoidCallback? onToggleAuthorFavorite;
   final ({int chapterId, int pageNumber})? progress;
   final VoidCallback? onContinue;
   const _Header({
     required this.comic,
     this.onAuthorTap,
+    this.authorFavorited = false,
+    this.onToggleAuthorFavorite,
     this.progress,
     this.onContinue,
   });
@@ -194,20 +217,43 @@ class _Header extends StatelessWidget {
                 ),
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () {
-                      onAuthorTap?.call(comic.author!);
-                      Navigator.pop(context);
-                    },
-                    child: Text(
-                      comic.author!,
-                      style: const TextStyle(
-                        color: Color(0xFF58a6ff),
-                        fontSize: 13,
-                        decoration: TextDecoration.underline,
-                        decorationColor: Color(0xFF58a6ff),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: GestureDetector(
+                          onTap: () {
+                            onAuthorTap?.call(comic.author!);
+                            Navigator.pop(context);
+                          },
+                          child: Text(
+                            comic.author!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF58a6ff),
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Color(0xFF58a6ff),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      if (onToggleAuthorFavorite != null) ...[
+                        const SizedBox(width: 4),
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
+                          icon: Icon(
+                            authorFavorited ? Icons.star : Icons.star_border,
+                            color: authorFavorited
+                                ? const Color(0xFFf5c542)
+                                : const Color(0xFF8b949e),
+                            size: 18,
+                          ),
+                          onPressed: onToggleAuthorFavorite,
+                        ),
+                      ],
+                    ],
                   ),
                 ],
                 const SizedBox(height: 8),

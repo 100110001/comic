@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/comic.dart';
 import '../models/chapter.dart';
+import '../models/favorite_author.dart';
 import '../models/image_item.dart';
 import '../models/reading_progress_entry.dart';
 
@@ -59,6 +60,7 @@ class ApiService {
       Comic comic,
       List<Chapter> chapters,
       bool favorited,
+      bool authorFavorited,
       ({int chapterId, int pageNumber})? progress,
     })
   >
@@ -74,6 +76,7 @@ class ApiService {
       comic: comic,
       chapters: chapters,
       favorited: d['favorited'] == true,
+      authorFavorited: d['authorFavorited'] == true,
       progress: p != null && p['chapterId'] != null && p['pageNumber'] != null
           ? (
               chapterId: p['chapterId'] as int,
@@ -131,6 +134,31 @@ class ApiService {
     final res = favorited
         ? await http.post(Uri.parse(url))
         : await http.delete(Uri.parse(url));
+    final data = jsonDecode(res.body);
+    if (data['code'] != 0) throw Exception(data['message']);
+  }
+
+  static Future<List<FavoriteAuthor>> getFavoriteAuthors() async {
+    final data = await _get('/api/favorite-authors');
+    return (data['data'] as List)
+        .map((e) => FavoriteAuthor.fromJson(e))
+        .toList();
+  }
+
+  static Future<void> setAuthorFavorite(String author, bool favorited) async {
+    final url = '$baseUrl/api/favorite-authors';
+    final body = jsonEncode({'author': author});
+    final res = favorited
+        ? await http.post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: body,
+          )
+        : await http.delete(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: body,
+          );
     final data = jsonDecode(res.body);
     if (data['code'] != 0) throw Exception(data['message']);
   }

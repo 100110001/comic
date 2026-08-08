@@ -20,6 +20,10 @@ scope: feature
 - `GET /api/mine/favorites`：收藏列表，按收藏时间倒序，含漫画信息与话数/图片数。
 - `GET /api/comics/:id` 的响应包含 `favorited: boolean` 与 `progress`（有记录时为 `{ chapterId, pageNumber }`，否则为 `null`）。
 - `GET /api/comics` 列表接口的每条记录包含 `favorited: boolean`。
+- `GET /api/favorite-authors`：收藏作者列表（作者名 + 作品数，按收藏时间倒序）。
+- `POST /api/favorite-authors`（body `{ author }`）：收藏作者，幂等。
+- `DELETE /api/favorite-authors`（body `{ author }`）：取消收藏作者。
+- `GET /api/comics/:id` 的响应包含 `authorFavorited: boolean`。
 
 页码为 0 起始（对应章节图片数组下标）。
 
@@ -37,3 +41,4 @@ scope: feature
 - 从阅读器返回详情页/首页/最近阅读列表时，页面会重新拉取阅读进度，保证"继续阅读"入口及时反映最新位置。
 - 首页/搜索页从详情页返回后，会原地同步卡片的收藏角标，不重排列表。
 - "最近阅读"列表项点击后进入漫画详情页（续读入口为详情页的"继续阅读"按钮与首页悬浮条）。
+- 作者收藏按名字去重；详情页作者名旁可切换收藏；"我的"页与桌面侧栏提供"收藏作者"列表，点击进入该作者的漫画列表。

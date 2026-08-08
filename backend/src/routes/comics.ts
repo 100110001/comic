@@ -101,9 +101,14 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     const progress = await db("reading_progress")
       .where({ comic_id: id })
       .first();
+    const authorFav =
+      comic.author != null
+        ? await db("favorite_authors").where({ author: comic.author }).first()
+        : null;
     ok(res, {
       ...comic,
       favorited: !!favorite,
+      authorFavorited: !!authorFav,
       progress: progress
         ? {
             chapterId: progress.chapter_id,

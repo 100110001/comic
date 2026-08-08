@@ -5,7 +5,8 @@ import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  final String? initialKeyword;
+  const SearchScreen({super.key, this.initialKeyword});
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -23,6 +24,11 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialKeyword;
+    if (initial != null && initial.isNotEmpty) {
+      _controller.text = initial;
+      _search(initial);
+    }
     _scrollController.addListener(() {
       if (_keyword.isEmpty) return;
       if (_scrollController.position.pixels >=
