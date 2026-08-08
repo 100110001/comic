@@ -127,6 +127,8 @@ flowchart TB
 
 ### U2. 应用外壳：平台识别 + 桌面侧边栏 / 手机两 tab
 
+**Status:** shipped
+
 - **Goal:** 应用按平台选择导航骨架：桌面侧边栏 + 顶栏搜索，手机底部"首页/我的"两个 tab；移除"发现"tab。
 - **Requirements:** R1, R2, R3（对应 AE4）
 - **Dependencies:** 无

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/comic.dart';
@@ -9,7 +10,7 @@ import '../models/reading_progress_entry.dart';
 class ApiService {
   static Future<Map<String, dynamic>> _get(String path) async {
     final url = '$baseUrl$path';
-    print('[API] GET $url');
+    debugPrint('[API] GET $url');
     final res = await http.get(Uri.parse(url));
     return jsonDecode(res.body);
   }
