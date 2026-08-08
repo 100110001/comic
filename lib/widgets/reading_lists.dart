@@ -3,7 +3,6 @@ import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../services/api.dart';
 import '../screens/detail_screen.dart';
-import '../screens/reader_screen.dart';
 
 class RecentReadingList extends StatefulWidget {
   const RecentReadingList({super.key});
@@ -68,16 +67,9 @@ class _RecentReadingListState extends State<RecentReadingList> {
                     await Navigator.push(
                       ctx,
                       MaterialPageRoute(
-                        builder: (_) => ReaderScreen(
-                          comicId: e.comic.id,
-                          chapterId: e.chapterId,
-                          title: e.chapterTitle,
-                          initialPage: e.pageNumber,
-                        ),
+                        builder: (_) => DetailScreen(comicId: e.comic.id),
                       ),
                     );
-                    // 阅读器离开时异步保存进度，稍等片刻再刷新列表
-                    await Future.delayed(const Duration(milliseconds: 400));
                     _load();
                   },
                 );
