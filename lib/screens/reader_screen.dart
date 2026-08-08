@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../models/chapter.dart';
 import '../models/image_item.dart';
 import '../services/api.dart';
 
@@ -20,18 +21,25 @@ class ReaderScreen extends StatefulWidget {
 }
 
 class _ReaderScreenState extends State<ReaderScreen> {
+  List<Chapter> _chapters = [];
   List<ImageItem> _images = [];
+  int _chapterIndex = 0;
+  int _currentPage = 0;
+  int? _pendingJumpPage;
   bool _loading = true;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
-  int _currentPage = 0;
-  bool _didInitialJump = false;
+
+  Chapter? get _currentChapter =>
+      _chapters.isEmpty ? null : _chapters[_chapterIndex];
+  bool get _hasPrev => _chapterIndex > 0;
+  bool get _hasNext => _chapterIndex < _chapters.length - 1;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _load();
+    _init();
   }
 
   @override
@@ -41,13 +49,70 @@ class _ReaderScreenState extends State<ReaderScreen> {
     super.dispose();
   }
 
-  Future<void> _load() async {
-    final images = await ApiService.getChapterImages(widget.chapterId);
-    if (!mounted) return;
+  Future<void> _init() async {
+    try {
+      final r = await ApiService.getComic(widget.comicId);
+      if (!mounted) return;
+      final idx = r.chapters.indexWhere((c) => c.id == widget.chapterId);
+      setState(() {
+        _chapters = r.chapters;
+        _chapterIndex = idx < 0 ? 0 : idx;
+      });
+      await _loadChapter(
+        _chapters[_chapterIndex].id,
+        initialPage: widget.initialPage,
+      );
+    } catch (_) {
+      // 章节列表加载失败时仍直接加载当前章节
+      await _loadChapter(widget.chapterId);
+    }
+  }
+
+  Future<void> _goToChapter(int index, {int? initialPage}) async {
+    if (index < 0 || index >= _chapters.length) return;
+    setState(() => _chapterIndex = index);
+    await _loadChapter(_chapters[index].id, initialPage: initialPage);
+  }
+
+  Future<void> _nextChapter() async {
+    if (_hasNext) await _goToChapter(_chapterIndex + 1);
+  }
+
+  Future<void> _prevChapter() async {
+    if (_hasPrev) await _goToChapter(_chapterIndex - 1);
+  }
+
+  /// 自动续章：主体形态在越过本章最后一页时调用。
+  Future<void> _autoContinue() async {
+    if (_hasNext) await _nextChapter();
+  }
+
+  Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
     setState(() {
-      _images = images;
-      _loading = false;
+      _loading = true;
+      _images = [];
+      _extents.clear();
+      _pendingJumpPage = null;
     });
+    try {
+      final images = await ApiService.getChapterImages(chapterId);
+      if (!mounted) return;
+      setState(() {
+        _images = images;
+        _currentPage = initialPage != null && initialPage < images.length
+            ? initialPage
+            : 0;
+        _pendingJumpPage =
+            initialPage != null &&
+                initialPage > 0 &&
+                initialPage < images.length
+            ? initialPage
+            : null;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   double _estimatedHeight(ImageItem img, double width) {
@@ -65,16 +130,14 @@ class _ReaderScreenState extends State<ReaderScreen> {
       top += _estimatedHeight(img, width);
     }
 
-    if (!_didInitialJump) {
-      _didInitialJump = true;
-      final target = widget.initialPage;
-      if (target != null && target > 0 && target < _extents.length) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || !_scrollController.hasClients) return;
-          final max = _scrollController.position.maxScrollExtent;
-          _scrollController.jumpTo(_extents[target].clamp(0.0, max));
-        });
-      }
+    final target = _pendingJumpPage;
+    if (target != null && target > 0 && target < _extents.length) {
+      _pendingJumpPage = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_scrollController.hasClients) return;
+        final max = _scrollController.position.maxScrollExtent;
+        _scrollController.jumpTo(_extents[target].clamp(0.0, max));
+      });
     }
   }
 
@@ -90,13 +153,19 @@ class _ReaderScreenState extends State<ReaderScreen> {
       }
     }
     _currentPage = page;
+    // 滚动接近本章底部时自动续章
+    if (_hasNext &&
+        !_loading &&
+        offset >= _scrollController.position.maxScrollExtent - 200) {
+      _autoContinue();
+    }
   }
 
   void _saveProgress() {
     if (_images.isEmpty) return;
     ApiService.updateProgress(
       comicId: widget.comicId,
-      chapterId: widget.chapterId,
+      chapterId: _currentChapter?.id ?? widget.chapterId,
       pageNumber: _currentPage,
     ).catchError((_) {});
   }
@@ -112,9 +181,21 @@ class _ReaderScreenState extends State<ReaderScreen> {
         backgroundColor: Colors.black,
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          widget.title,
+          _currentChapter?.title ?? widget.title,
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left, color: Colors.white),
+            tooltip: '上一章',
+            onPressed: _hasPrev ? _prevChapter : null,
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right, color: Colors.white),
+            tooltip: '下一章',
+            onPressed: _hasNext ? _nextChapter : null,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -142,7 +223,6 @@ class _LazyImageState extends State<_LazyImage> {
   @override
   void initState() {
     super.initState();
-    // widget 进入视口（被 build）时才开始加载
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) setState(() => _visible = true);
     });
@@ -151,7 +231,6 @@ class _LazyImageState extends State<_LazyImage> {
   @override
   Widget build(BuildContext context) {
     if (!_visible) {
-      // 占位高度，防止全部 item 同时 build
       return const SizedBox(width: double.infinity, height: 600);
     }
 
