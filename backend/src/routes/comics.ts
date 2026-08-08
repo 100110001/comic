@@ -1,19 +1,9 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import fs from "fs";
-import path from "path";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
-import { config } from "../config";
 
-const COMIC_ROOT = config.comicRoot;
-
-function getComicFolder(coverPath: string): string {
-  const rel = coverPath.replace(COMIC_ROOT + "\\", "");
-  return path.join(COMIC_ROOT, rel.split("\\")[0]!);
-}
-
-function comicQuery() {
+export function comicQuery() {
   return db("comics")
     .select(
       "comics.id",
@@ -94,14 +84,44 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
       .where({ comic_id: id })
       .orderBy("sort_order");
 
-    ok(res, { ...comic, chapters });
+    const favorite = await db("favorites").where({ comic_id: id }).first();
+    ok(res, { ...comic, favorited: !!favorite, chapters });
   } catch (err) {
     fail(res, "Failed to fetch comic", 1, 500);
   }
 });
 
-// 删除
-comicsRouter.delete("/:id", async (req: Request, res: Response) => {
+// 更新阅读进度（每本漫画只保留一条最新记录）
+comicsRouter.put("/:id/progress", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) return fail(res, "Invalid id");
+
+    const chapterId = parseInt(String(req.body?.chapterId));
+    const pageNumber = parseInt(String(req.body?.pageNumber));
+    if (isNaN(chapterId) || isNaN(pageNumber) || pageNumber < 0) {
+      return fail(res, "chapterId and pageNumber are required");
+    }
+
+    const chapter = await db("chapters")
+      .where({ id: chapterId, comic_id: id })
+      .first();
+    if (!chapter) return fail(res, "Chapter not found", 1, 404);
+
+    await db("reading_progress")
+      .insert({ comic_id: id, chapter_id: chapterId, page_number: pageNumber })
+      .onConflict("comic_id")
+      .merge({ chapter_id: chapterId, page_number: pageNumber });
+
+    ok(res, { comicId: id, chapterId, pageNumber });
+  } catch (err) {
+    console.error("[update progress]", err);
+    fail(res, "Failed to update progress", 1, 500);
+  }
+});
+
+// 收藏（漫画级别开关）
+comicsRouter.post("/:id/favorite", async (req: Request, res: Response) => {
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
@@ -109,16 +129,23 @@ comicsRouter.delete("/:id", async (req: Request, res: Response) => {
     const comic = await db("comics").where({ id }).first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 
-    if (comic.cover_path) {
-      const folder = getComicFolder(comic.cover_path);
-      if (fs.existsSync(folder))
-        fs.rmSync(folder, { recursive: true, force: true });
-    }
-
-    await db("comics").where({ id }).delete();
-    ok(res, { id });
+    await db("favorites").insert({ comic_id: id }).onConflict("comic_id").ignore();
+    ok(res, { comicId: id, favorited: true });
   } catch (err) {
-    console.error("[delete comic]", err);
-    fail(res, "Failed to delete comic", 1, 500);
+    console.error("[favorite comic]", err);
+    fail(res, "Failed to favorite comic", 1, 500);
+  }
+});
+
+comicsRouter.delete("/:id/favorite", async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(String(req.params.id));
+    if (isNaN(id)) return fail(res, "Invalid id");
+
+    await db("favorites").where({ comic_id: id }).del();
+    ok(res, { comicId: id, favorited: false });
+  } catch (err) {
+    console.error("[unfavorite comic]", err);
+    fail(res, "Failed to unfavorite comic", 1, 500);
   }
 });
