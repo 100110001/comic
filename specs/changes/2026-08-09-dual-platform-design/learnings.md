@@ -60,3 +60,9 @@
 
 - **根因 1（桌面端）**：目录按钮用 `Scaffold.of(context)`，而该 `context` 位于 ReaderScreen 自己的 Scaffold 上方，向上查找到的是外层壳的 Scaffold（没有 endDrawer），点击无效果。修复：用 `Builder` 包住按钮，让 `Scaffold.of` 拿到 Scaffold 之下的 context。
 - **根因 2**：`_chapters.isEmpty` 时按钮被禁用，章节列表未加载完或加载失败都会"点了没用"。修复：按钮始终可用，按下时先 `_ensureChapters()` 重试拉取章节列表；桌面端 `endDrawer` 始终挂载（空章节显示"暂无章节"），并在下一帧打开。
+
+## 平台判定规则调整
+
+- 规则从"Web 一律桌面、桌面系统恒桌面、移动端恒手机"改为"**Android/iOS 恒手机；Windows/Linux/macOS 与 Web 按窗口宽度（≥720px）决定**"。
+- 实现：`lib/platform.dart` 暴露 `isMobilePlatform` 与 `isDesktopAt(width)`，主壳用 `_AdaptiveShell` 监听 MediaQuery 宽度实时切换桌面壳/手机壳；首页与阅读器在 build 内用同一判定。
+- define.md / plan.md 的 R1、KTD、System-Wide Impact 已同步更新（原地修改，不堆叠旧文本）。

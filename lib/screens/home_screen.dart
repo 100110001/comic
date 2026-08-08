@@ -116,11 +116,12 @@ class HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161b22),
-        title: isDesktop
+        title: desktop
             ? TextField(
                 controller: _searchController,
                 style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -150,7 +151,7 @@ class HomeScreenState extends State<HomeScreen> {
                 onSubmitted: _search,
               )
             : const Text('漫画库', style: TextStyle(color: Colors.white)),
-        actions: isDesktop
+        actions: desktop
             ? null
             : [
                 IconButton(

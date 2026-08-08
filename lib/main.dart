@@ -20,8 +20,19 @@ class ComicApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF0d1117),
         colorScheme: const ColorScheme.dark(primary: Color(0xFF58a6ff)),
       ),
-      home: isDesktop ? const DesktopShell() : const MobileShell(),
+      home: const _AdaptiveShell(),
     );
+  }
+}
+
+/// 按窗口宽度选择桌面壳或手机壳，窗口尺寸变化时自动切换。
+class _AdaptiveShell extends StatelessWidget {
+  const _AdaptiveShell();
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    return isDesktopAt(width) ? const DesktopShell() : const MobileShell();
   }
 }
 

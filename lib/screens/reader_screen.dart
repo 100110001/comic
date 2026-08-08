@@ -239,9 +239,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
   }
 
   Future<void> _openDirectory(BuildContext buttonContext) async {
+    final desktop = isDesktopAt(MediaQuery.of(buttonContext).size.width);
     await _ensureChapters();
     if (!mounted) return;
-    if (isDesktop) {
+    if (desktop) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Scaffold.of(buttonContext).openEndDrawer();
       });
@@ -264,9 +265,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (!_loading && _extents.isEmpty && _images.isNotEmpty) {
       _buildExtents(MediaQuery.of(context).size.width);
     }
+    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     return Scaffold(
       backgroundColor: Colors.black,
-      endDrawer: isDesktop
+      endDrawer: desktop
           ? ChapterDrawer(
               chapters: _chapters,
               currentIndex: _chapterIndex,
@@ -305,7 +307,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : isDesktop
+          : desktop
           ? _buildPagedBody(context)
           : _buildMobileBody(),
     );
