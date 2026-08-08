@@ -56,6 +56,11 @@ class HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _refreshRecent() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    await _loadRecent();
+  }
+
   void searchAuthor(String author) {
     _searchController.text = author;
     _search(author);
@@ -175,7 +180,8 @@ class HomeScreenState extends State<HomeScreen> {
         onRefresh: _refresh,
         child: Column(
           children: [
-            if (_recent != null) _ContinueCard(entry: _recent!),
+            if (_recent != null)
+              _ContinueCard(entry: _recent!, onReturn: _refreshRecent),
             Expanded(
               child: _loading && _comics.isEmpty
                   ? const Center(child: CircularProgressIndicator())
@@ -224,7 +230,8 @@ class HomeScreenState extends State<HomeScreen> {
 
 class _ContinueCard extends StatelessWidget {
   final ReadingProgressEntry entry;
-  const _ContinueCard({required this.entry});
+  final Future<void> Function()? onReturn;
+  const _ContinueCard({required this.entry, this.onReturn});
 
   @override
   Widget build(BuildContext context) {
@@ -232,17 +239,20 @@ class _ContinueCard extends StatelessWidget {
     return Material(
       color: const Color(0xFF161b22),
       child: InkWell(
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ReaderScreen(
-              comicId: comic.id,
-              chapterId: entry.chapterId,
-              title: entry.chapterTitle,
-              initialPage: entry.pageNumber,
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ReaderScreen(
+                comicId: comic.id,
+                chapterId: entry.chapterId,
+                title: entry.chapterTitle,
+                initialPage: entry.pageNumber,
+              ),
             ),
-          ),
-        ),
+          );
+          await onReturn?.call();
+        },
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
           child: Row(

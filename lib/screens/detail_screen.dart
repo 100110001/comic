@@ -68,7 +68,14 @@ class _DetailScreenState extends State<DetailScreen> {
           initialPage: progress.pageNumber,
         ),
       ),
-    );
+    ).then((_) => _reloadAfterReader());
+  }
+
+  /// 从阅读器返回后刷新详情：阅读器在离开时异步保存进度，
+  /// 稍等片刻再拉取，确保"继续阅读"入口及时出现。
+  Future<void> _reloadAfterReader() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+    if (mounted) await _load();
   }
 
   @override
@@ -109,6 +116,7 @@ class _DetailScreenState extends State<DetailScreen> {
                 final chapterList = _ChapterList(
                   comicId: widget.comicId,
                   chapters: _chapters,
+                  onReaderReturn: _reloadAfterReader,
                 );
                 if (constraints.maxWidth >= 720) {
                   return Row(
@@ -237,7 +245,12 @@ class _Header extends StatelessWidget {
 class _ChapterList extends StatelessWidget {
   final int comicId;
   final List<Chapter> chapters;
-  const _ChapterList({required this.comicId, required this.chapters});
+  final Future<void> Function() onReaderReturn;
+  const _ChapterList({
+    required this.comicId,
+    required this.chapters,
+    required this.onReaderReturn,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -254,16 +267,19 @@ class _ChapterList extends StatelessWidget {
             style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14),
           ),
           trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
-          onTap: () => Navigator.push(
-            ctx,
-            MaterialPageRoute(
-              builder: (_) => ReaderScreen(
-                comicId: comicId,
-                chapterId: ch.id,
-                title: ch.title,
+          onTap: () async {
+            await Navigator.push(
+              ctx,
+              MaterialPageRoute(
+                builder: (_) => ReaderScreen(
+                  comicId: comicId,
+                  chapterId: ch.id,
+                  title: ch.title,
+                ),
               ),
-            ),
-          ),
+            );
+            await onReaderReturn();
+          },
         );
       },
     );

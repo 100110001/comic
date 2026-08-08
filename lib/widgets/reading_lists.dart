@@ -76,6 +76,8 @@ class _RecentReadingListState extends State<RecentReadingList> {
                         ),
                       ),
                     );
+                    // 阅读器离开时异步保存进度，稍等片刻再刷新列表
+                    await Future.delayed(const Duration(milliseconds: 400));
                     _load();
                   },
                 );
