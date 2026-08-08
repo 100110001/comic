@@ -19,6 +19,7 @@ scope: feature
 - `GET /api/mine/recent`：最近阅读列表，每本漫画一条，按最近更新时间倒序；每条含漫画信息、`chapterId`、章节标题与 `pageNumber`。
 - `GET /api/mine/favorites`：收藏列表，按收藏时间倒序，含漫画信息与话数/图片数。
 - `GET /api/comics/:id` 的响应包含 `favorited: boolean` 与 `progress`（有记录时为 `{ chapterId, pageNumber }`，否则为 `null`）。
+- `GET /api/comics` 列表接口的每条记录包含 `favorited: boolean`。
 
 页码为 0 起始（对应章节图片数组下标）。
 
@@ -34,3 +35,4 @@ scope: feature
 - 阅读记录与收藏是单机、单用户级别数据，无账号体系，不按用户区分。
 - 阅读器只在离开时上报一次位置，不做阅读过程中的持续上报。
 - 从阅读器返回详情页/首页/最近阅读列表时，页面会重新拉取阅读进度，保证"继续阅读"入口及时反映最新位置。
+- 首页/搜索页从详情页返回后，会原地同步卡片的收藏角标，不重排列表。
