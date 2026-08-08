@@ -33,29 +33,36 @@ class ChapterDrawer extends StatelessWidget {
             ),
             const Divider(color: Color(0xFF21262d), height: 1),
             Expanded(
-              child: ListView.builder(
-                itemCount: chapters.length,
-                itemBuilder: (ctx, i) {
-                  final selected = i == currentIndex;
-                  return ListTile(
-                    dense: true,
-                    selected: selected,
-                    selectedTileColor: const Color(0xFF1f2937),
-                    title: Text(
-                      chapters[i].title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: selected
-                            ? const Color(0xFF58a6ff)
-                            : Colors.white,
-                        fontSize: 13,
+              child: chapters.isEmpty
+                  ? const Center(
+                      child: Text(
+                        '暂无章节',
+                        style: TextStyle(color: Color(0xFF8b949e)),
                       ),
+                    )
+                  : ListView.builder(
+                      itemCount: chapters.length,
+                      itemBuilder: (ctx, i) {
+                        final selected = i == currentIndex;
+                        return ListTile(
+                          dense: true,
+                          selected: selected,
+                          selectedTileColor: const Color(0xFF1f2937),
+                          title: Text(
+                            chapters[i].title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: selected
+                                  ? const Color(0xFF58a6ff)
+                                  : Colors.white,
+                              fontSize: 13,
+                            ),
+                          ),
+                          onTap: () => onSelect(i),
+                        );
+                      },
                     ),
-                    onTap: () => onSelect(i),
-                  );
-                },
-              ),
             ),
           ],
         ),

@@ -222,6 +222,34 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
+  Future<void> _ensureChapters() async {
+    if (_chapters.isNotEmpty) return;
+    try {
+      final r = await ApiService.getComic(widget.comicId);
+      if (!mounted || _chapters.isNotEmpty) return;
+      final targetId = _currentChapter?.id ?? widget.chapterId;
+      final idx = r.chapters.indexWhere((c) => c.id == targetId);
+      setState(() {
+        _chapters = r.chapters;
+        _chapterIndex = idx < 0 ? 0 : idx;
+      });
+    } catch (_) {
+      // 章节列表仍不可用，目录保持空态
+    }
+  }
+
+  Future<void> _openDirectory(BuildContext buttonContext) async {
+    await _ensureChapters();
+    if (!mounted) return;
+    if (isDesktop) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Scaffold.of(buttonContext).openEndDrawer();
+      });
+    } else {
+      _openMobileDirectory();
+    }
+  }
+
   void _saveProgress() {
     if (_images.isEmpty) return;
     ApiService.updateProgress(
@@ -238,7 +266,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     }
     return Scaffold(
       backgroundColor: Colors.black,
-      endDrawer: isDesktop && _chapters.isNotEmpty
+      endDrawer: isDesktop
           ? ChapterDrawer(
               chapters: _chapters,
               currentIndex: _chapterIndex,
@@ -256,14 +284,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
-            tooltip: '目录',
-            onPressed: _chapters.isEmpty
-                ? null
-                : isDesktop
-                ? () => Scaffold.of(context).openEndDrawer()
-                : _openMobileDirectory,
+          Builder(
+            builder: (buttonContext) => IconButton(
+              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
+              tooltip: '目录',
+              onPressed: () => _openDirectory(buttonContext),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_left, color: Colors.white),

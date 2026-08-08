@@ -55,3 +55,8 @@
 - 最近阅读/收藏列表抽成共享组件 `lib/widgets/reading_lists.dart`（`RecentReadingList`/`FavoritesList`），手机"我的"tab 与桌面侧栏页共用。
 - 桌面侧栏三个入口（首页/最近阅读/收藏）用 `IndexedStack` 切换，最近阅读与收藏各自包一层 `_PageScaffold`（AppBar + 列表）。
 - `flutter build web --release` 通过，确认双端代码可整体编译。
+
+## 修复：目录按钮有时无效
+
+- **根因 1（桌面端）**：目录按钮用 `Scaffold.of(context)`，而该 `context` 位于 ReaderScreen 自己的 Scaffold 上方，向上查找到的是外层壳的 Scaffold（没有 endDrawer），点击无效果。修复：用 `Builder` 包住按钮，让 `Scaffold.of` 拿到 Scaffold 之下的 context。
+- **根因 2**：`_chapters.isEmpty` 时按钮被禁用，章节列表未加载完或加载失败都会"点了没用"。修复：按钮始终可用，按下时先 `_ensureChapters()` 重试拉取章节列表；桌面端 `endDrawer` 始终挂载（空章节显示"暂无章节"），并在下一帧打开。
