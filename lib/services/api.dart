@@ -38,7 +38,14 @@ class ApiService {
     return r.list;
   }
 
-  static Future<({Comic comic, List<Chapter> chapters, bool favorited})>
+  static Future<
+    ({
+      Comic comic,
+      List<Chapter> chapters,
+      bool favorited,
+      ({int chapterId, int pageNumber})? progress,
+    })
+  >
   getComic(int id) async {
     final data = await _get('/api/comics/$id');
     final d = data['data'];
@@ -46,10 +53,17 @@ class ApiService {
     final chapters = (d['chapters'] as List)
         .map((e) => Chapter.fromJson(e))
         .toList();
+    final p = d['progress'];
     return (
       comic: comic,
       chapters: chapters,
       favorited: d['favorited'] == true,
+      progress: p != null && p['chapterId'] != null && p['pageNumber'] != null
+          ? (
+              chapterId: p['chapterId'] as int,
+              pageNumber: p['pageNumber'] as int,
+            )
+          : null,
     );
   }
 

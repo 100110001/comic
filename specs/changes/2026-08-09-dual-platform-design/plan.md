@@ -207,6 +207,8 @@ flowchart TB
 
 ### U7. 详情页：双端布局 + 继续阅读按钮
 
+**Status:** shipped
+
 - **Goal:** 详情页按平台呈现并排/纵向布局，有阅读记录时显示"继续阅读"按钮。
 - **Requirements:** R17, R18, R19
 - **Dependencies:** U1, U4
