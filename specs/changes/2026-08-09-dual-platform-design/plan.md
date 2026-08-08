@@ -3,6 +3,7 @@ title: 双端页面设计（桌面 / 手机）
 type: feat
 date: 2026-08-09
 origin: specs/changes/2026-08-09-dual-platform-design/define.md
+deepened: 2026-08-09
 ---
 
 # 双端页面设计（桌面 / 手机）
@@ -67,9 +68,9 @@ origin: specs/changes/2026-08-09-dual-platform-design/define.md
 
 ## Key Technical Decisions
 
-- **平台判定集中在一处：** 应用外壳层计算 `isDesktop = kIsWeb || (Windows/Linux/macOS)`，据此选择导航与阅读器形态；页面内部不散落平台分支。
-- **首页随机 = 全量一次加载，刷新即重排。** 当前库约 150 本，后端 `random=1` 时放开 pageSize 上限到 500，首页一次性取全库随机；分页随机留作大库演进，见 Scope Boundaries。
-- **阅读器单组件双模式。** 同一个 ReaderScreen 按平台渲染"单页"或"连续滚动"两种主体，章节切换、目录、进度保存共用一套状态逻辑，避免两套数据流分叉。
+- **平台判定集中在一处：** 应用外壳层计算 `isDesktop = kIsWeb || (Windows/Linux/macOS)`，据此选择导航与阅读器形态；页面内部不散落平台分支。浏览器（含手机浏览器）一律按桌面形态，响应式 Web 不在本轮范围。
+- **首页随机 = 全量一次加载，刷新即重排。** 当前库约 150 本，后端 `random=1` 时放开 pageSize 上限到 500，首页一次性取全库随机。不用分页随机，是因为多次请求间顺序不稳定且易重复；大库演进见 Scope Boundaries。
+- **阅读器单组件双模式。** 同一个 ReaderScreen 按平台渲染"单页"或"连续滚动"两种主体，章节切换、目录、进度保存共用一套状态逻辑。不用两个独立组件，是因为章节/进度逻辑会重复两份，双模式共享状态更简单。
 - **阅读进度数据模型不变。** 沿用"每本漫画一条（章节 + 页码）"；本章进度条由当前章节图片列表长度推算，不新增后端字段。
 - **自动续章是阅读器内章节上下文切换。** 章节列表已由详情接口返回，无需新后端契约；续章后当前章节与页码状态整体切换，离开时统一保存。
 - **桌面侧栏页面复用手机"我的"的列表组件。** 把最近阅读/收藏列表抽成共享 widget，桌面侧栏与手机 tab 只是不同容器，数据和交互一致。
@@ -125,7 +126,7 @@ flowchart TB
 ### U2. 应用外壳：平台识别 + 桌面侧边栏 / 手机两 tab
 
 - **Goal:** 应用按平台选择导航骨架：桌面侧边栏 + 顶栏搜索，手机底部"首页/我的"两个 tab；移除"发现"tab。
-- **Requirements:** R1, R2, R3
+- **Requirements:** R1, R2, R3（对应 AE4）
 - **Dependencies:** 无
 - **Files:** `lib/main.dart`, `lib/screens/random_screen.dart`（移除引用）
 - **Approach:**
@@ -138,13 +139,14 @@ flowchart TB
 ### U3. 首页：续读卡片 + 随机书库 + 双端搜索
 
 - **Goal:** 首页顶部展示"最近阅读"卡片（无记录时隐藏），主体为全库随机网格；手机搜索改为图标进入全屏搜索页，桌面保留顶栏输入框。
-- **Requirements:** R3, R4, R5, R6, R7, R8
+- **Requirements:** R3, R4, R5, R6, R7, R8（对应 F1、AE1）
 - **Dependencies:** U1, U2
 - **Files:** `lib/screens/home_screen.dart`, `lib/services/api.dart`, 新增 `lib/screens/search_screen.dart`
 - **Approach:**
   - `ApiService` 增加"一次取全库随机"的调用（`random=true, pageSize=500`）。
   - 首页加载时取 `GET /api/mine/recent` 首条：有则渲染续读卡片（封面、标题、"第 X 话 · 第 Y 页"），点击进入阅读器并定位；无则隐藏整张卡片。
-  - 网格改为随机全量加载，下拉刷新重新随机；原分页逻辑保留为非随机模式或移除，取实现时更简者。
+  - 首页网格改为随机全量加载，下拉刷新重新随机，移除首页分页逻辑。
+  - 输入关键字搜索时切换到关键字分页列表；清空关键字后恢复随机网格。
   - 手机首页 AppBar 放搜索图标，点击进入全屏搜索页（自带输入框与结果网格，复用关键字搜索接口）；桌面首页 AppBar 保留内联输入框。
 - **Patterns to follow:** 现有网格卡片样式（`lib/screens/home_screen.dart`）与关键字搜索接口。
 - **Verification:** 首页出现/不出现续读卡片随阅读记录变化；随机网格两次进入顺序不同；手机点搜索图标进入全屏搜索页并能搜索。
@@ -152,7 +154,7 @@ flowchart TB
 ### U4. 阅读器数据层：章节列表 / 上下章 / 自动续章 / 进度保存
 
 - **Goal:** 阅读器具备章节上下文（目录、上一章/下一章、自动续章）与统一的进度保存，供 U5/U6 的两种主体形态共用。
-- **Requirements:** R5, R11, R15, R16, R19
+- **Requirements:** R5, R11, R15, R16, R19（对应 F4、AE3）
 - **Dependencies:** 无（前端数据层，依赖既有详情接口与阅读记录接口）
 - **Files:** `lib/screens/reader_screen.dart`（状态重构）
 - **Approach:**
@@ -166,7 +168,7 @@ flowchart TB
 ### U5. 桌面阅读器：单页大图 + 滚轮翻页 + 本章进度条 + 目录侧栏
 
 - **Goal:** 桌面端阅读体验为单页大图，滚轮翻页，底部本章进度条可拖动跳转，目录以侧边面板呈现。
-- **Requirements:** R9, R10, R11, R12
+- **Requirements:** R9, R10, R11, R12（对应 F2、AE2）
 - **Dependencies:** U4
 - **Files:** `lib/screens/reader_screen.dart`, 新增 `lib/widgets/reader_progress_bar.dart`, 新增 `lib/widgets/chapter_drawer.dart`
 - **Approach:**
@@ -180,7 +182,7 @@ flowchart TB
 ### U6. 手机阅读器：连续滚动 + 进度条 + 目录抽屉 + 自动续章
 
 - **Goal:** 手机端保持竖向连续滚动，叠加本章进度条与快速跳转，目录用底部抽屉，滚动到章末自动续章。
-- **Requirements:** R10, R13, R14, R15
+- **Requirements:** R10, R13, R14, R15（对应 F3、AE3）
 - **Dependencies:** U4
 - **Files:** `lib/screens/reader_screen.dart`, 复用 `lib/widgets/reader_progress_bar.dart`
 - **Approach:**
@@ -239,6 +241,15 @@ Outside this round:
 - AE2. **Covers R9, R10.** Given 桌面阅读器打开第 3 话（共 40 页），When 用户滚动滚轮翻到第 10 页，Then 进度条显示 10/40；拖动进度条可跳到本章任意页。
 - AE3. **Covers R11, R15.** Given 用户读到某章节最后一页，When 继续翻页/滚动，Then 自动进入下一章节，阅读记录更新为新章节位置。
 - AE4. **Covers R1, R2.** Given 同一应用分别在桌面窗口/浏览器与手机运行，When 用户浏览，Then 桌面呈现侧边栏 + 顶栏搜索，手机呈现底部"首页/我的"两个 tab。
+
+---
+
+## System-Wide Impact
+
+- 平台判定是全局开关：外壳层决定导航与阅读器形态，页面不散落平台分支；浏览器（含手机浏览器）一律桌面形态。
+- 双端共用同一后端契约：本轮两个后端改动（列表 `random` 参数、详情 `progress` 字段）均为向后兼容的增量，无接口分叉。
+- 阅读进度写入时机保持"离开时一次"：自动续章只切换阅读器内状态，不增加上报频率；中途杀进程可能丢失最近几页，属既有行为。
+- 随机全量加载：约 150 条记录单次请求，图片懒加载不变；库超千本后走分页随机（见 Scope Boundaries）。
 
 ---
 
