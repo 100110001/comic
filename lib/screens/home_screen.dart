@@ -130,17 +130,16 @@ class HomeScreenState extends State<HomeScreen> {
 
   int _newSeed() => Random().nextInt(1 << 31);
 
-  Future<void> _syncFavorites() async {
+  Future<void> _refreshComicFavorited(int comicId) async {
     try {
-      final favs = await ApiService.getFavorites();
+      final r = await ApiService.getComic(comicId);
       if (!mounted) return;
-      final ids = favs.map((c) => c.id).toSet();
       final updated = List<Comic>.from(_comics);
       var changed = false;
       for (var i = 0; i < updated.length; i++) {
-        final fav = ids.contains(updated[i].id);
-        if (fav != updated[i].favorited) {
-          updated[i] = updated[i].withFavorited(fav);
+        if (updated[i].id == comicId &&
+            updated[i].favorited != r.comic.favorited) {
+          updated[i] = updated[i].withFavorited(r.comic.favorited);
           changed = true;
         }
       }
@@ -241,7 +240,7 @@ class HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                             );
-                            _syncFavorites();
+                            _refreshComicFavorited(comic.id);
                           },
                         ),
                 ),
