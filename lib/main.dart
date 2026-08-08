@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'platform.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
+import 'tray/close_to_tray.dart';
 import 'widgets/reading_lists.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await setupCloseToTray();
   runApp(const ComicApp());
 }
 
