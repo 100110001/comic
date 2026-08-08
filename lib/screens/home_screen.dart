@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
@@ -24,14 +25,15 @@ class HomeScreenState extends State<HomeScreen> {
   int _pageOffset = 1;
   int _total = 0;
   bool _loading = false;
+  int _seed = 0;
 
   @override
   void initState() {
     super.initState();
+    _seed = _newSeed();
     _loadGrid();
     _loadRecent();
     _scrollController.addListener(() {
-      if (_keyword.isEmpty) return;
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
         _loadGrid();
@@ -77,6 +79,7 @@ class HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    _seed = _newSeed();
     setState(() {
       _comics.clear();
       _pageOffset = 1;
@@ -87,20 +90,23 @@ class HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadGrid() async {
     if (_loading) return;
-    if (_keyword.isNotEmpty && _comics.length >= _total && _total > 0) {
-      return;
-    }
+    if (_comics.length >= _total && _total > 0) return;
     setState(() => _loading = true);
     try {
       if (_keyword.isEmpty) {
-        // 随机模式：全量加载，刷新即重排
-        final list = await ApiService.getRandomLibrary();
-        if (!mounted) return;
-        setState(
-          () => _comics
-            ..clear()
-            ..addAll(list),
+        // 随机模式：按种子分页加载，页大小 = 列数 × 6
+        final columns = comicGridColumns(MediaQuery.of(context).size.width);
+        final r = await ApiService.getRandomPage(
+          seed: _seed,
+          pageOffset: _pageOffset,
+          pageSize: columns * 6,
         );
+        if (!mounted) return;
+        setState(() {
+          _comics.addAll(r.list);
+          _total = r.total;
+          _pageOffset++;
+        });
       } else {
         final r = await ApiService.getComics(
           pageOffset: _pageOffset,
@@ -118,6 +124,8 @@ class HomeScreenState extends State<HomeScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  int _newSeed() => Random().nextInt(1 << 31);
 
   @override
   Widget build(BuildContext context) {
