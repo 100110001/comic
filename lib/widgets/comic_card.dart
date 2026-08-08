@@ -13,6 +13,7 @@ class ComicCard extends StatelessWidget {
       elevation: 2,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -68,6 +69,7 @@ class ComicCard extends StatelessWidget {
                     style: const TextStyle(
                       color: Color(0xFF1a1a1a),
                       fontSize: 12,
+                      height: 1.2,
                     ),
                   ),
                   if (comic.author != null)
@@ -78,6 +80,7 @@ class ComicCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Color(0xFF888888),
                         fontSize: 11,
+                        height: 1.2,
                       ),
                     ),
                 ],

@@ -3,7 +3,7 @@ import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../services/api.dart';
-import '../widgets/comic_card.dart';
+import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
@@ -185,40 +185,22 @@ class HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _loading && _comics.isEmpty
                   ? const Center(child: CircularProgressIndicator())
-                  : GridView.builder(
+                  : ComicGrid(
                       controller: _scrollController,
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 160,
-                            childAspectRatio: 0.58,
-                            crossAxisSpacing: 10,
-                            mainAxisSpacing: 10,
+                      comics: _comics,
+                      loading: _loading,
+                      onTap: (comic) => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetailScreen(
+                            comicId: comic.id,
+                            onAuthorTap: (author) {
+                              _searchController.text = author;
+                              _search(author);
+                            },
                           ),
-                      itemCount: _comics.length + (_loading ? 1 : 0),
-                      itemBuilder: (ctx, i) {
-                        if (i == _comics.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final comic = _comics[i];
-                        return ComicCard(
-                          comic: comic,
-                          onTap: () => Navigator.push(
-                            ctx,
-                            MaterialPageRoute(
-                              builder: (_) => DetailScreen(
-                                comicId: comic.id,
-                                onAuthorTap: (author) {
-                                  _searchController.text = author;
-                                  _search(author);
-                                },
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
             ),
           ],

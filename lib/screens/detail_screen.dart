@@ -87,6 +87,8 @@ class _DetailScreenState extends State<DetailScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           _comic?.title ?? '',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
@@ -182,6 +184,8 @@ class _Header extends StatelessWidget {
               children: [
                 Text(
                   comic.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,

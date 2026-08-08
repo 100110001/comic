@@ -328,6 +328,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           _currentChapter?.title ?? widget.title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
