@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'platform.dart';
 import 'screens/home_screen.dart';
@@ -11,6 +12,8 @@ Future<void> main() async {
   runApp(const ComicApp());
 }
 
+final _navigatorKey = GlobalKey<NavigatorState>();
+
 class ComicApp extends StatelessWidget {
   const ComicApp({super.key});
 
@@ -19,9 +22,20 @@ class ComicApp extends StatelessWidget {
     return MaterialApp(
       title: '漫画库',
       debugShowCheckedModeBanner: false,
+      navigatorKey: _navigatorKey,
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0d1117),
         colorScheme: const ColorScheme.dark(primary: Color(0xFF58a6ff)),
+      ),
+      builder: (context, child) => Listener(
+        behavior: HitTestBehavior.translucent,
+        // 鼠标侧键（后退键）触发页面返回
+        onPointerDown: (event) {
+          if (event.buttons & kBackMouseButton != 0) {
+            _navigatorKey.currentState?.maybePop();
+          }
+        },
+        child: child!,
       ),
       home: const _AdaptiveShell(),
     );
