@@ -93,6 +93,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (_images.isEmpty) return;
     if (_currentPage < _images.length - 1) {
       setState(() => _currentPage++);
+      _precacheAround(_currentPage);
     } else {
       _autoContinue();
     }
@@ -102,6 +103,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (_images.isEmpty) return;
     if (_currentPage > 0) {
       setState(() => _currentPage--);
+      _precacheAround(_currentPage);
     } else {
       _prevChapter();
     }
@@ -138,8 +140,18 @@ class _ReaderScreenState extends State<ReaderScreen> {
             : null;
         _loading = false;
       });
+      _precacheAround(_currentPage);
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// 预加载当前页前后各 1–2 张图片，避免翻页/滚动切换时闪屏。
+  void _precacheAround(int page) {
+    if (_images.isEmpty) return;
+    for (var i = page - 1; i <= page + 2; i++) {
+      if (i < 0 || i >= _images.length) continue;
+      precacheImage(NetworkImage(_images[i].url), context).catchError((_) {});
     }
   }
 
@@ -207,7 +219,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
         break;
       }
     }
-    if (page != _currentPage) setState(() => _currentPage = page);
+    if (page != _currentPage) {
+      setState(() => _currentPage = page);
+      _precacheAround(page);
+    }
     // 滚动接近本章底部时自动续章
     if (_hasNext &&
         !_initialJumping &&
@@ -222,6 +237,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (page < 0 || page >= _extents.length) return;
     final max = _scrollController.position.maxScrollExtent;
     _scrollController.jumpTo(_extents[page].clamp(0.0, max));
+    _precacheAround(page);
   }
 
   void _openMobileDirectory() {
@@ -439,7 +455,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ReaderProgressBar(
             currentPage: page,
             totalPages: _images.length,
-            onSeek: (p) => setState(() => _currentPage = p),
+            onSeek: (p) {
+              setState(() => _currentPage = p);
+              _precacheAround(p);
+            },
           ),
         ],
       ),
