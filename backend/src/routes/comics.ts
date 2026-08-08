@@ -25,8 +25,9 @@ export const comicsRouter = Router();
 comicsRouter.get("/", async (req: Request, res: Response) => {
   try {
     const pageOffset = Math.max(1, parseInt(String(req.query.pageOffset ?? 1)));
+    const random = req.query.random === "1";
     const pageSize = Math.min(
-      100,
+      random ? 500 : 100,
       Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
     );
     const keyword = String(req.query.keyword ?? "").trim();
@@ -44,8 +45,10 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
       .count("* as total")
       .first()
       .then((r) => Number((r as any).total));
-    const rows = await query
-      .orderBy("comics.title")
+    const rows = await (random
+      ? query.orderByRaw("RAND()")
+      : query.orderBy("comics.title")
+    )
       .limit(pageSize)
       .offset((pageOffset - 1) * pageSize);
 
@@ -85,7 +88,20 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
       .orderBy("sort_order");
 
     const favorite = await db("favorites").where({ comic_id: id }).first();
-    ok(res, { ...comic, favorited: !!favorite, chapters });
+    const progress = await db("reading_progress")
+      .where({ comic_id: id })
+      .first();
+    ok(res, {
+      ...comic,
+      favorited: !!favorite,
+      progress: progress
+        ? {
+            chapterId: progress.chapter_id,
+            pageNumber: progress.page_number,
+          }
+        : null,
+      chapters,
+    });
   } catch (err) {
     fail(res, "Failed to fetch comic", 1, 500);
   }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../models/comic.dart';
@@ -9,7 +10,7 @@ import '../models/reading_progress_entry.dart';
 class ApiService {
   static Future<Map<String, dynamic>> _get(String path) async {
     final url = '$baseUrl$path';
-    print('[API] GET $url');
+    debugPrint('[API] GET $url');
     final res = await http.get(Uri.parse(url));
     return jsonDecode(res.body);
   }
@@ -31,7 +32,20 @@ class ApiService {
     return (list: list, total: data['total'] as int);
   }
 
-  static Future<({Comic comic, List<Chapter> chapters, bool favorited})>
+  /// 首页随机书库：一次取全库，随机顺序。
+  static Future<List<Comic>> getRandomLibrary() async {
+    final r = await getComics(random: true, pageSize: 500);
+    return r.list;
+  }
+
+  static Future<
+    ({
+      Comic comic,
+      List<Chapter> chapters,
+      bool favorited,
+      ({int chapterId, int pageNumber})? progress,
+    })
+  >
   getComic(int id) async {
     final data = await _get('/api/comics/$id');
     final d = data['data'];
@@ -39,10 +53,17 @@ class ApiService {
     final chapters = (d['chapters'] as List)
         .map((e) => Chapter.fromJson(e))
         .toList();
+    final p = d['progress'];
     return (
       comic: comic,
       chapters: chapters,
       favorited: d['favorited'] == true,
+      progress: p != null && p['chapterId'] != null && p['pageNumber'] != null
+          ? (
+              chapterId: p['chapterId'] as int,
+              pageNumber: p['pageNumber'] as int,
+            )
+          : null,
     );
   }
 

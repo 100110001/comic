@@ -19,6 +19,7 @@ class _DetailScreenState extends State<DetailScreen> {
   bool _loading = true;
   bool _favorited = false;
   bool _favoriteBusy = false;
+  ({int chapterId, int pageNumber})? _progress;
 
   @override
   void initState() {
@@ -32,6 +33,7 @@ class _DetailScreenState extends State<DetailScreen> {
       _comic = r.comic;
       _chapters = r.chapters;
       _favorited = r.favorited;
+      _progress = r.progress;
       _loading = false;
     });
   }
@@ -46,6 +48,27 @@ class _DetailScreenState extends State<DetailScreen> {
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
     }
+  }
+
+  void _continueReading(({int chapterId, int pageNumber}) progress) {
+    var chapterTitle = '';
+    for (final c in _chapters) {
+      if (c.id == progress.chapterId) {
+        chapterTitle = c.title;
+        break;
+      }
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ReaderScreen(
+          comicId: widget.comicId,
+          chapterId: progress.chapterId,
+          title: chapterTitle,
+          initialPage: progress.pageNumber,
+        ),
+      ),
+    );
   }
 
   @override
@@ -73,17 +96,41 @@ class _DetailScreenState extends State<DetailScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _Header(comic: _comic!, onAuthorTap: widget.onAuthorTap),
-                const Divider(color: Color(0xFF21262d), height: 1),
-                Expanded(
-                  child: _ChapterList(
-                    comicId: widget.comicId,
-                    chapters: _chapters,
-                  ),
-                ),
-              ],
+          : LayoutBuilder(
+              builder: (ctx, constraints) {
+                final header = _Header(
+                  comic: _comic!,
+                  onAuthorTap: widget.onAuthorTap,
+                  progress: _progress,
+                  onContinue: _progress == null
+                      ? null
+                      : () => _continueReading(_progress!),
+                );
+                final chapterList = _ChapterList(
+                  comicId: widget.comicId,
+                  chapters: _chapters,
+                );
+                if (constraints.maxWidth >= 720) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: 330,
+                        child: SingleChildScrollView(child: header),
+                      ),
+                      const VerticalDivider(width: 1, color: Color(0xFF21262d)),
+                      Expanded(child: chapterList),
+                    ],
+                  );
+                }
+                return Column(
+                  children: [
+                    header,
+                    const Divider(color: Color(0xFF21262d), height: 1),
+                    Expanded(child: chapterList),
+                  ],
+                );
+              },
             ),
     );
   }
@@ -92,7 +139,14 @@ class _DetailScreenState extends State<DetailScreen> {
 class _Header extends StatelessWidget {
   final Comic comic;
   final void Function(String)? onAuthorTap;
-  const _Header({required this.comic, this.onAuthorTap});
+  final ({int chapterId, int pageNumber})? progress;
+  final VoidCallback? onContinue;
+  const _Header({
+    required this.comic,
+    this.onAuthorTap,
+    this.progress,
+    this.onContinue,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -152,6 +206,18 @@ class _Header extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                if (progress != null) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF58a6ff),
+                      foregroundColor: Colors.black,
+                    ),
+                    icon: const Icon(Icons.play_arrow, size: 18),
+                    label: const Text('继续阅读'),
+                    onPressed: onContinue,
+                  ),
+                ],
               ],
             ),
           ),
