@@ -80,6 +80,8 @@ flowchart TB
 
 ### U1. 数据库 schema：增量匹配约束 + 收藏/阅读进度表
 
+**Status:** shipped — commit 1c3f983
+
 - **Goal:** 让 `comics`/`chapters`/`images` 具备可用于增量匹配的唯一约束，并新增 `favorites`、`reading_progress` 两张表。
 - **Requirements:** R7, R8, R9
 - **Dependencies:** 无
@@ -109,6 +111,8 @@ flowchart TB
 
 ### U2. 导入流程改为增量
 
+**Status:** shipped — commit 37f278c
+
 - **Goal:** `scan.ts`/`seed.ts` 按自然键匹配已有记录，只新增缺失内容，保持 ID 稳定；磁盘上消失的漫画只提示。
 - **Requirements:** R9, R10, R11
 - **Dependencies:** U1
@@ -122,6 +126,8 @@ flowchart TB
 - **Verification:** 首次对现有磁盘目录跑一次导入后，记录若干 comic/chapter 的 id；新增一个漫画文件夹后再跑一次，确认原有 id 不变、新漫画被正确插入、章节顺序仍正确；临时改名/移走一个漫画文件夹后再跑一次，确认它仍在数据库里且扫描输出有提示。
 
 ### U3. 后端：阅读进度与收藏接口
+
+**Status:** shipped — commit 4c8c19e
 
 - **Goal:** 提供更新/查询阅读进度、切换收藏、聚合列出"最近阅读"与"收藏"的接口。
 - **Requirements:** R5, R7, R8
@@ -141,6 +147,8 @@ flowchart TB
 
 ### U4. Flutter：新增 API 方法与模型
 
+**Status:** shipped — commit c03ee1e
+
 - **Goal:** `ApiService` 补齐调用 U3 四个接口的方法，并去掉 `deleteComic`。
 - **Requirements:** R2, R5, R6, R7, R8
 - **Dependencies:** U3
@@ -152,6 +160,8 @@ flowchart TB
 - **Verification:** 各方法能正确解析 U3 接口返回的 JSON 结构。
 
 ### U5. Flutter：阅读器记录进度 + 跳转到指定页
+
+**Status:** shipped — commit c03ee1e
 
 - **Goal:** `ReaderScreen` 离开时上报当前阅读位置；支持传入 `comicId` 和可选的初始页码，打开时跳转到该页。
 - **Requirements:** R5, R7
@@ -170,6 +180,8 @@ flowchart TB
 
 ### U6. Flutter：移除删除功能，加入收藏开关
 
+**Status:** shipped — commit c03ee1e
+
 - **Goal:** 详情页去掉删除按钮和确认对话框，原按钮位置改为收藏图标；后端去掉删除路由。
 - **Requirements:** R1, R2, R8
 - **Dependencies:** U4
@@ -180,6 +192,8 @@ flowchart TB
 - **Verification:** 详情页不再有删除入口；对已删除路由发起 `DELETE` 请求返回 404/无此路由；收藏图标点击后状态正确切换并持久化（刷新页面后状态保持）。
 
 ### U7. Flutter："我的" tab 重做
+
+**Status:** shipped — commit c03ee1e
 
 - **Goal:** `MineScreen` 从接口调试面板改为"最近阅读"+"收藏"两个列表。
 - **Requirements:** R3, R4, R5, R6
