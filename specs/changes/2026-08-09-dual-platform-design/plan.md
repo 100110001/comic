@@ -142,6 +142,8 @@ flowchart TB
 
 ### U3. 首页：续读卡片 + 随机书库 + 双端搜索
 
+**Status:** shipped
+
 - **Goal:** 首页顶部展示"最近阅读"卡片（无记录时隐藏），主体为全库随机网格；手机搜索改为图标进入全屏搜索页，桌面保留顶栏输入框。
 - **Requirements:** R3, R4, R5, R6, R7, R8（对应 F1、AE1）
 - **Dependencies:** U1, U2

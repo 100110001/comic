@@ -32,6 +32,12 @@ class ApiService {
     return (list: list, total: data['total'] as int);
   }
 
+  /// 首页随机书库：一次取全库，随机顺序。
+  static Future<List<Comic>> getRandomLibrary() async {
+    final r = await getComics(random: true, pageSize: 500);
+    return r.list;
+  }
+
   static Future<({Comic comic, List<Chapter> chapters, bool favorited})>
   getComic(int id) async {
     final data = await _get('/api/comics/$id');
