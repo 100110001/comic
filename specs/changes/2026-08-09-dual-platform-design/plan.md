@@ -113,6 +113,8 @@ flowchart TB
 
 ### U1. 后端：列表随机排序 + 详情返回阅读进度
 
+**Status:** shipped
+
 - **Goal:** 列表接口支持随机排序，详情接口返回该漫画的阅读进度，为首页随机网格与"继续阅读"提供数据。
 - **Requirements:** R6, R19
 - **Dependencies:** 无
