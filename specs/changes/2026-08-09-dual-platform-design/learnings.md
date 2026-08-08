@@ -66,3 +66,9 @@
 - 规则从"Web 一律桌面、桌面系统恒桌面、移动端恒手机"改为"**Android/iOS 恒手机；Windows/Linux/macOS 与 Web 按窗口宽度（≥720px）决定**"。
 - 实现：`lib/platform.dart` 暴露 `isMobilePlatform` 与 `isDesktopAt(width)`，主壳用 `_AdaptiveShell` 监听 MediaQuery 宽度实时切换桌面壳/手机壳；首页与阅读器在 build 内用同一判定。
 - define.md / plan.md 的 R1、KTD、System-Wide Impact 已同步更新（原地修改，不堆叠旧文本）。
+
+## 阅读器工具按钮条件化
+
+- 上一章/下一章按钮改为"无对应章节时隐藏"（原来是禁用态但图标白色，看着可点、点了没反应）。
+- 目录按钮仅在章节列表非空时出现（章节列表加载失败/为空时不展示，避免点击无反应）；移动端抽屉仍有空态兜底。
+- `_openDirectory` 改为同步方法，去掉了 `_ensureChapters` 重试逻辑（按钮出现即保证有章节）。
