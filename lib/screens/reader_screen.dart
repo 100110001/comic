@@ -30,6 +30,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
   int _chapterIndex = 0;
   int _currentPage = 0;
   int? _pendingJumpPage;
+  int _jumpAttempts = 0;
+  bool _initialJumping = false;
+  int _jumpGeneration = 0;
   bool _loading = true;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
@@ -68,7 +71,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       );
     } catch (_) {
       // 章节列表加载失败时仍直接加载当前章节
-      await _loadChapter(widget.chapterId);
+      await _loadChapter(widget.chapterId, initialPage: widget.initialPage);
     }
   }
 
@@ -115,6 +118,9 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _images = [];
       _extents.clear();
       _pendingJumpPage = null;
+      _jumpAttempts = 0;
+      _initialJumping = false;
+      _jumpGeneration++;
     });
     try {
       final images = await ApiService.getChapterImages(chapterId);
@@ -155,11 +161,38 @@ class _ReaderScreenState extends State<ReaderScreen> {
     final target = _pendingJumpPage;
     if (target != null && target > 0 && target < _extents.length) {
       _pendingJumpPage = null;
+      _initialJumping = true;
+      final generation = _jumpGeneration;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_scrollController.hasClients) return;
-        final max = _scrollController.position.maxScrollExtent;
-        _scrollController.jumpTo(_extents[target].clamp(0.0, max));
+        _performInitialJump(target, generation);
       });
+    }
+  }
+
+  /// 目标页在图片真实加载完成前可能超出 maxScrollExtent，
+  /// 多帧重试直到目标可到达或达到尝试上限。
+  void _performInitialJump(int target, int generation) {
+    if (generation != _jumpGeneration || target >= _extents.length) {
+      _initialJumping = false;
+      return;
+    }
+    if (!mounted || !_scrollController.hasClients) {
+      _initialJumping = false;
+      return;
+    }
+    final max = _scrollController.position.maxScrollExtent;
+    _scrollController.jumpTo(_extents[target].clamp(0.0, max));
+    if (max >= _extents[target]) {
+      _initialJumping = false;
+      return;
+    }
+    if (_jumpAttempts < 120) {
+      _jumpAttempts++;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _performInitialJump(target, generation),
+      );
+    } else {
+      _initialJumping = false;
     }
   }
 
@@ -177,6 +210,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
     if (page != _currentPage) setState(() => _currentPage = page);
     // 滚动接近本章底部时自动续章
     if (_hasNext &&
+        !_initialJumping &&
         !_loading &&
         offset >= _scrollController.position.maxScrollExtent - 200) {
       _autoContinue();
