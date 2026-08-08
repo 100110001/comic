@@ -85,6 +85,8 @@ flowchart TB
 
 ### U1. 后端：列表接口 favorited + seed 稳定随机分页
 
+**Status:** shipped
+
 - **Goal:** 列表接口返回每本收藏状态，并在 `random=1` 时支持种子稳定随机分页。
 - **Requirements:** R1, R5, R8, R9
 - **Dependencies:** 无
