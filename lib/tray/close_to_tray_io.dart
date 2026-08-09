@@ -53,8 +53,8 @@ class _TrayHandler extends TrayListener {
         await windowManager.focus();
         break;
       case 'quit':
-        // 直接退出进程：等待插件销毁可能在回调中挂起，进程结束由系统清理托盘图标
-        exit(0);
+        await trayManager.destroy();
+        await windowManager.destroy();
     }
   }
 }
