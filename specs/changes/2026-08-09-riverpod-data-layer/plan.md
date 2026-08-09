@@ -102,6 +102,8 @@ flowchart TB
 
 ### U2. 首页迁移
 
+**Status:** shipped
+
 - **Goal:** 首页随机书库与悬浮续读条改由 provider 提供数据。
 - **Requirements:** R2, R3, R4, R13, R14, R15
 - **Dependencies:** U1

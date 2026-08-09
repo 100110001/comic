@@ -1,44 +1,46 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../platform.dart';
-import '../services/api.dart';
+import '../providers/comics_providers.dart';
 import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => HomeScreenState();
+  ConsumerState<HomeScreen> createState() => HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
-  final List<Comic> _comics = [];
+class HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
-  ReadingProgressEntry? _recent;
   String _keyword = '';
-  int _pageOffset = 1;
-  int _total = 0;
-  bool _loading = false;
-  int _seed = 0;
-  double _viewportWidth = 0;
 
   @override
   void initState() {
     super.initState();
-    _seed = _newSeed();
-    _loadGrid();
-    _loadRecent();
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
-        _loadGrid();
+        if (_keyword.isEmpty) {
+          ref.read(randomLibraryProvider.notifier).loadMore();
+        } else {
+          ref.read(searchProvider.notifier).loadMore();
+        }
       }
+    });
+    // 首帧后按实际列数校准页大小
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final width = MediaQuery.of(context).size.width;
+      ref
+          .read(randomLibraryProvider.notifier)
+          .setPageSize(comicGridColumns(width) * 6);
     });
   }
 
@@ -49,21 +51,6 @@ class HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  Future<void> _loadRecent() async {
-    try {
-      final list = await ApiService.getRecent();
-      if (!mounted) return;
-      setState(() => _recent = list.isNotEmpty ? list.first : null);
-    } catch (_) {
-      // 记录加载失败不阻塞首页
-    }
-  }
-
-  Future<void> _refreshRecent() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    await _loadRecent();
-  }
-
   void searchAuthor(String author) {
     _searchController.text = author;
     _search(author);
@@ -71,94 +58,46 @@ class HomeScreenState extends State<HomeScreen> {
 
   Future<void> _search(String keyword) async {
     _keyword = keyword.trim();
-    setState(() {
-      _comics.clear();
-      _pageOffset = 1;
-      _total = 0;
-    });
-    await _loadGrid();
+    setState(() {});
+    if (_keyword.isNotEmpty) {
+      await ref.read(searchProvider.notifier).search(_keyword);
+    }
   }
 
   Future<void> _refresh() async {
-    _seed = _newSeed();
-    setState(() {
-      _comics.clear();
-      _pageOffset = 1;
-      _total = 0;
-    });
-    await Future.wait([_loadGrid(), _loadRecent()]);
-  }
-
-  Future<void> _loadGrid() async {
-    if (_loading) return;
-    if (_comics.length >= _total && _total > 0) return;
-    setState(() => _loading = true);
-    try {
-      if (_keyword.isEmpty) {
-        // 随机模式：按种子分页加载，页大小 = 列数 × 6
-        final columns = comicGridColumns(
-          _viewportWidth > 0 ? _viewportWidth : 600,
-        );
-        final r = await ApiService.getRandomPage(
-          seed: _seed,
-          pageOffset: _pageOffset,
-          pageSize: columns * 6,
-        );
-        if (!mounted) return;
-        setState(() {
-          _comics.addAll(r.list);
-          _total = r.total;
-          _pageOffset++;
-        });
-      } else {
-        final r = await ApiService.getComics(
-          pageOffset: _pageOffset,
-          pageSize: 30,
-          keyword: _keyword,
-        );
-        if (!mounted) return;
-        setState(() {
-          _comics.addAll(r.list);
-          _total = r.total;
-          _pageOffset++;
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _loading = false);
+    if (_keyword.isEmpty) {
+      await ref.read(randomLibraryProvider.notifier).reshuffle();
+    } else {
+      await ref.read(searchProvider.notifier).search(_keyword);
     }
-  }
-
-  int _newSeed() => Random().nextInt(1 << 31);
-
-  Future<void> _refreshComicFavorited(int comicId) async {
-    try {
-      final r = await ApiService.getComic(comicId);
-      if (!mounted) return;
-      final updated = List<Comic>.from(_comics);
-      var changed = false;
-      for (var i = 0; i < updated.length; i++) {
-        if (updated[i].id == comicId &&
-            updated[i].favorited != r.comic.favorited) {
-          updated[i] = updated[i].withFavorited(r.comic.favorited);
-          changed = true;
-        }
-      }
-      if (changed) {
-        setState(
-          () => _comics
-            ..clear()
-            ..addAll(updated),
-        );
-      }
-    } catch (_) {
-      // 同步失败不阻塞
-    }
+    ref.invalidate(recentReadingProvider);
   }
 
   @override
   Widget build(BuildContext context) {
-    _viewportWidth = MediaQuery.of(context).size.width;
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final randomAsync = ref.watch(randomLibraryProvider);
+    final searchAsync = ref.watch(searchProvider);
+    final recentAsync = ref.watch(recentReadingProvider);
+
+    final random = randomAsync.value;
+    final search = searchAsync.value;
+    final recent = recentAsync.value;
+    final recentEntry = (recent != null && recent.isNotEmpty)
+        ? recent.first
+        : null;
+
+    final comics = _keyword.isEmpty
+        ? (random?.comics ?? const <Comic>[])
+        : (search?.comics ?? const <Comic>[]);
+    final hasError = _keyword.isEmpty
+        ? randomAsync.hasError
+        : searchAsync.hasError;
+    final loading = _keyword.isEmpty
+        ? randomAsync.isLoading ||
+              (random != null && random.comics.length < random.total)
+        : searchAsync.isLoading && search?.comics.isEmpty == true;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
@@ -220,40 +159,35 @@ class HomeScreenState extends State<HomeScreen> {
             Column(
               children: [
                 Expanded(
-                  child: _loading && _comics.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
+                  child: hasError && comics.isEmpty
+                      ? _ErrorRetry(
+                          onRetry: _keyword.isEmpty
+                              ? () => ref.invalidate(randomLibraryProvider)
+                              : () => _search(_keyword),
+                        )
                       : ComicGrid(
                           controller: _scrollController,
-                          comics: _comics,
-                          loading: _loading,
-                          bottomPadding: _recent != null ? 96 : 0,
-                          onTap: (comic) async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DetailScreen(
-                                  comicId: comic.id,
-                                  onAuthorTap: (author) {
-                                    _searchController.text = author;
-                                    _search(author);
-                                  },
-                                ),
-                              ),
-                            );
-                            _refreshComicFavorited(comic.id);
-                          },
+                          comics: comics,
+                          loading: loading,
+                          bottomPadding: recentEntry != null ? 96 : 0,
+                          onTap: (comic) => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DetailScreen(comicId: comic.id),
+                            ),
+                          ),
                         ),
                 ),
               ],
             ),
-            if (_recent != null)
+            if (recentEntry != null)
               Positioned(
                 left: 16,
                 right: 16,
                 bottom: 16,
                 child: _FloatingContinueBar(
-                  entry: _recent!,
-                  onReturn: _refreshRecent,
+                  entry: recentEntry,
+                  onReturn: () => ref.invalidate(recentReadingProvider),
                 ),
               ),
           ],
@@ -263,10 +197,31 @@ class HomeScreenState extends State<HomeScreen> {
   }
 }
 
+class _ErrorRetry extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _ErrorRetry({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
+          const SizedBox(height: 12),
+          const Text('加载失败', style: TextStyle(color: Color(0xFF8b949e))),
+          const SizedBox(height: 12),
+          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
+        ],
+      ),
+    );
+  }
+}
+
 class _FloatingContinueBar extends StatelessWidget {
   final ReadingProgressEntry entry;
-  final Future<void> Function()? onReturn;
-  const _FloatingContinueBar({required this.entry, this.onReturn});
+  final VoidCallback onReturn;
+  const _FloatingContinueBar({required this.entry, required this.onReturn});
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +244,7 @@ class _FloatingContinueBar extends StatelessWidget {
               ),
             ),
           );
-          await onReturn?.call();
+          onReturn();
         },
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
