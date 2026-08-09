@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
@@ -20,6 +22,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   String _keyword = '';
+  bool _recentBarVisible = false;
+  ReadingProgressEntry? _lastRecentEntry;
+  Timer? _barHideTimer;
 
   @override
   void initState() {
@@ -46,6 +51,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _barHideTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -86,6 +92,17 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final recentEntry = (recent != null && recent.isNotEmpty)
         ? recent.first
         : null;
+    // A fresh reading entry re-shows the bar; it auto-hides after 3 seconds.
+    if (recentEntry != null && recentEntry != _lastRecentEntry) {
+      _lastRecentEntry = recentEntry;
+      _recentBarVisible = true;
+      _barHideTimer?.cancel();
+      _barHideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && _recentBarVisible) {
+          setState(() => _recentBarVisible = false);
+        }
+      });
+    }
 
     final comics = _keyword.isEmpty
         ? (random?.comics ?? const <Comic>[])
@@ -169,7 +186,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           controller: _scrollController,
                           comics: comics,
                           loading: loading,
-                          bottomPadding: recentEntry != null ? 96 : 0,
+                          bottomPadding: _recentBarVisible ? 96 : 0,
                           onTap: (comic) => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -185,9 +202,25 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _FloatingContinueBar(
-                  entry: recentEntry,
-                  onReturn: () => ref.invalidate(recentReadingProvider),
+                child: IgnorePointer(
+                  ignoring: !_recentBarVisible,
+                  child: AnimatedSlide(
+                    offset: _recentBarVisible
+                        ? Offset.zero
+                        : const Offset(0, 1.2),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      opacity: _recentBarVisible ? 1 : 0,
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeOut,
+                      child: _FloatingContinueBar(
+                        entry: recentEntry,
+                        onReturn: () =>
+                            ref.invalidate(recentReadingProvider),
+                      ),
+                    ),
+                  ),
                 ),
               ),
           ],
