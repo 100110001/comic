@@ -40,6 +40,12 @@ class _TrayHandler extends TrayListener {
   }
 
   @override
+  void onTrayIconRightMouseDown() {
+    // Windows 不会自动弹菜单，需手动调起
+    trayManager.popUpContextMenu();
+  }
+
+  @override
   void onTrayMenuItemClick(MenuItem menuItem) async {
     switch (menuItem.key) {
       case 'show':
