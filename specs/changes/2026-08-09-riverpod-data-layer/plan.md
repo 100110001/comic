@@ -87,6 +87,8 @@ flowchart TB
 
 ### U1. 数据层搭建：依赖、ProviderScope 与全部 provider
 
+**Status:** shipped
+
 - **Goal:** 引入 Riverpod，创建覆盖所有接口的 provider 与失效助手，接入应用根部。
 - **Requirements:** R1, R2, R3, R10, R11, R12, R14, R15
 - **Dependencies:** 无

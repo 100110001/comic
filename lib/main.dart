@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
@@ -9,7 +10,7 @@ import 'widgets/reading_lists.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
-  runApp(const ComicApp());
+  runApp(const ProviderScope(child: ComicApp()));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();
