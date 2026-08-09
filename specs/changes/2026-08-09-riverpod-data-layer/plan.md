@@ -124,6 +124,8 @@ flowchart TB
 
 ### U4. 详情页迁移
 
+**Status:** shipped
+
 - **Goal:** 详情/章节/收藏/作者收藏/进度统一走 provider，切换后失效联动生效。
 - **Requirements:** R6, R10, R11, R12, R14, R15
 - **Dependencies:** U1

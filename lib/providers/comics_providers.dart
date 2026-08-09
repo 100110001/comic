@@ -254,7 +254,7 @@ final searchProvider = AsyncNotifierProvider<SearchNotifier, SearchState>(
 // ---- 变更助手（mutation + 失效矩阵） ----
 
 Future<void> setComicFavorite(
-  Ref ref, {
+  WidgetRef ref, {
   required int comicId,
   required bool favorited,
 }) async {
@@ -267,7 +267,7 @@ Future<void> setComicFavorite(
 }
 
 Future<void> setAuthorFavorite(
-  Ref ref, {
+  WidgetRef ref, {
   required String author,
   required bool favorited,
   required int comicId,

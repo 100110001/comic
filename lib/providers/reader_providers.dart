@@ -8,7 +8,7 @@ final chapterImagesProvider = FutureProvider.family<List<ImageItem>, int>(
 );
 
 Future<void> updateReadingProgress(
-  Ref ref, {
+  WidgetRef ref, {
   required int comicId,
   required int chapterId,
   required int pageNumber,

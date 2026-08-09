@@ -18,3 +18,9 @@
 
 - 搜索页改为 `ConsumerStatefulWidget`：关键字/分页/结果全部来自 `searchProvider`，删除手工 `_pageOffset/_total/_loading`。
 - 初始关键字（收藏作者跳转）在 initState 直接调用 provider.search；返回详情页不再需要手动同步收藏（mutation 助手自动更新）。
+
+## U4 详情页迁移
+
+- 详情页改为 `ConsumerStatefulWidget`：数据全部来自 `comicDetailProvider`，收藏/作者收藏走 mutation 助手（失效 + 原地更新），删除 `_comic/_chapters/_favorited/_progress` 等手工状态与"返回后延迟刷新"补丁。
+- 作者点击改为进入 `SearchScreen(initialKeyword: author)`，替代原来的"回首页搜索"回调。
+- Riverpod 3 注意点：`WidgetRef` 不实现 `Ref`，mutation 助手参数用 `WidgetRef`；可空字段在守卫后需 `!` 断言。
