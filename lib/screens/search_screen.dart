@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
-import '../services/api.dart';
+import '../providers/comics_providers.dart';
 import '../widgets/comic_grid.dart';
 import 'detail_screen.dart';
 
-class SearchScreen extends StatefulWidget {
+class SearchScreen extends ConsumerStatefulWidget {
   final String? initialKeyword;
   const SearchScreen({super.key, this.initialKeyword});
 
   @override
-  State<SearchScreen> createState() => _SearchScreenState();
+  ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends State<SearchScreen> {
-  final List<Comic> _comics = [];
+class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
-  String _keyword = '';
-  int _pageOffset = 1;
-  int _total = 0;
-  bool _loading = false;
 
   @override
   void initState() {
@@ -27,13 +23,12 @@ class _SearchScreenState extends State<SearchScreen> {
     final initial = widget.initialKeyword;
     if (initial != null && initial.isNotEmpty) {
       _controller.text = initial;
-      _search(initial);
+      ref.read(searchProvider.notifier).search(initial);
     }
     _scrollController.addListener(() {
-      if (_keyword.isEmpty) return;
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
-        _loadMore();
+        ref.read(searchProvider.notifier).loadMore();
       }
     });
   }
@@ -46,63 +41,18 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _search(String keyword) async {
-    _keyword = keyword.trim();
-    setState(() {
-      _comics.clear();
-      _pageOffset = 1;
-      _total = 0;
-    });
-    await _loadMore();
-  }
-
-  Future<void> _loadMore() async {
-    if (_loading || _keyword.isEmpty) return;
-    if (_comics.length >= _total && _total > 0) return;
-    setState(() => _loading = true);
-    try {
-      final r = await ApiService.getComics(
-        pageOffset: _pageOffset,
-        pageSize: 30,
-        keyword: _keyword,
-      );
-      if (!mounted) return;
-      setState(() {
-        _comics.addAll(r.list);
-        _total = r.total;
-        _pageOffset++;
-      });
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _refreshComicFavorited(int comicId) async {
-    try {
-      final r = await ApiService.getComic(comicId);
-      if (!mounted) return;
-      final updated = List<Comic>.from(_comics);
-      var changed = false;
-      for (var i = 0; i < updated.length; i++) {
-        if (updated[i].id == comicId &&
-            updated[i].favorited != r.comic.favorited) {
-          updated[i] = updated[i].withFavorited(r.comic.favorited);
-          changed = true;
-        }
-      }
-      if (changed) {
-        setState(
-          () => _comics
-            ..clear()
-            ..addAll(updated),
-        );
-      }
-    } catch (_) {
-      // 同步失败不阻塞
-    }
+    await ref.read(searchProvider.notifier).search(keyword.trim());
   }
 
   @override
   Widget build(BuildContext context) {
+    final searchAsync = ref.watch(searchProvider);
+    final state = searchAsync.value;
+    final comics = state?.comics ?? const <Comic>[];
+    final keyword = state?.keyword ?? '';
+    final hasError = searchAsync.hasError;
+    final loading = searchAsync.isLoading && comics.isEmpty;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
@@ -120,7 +70,7 @@ class _SearchScreenState extends State<SearchScreen> {
           onSubmitted: _search,
         ),
       ),
-      body: _keyword.isEmpty
+      body: keyword.isEmpty
           ? const Center(
               child: Text(
                 '输入关键字搜索漫画或作者',
@@ -128,10 +78,12 @@ class _SearchScreenState extends State<SearchScreen> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: () => _search(_keyword),
-              child: _loading && _comics.isEmpty
+              onRefresh: () => _search(keyword),
+              child: hasError && comics.isEmpty
+                  ? _SearchError(onRetry: () => ref.invalidate(searchProvider))
+                  : loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _comics.isEmpty
+                  : comics.isEmpty
                   ? ListView(
                       children: const [
                         SizedBox(height: 120),
@@ -145,19 +97,37 @@ class _SearchScreenState extends State<SearchScreen> {
                     )
                   : ComicGrid(
                       controller: _scrollController,
-                      comics: _comics,
-                      loading: _loading,
-                      onTap: (comic) async {
-                        await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => DetailScreen(comicId: comic.id),
-                          ),
-                        );
-                        _refreshComicFavorited(comic.id);
-                      },
+                      comics: comics,
+                      loading: searchAsync.isLoading,
+                      onTap: (comic) => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DetailScreen(comicId: comic.id),
+                        ),
+                      ),
                     ),
             ),
+    );
+  }
+}
+
+class _SearchError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _SearchError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
+          const SizedBox(height: 12),
+          const Text('搜索失败', style: TextStyle(color: Color(0xFF8b949e))),
+          const SizedBox(height: 12),
+          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
+        ],
+      ),
     );
   }
 }

@@ -113,6 +113,8 @@ flowchart TB
 
 ### U3. 搜索页迁移
 
+**Status:** shipped
+
 - **Goal:** 搜索关键字分页改由 provider 管理。
 - **Requirements:** R2, R3, R5, R14, R15
 - **Dependencies:** U1

@@ -13,3 +13,8 @@
 - Riverpod 3 注意点：`AsyncValue` 取值用 `.value`（无 `valueOrNull`）；`ref.refresh` 返回 AsyncValue 且签名易错，统一用 `ref.invalidate` 触发重取。
 - 收藏变更后的角标同步由 U1 的 mutation 助手（原地 `updateFavorited`）自动完成，首页不再需要"返回后同步"补丁；阅读进度变更由 `updateReadingProgress` 失效 recent，续读条自动更新。
 - 随机列表不做"进入即后台重取"（会丢已加载分页），保持缓存 + 下拉刷新换种子；简单查询（recent/favorites/详情）由页面进入时 invalidate 后台刷新。
+
+## U3 搜索页迁移
+
+- 搜索页改为 `ConsumerStatefulWidget`：关键字/分页/结果全部来自 `searchProvider`，删除手工 `_pageOffset/_total/_loading`。
+- 初始关键字（收藏作者跳转）在 initState 直接调用 provider.search；返回详情页不再需要手动同步收藏（mutation 助手自动更新）。
