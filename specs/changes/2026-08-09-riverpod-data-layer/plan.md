@@ -146,6 +146,8 @@ flowchart TB
 
 ### U6. 阅读器迁移 + 失效收尾
 
+**Status:** shipped
+
 - **Goal:** 章节图片与进度上报走 provider；全量迁移后页面不再直接调用 ApiService。
 - **Requirements:** R1, R8, R12, R14, R15
 - **Dependencies:** U1, U4

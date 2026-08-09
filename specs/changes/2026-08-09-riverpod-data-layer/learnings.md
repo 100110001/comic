@@ -30,3 +30,9 @@
 - 三个列表改为 `ConsumerStatefulWidget` 直接 `ref.watch` 对应 provider，删除手工 `_load/_loading` 与 `FavoriteAuthorsListState.reload` 机制。
 - 切 tab / 切侧栏入口时 `ref.invalidate` 对应 provider（后台刷新）；收藏/作者收藏/进度的 mutation 已自动失效这些 provider。
 - `DesktopShell` 改为 `ConsumerStatefulWidget`（createState 返回 `ConsumerState<DesktopShell>`）。
+
+## U6 阅读器迁移 + 收尾
+
+- 章节图片经 `chapterImagesProvider`（缓存），章节列表经 `comicDetailProvider`；进度保存改为 `updateReadingProgress` mutation（成功后失效 recent/detail）。
+- 进度保存从 dispose 移到 `PopScope.onPopInvokedWithResult`（dispose 中无法安全使用 ref）；窗口关闭走托盘、应用不销毁，阅读器状态保留。
+- `rg "ApiService" lib/screens lib/widgets lib/main.dart` 无结果——AE4（页面不直接调用 ApiService）达成。
