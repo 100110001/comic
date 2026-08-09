@@ -1,73 +1,61 @@
 import 'package:flutter/material.dart';
-import '../models/comic.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
-import '../services/api.dart';
+import '../models/comic.dart';
+import '../providers/comics_providers.dart';
 import 'reader_screen.dart';
+import 'search_screen.dart';
 
-class DetailScreen extends StatefulWidget {
+class DetailScreen extends ConsumerStatefulWidget {
   final int comicId;
-  final void Function(String)? onAuthorTap;
-  const DetailScreen({super.key, required this.comicId, this.onAuthorTap});
+  const DetailScreen({super.key, required this.comicId});
 
   @override
-  State<DetailScreen> createState() => _DetailScreenState();
+  ConsumerState<DetailScreen> createState() => _DetailScreenState();
 }
 
-class _DetailScreenState extends State<DetailScreen> {
-  Comic? _comic;
-  List<Chapter> _chapters = [];
-  bool _loading = true;
-  bool _favorited = false;
+class _DetailScreenState extends ConsumerState<DetailScreen> {
   bool _favoriteBusy = false;
-  bool _authorFavorited = false;
   bool _authorFavoriteBusy = false;
-  ({int chapterId, int pageNumber})? _progress;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final r = await ApiService.getComic(widget.comicId);
-    setState(() {
-      _comic = r.comic;
-      _chapters = r.chapters;
-      _favorited = r.favorited;
-      _authorFavorited = r.authorFavorited;
-      _progress = r.progress;
-      _loading = false;
-    });
-  }
 
   Future<void> _toggleFavorite() async {
     if (_favoriteBusy) return;
+    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
+    if (detail == null) return;
     setState(() => _favoriteBusy = true);
     try {
-      final next = !_favorited;
-      await ApiService.setFavorite(widget.comicId, next);
-      if (mounted) setState(() => _favorited = next);
+      await setComicFavorite(
+        ref,
+        comicId: widget.comicId,
+        favorited: !detail.favorited,
+      );
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
     }
   }
 
   Future<void> _toggleAuthorFavorite() async {
-    if (_authorFavoriteBusy || _comic?.author == null) return;
+    if (_authorFavoriteBusy) return;
+    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
+    final author = detail?.comic.author;
+    if (detail == null || author == null) return;
     setState(() => _authorFavoriteBusy = true);
     try {
-      final next = !_authorFavorited;
-      await ApiService.setAuthorFavorite(_comic!.author!, next);
-      if (mounted) setState(() => _authorFavorited = next);
+      await setAuthorFavorite(
+        ref,
+        author: author,
+        favorited: !detail.authorFavorited,
+        comicId: widget.comicId,
+      );
     } finally {
       if (mounted) setState(() => _authorFavoriteBusy = false);
     }
   }
 
   void _continueReading(({int chapterId, int pageNumber}) progress) {
+    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
     var chapterTitle = '';
-    for (final c in _chapters) {
+    for (final c in detail?.chapters ?? const <Chapter>[]) {
       if (c.id == progress.chapterId) {
         chapterTitle = c.title;
         break;
@@ -83,61 +71,70 @@ class _DetailScreenState extends State<DetailScreen> {
           initialPage: progress.pageNumber,
         ),
       ),
-    ).then((_) => _reloadAfterReader());
-  }
-
-  /// 从阅读器返回后刷新详情：阅读器在离开时异步保存进度，
-  /// 稍等片刻再拉取，确保"继续阅读"入口及时出现。
-  Future<void> _reloadAfterReader() async {
-    await Future.delayed(const Duration(milliseconds: 400));
-    if (mounted) await _load();
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final detailAsync = ref.watch(comicDetailProvider(widget.comicId));
+    final detail = detailAsync.value;
+
     return Scaffold(
       backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
         backgroundColor: const Color(0xFF161b22),
         iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
-          _comic?.title ?? '',
+          detail?.comic.title ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
-          if (_comic != null)
+          if (detail != null)
             IconButton(
-              tooltip: _favorited ? '取消收藏' : '收藏',
+              tooltip: detail.favorited ? '取消收藏' : '收藏',
               icon: Icon(
-                _favorited ? Icons.favorite : Icons.favorite_border,
-                color: _favorited ? const Color(0xFFf778ba) : Colors.white,
+                detail.favorited ? Icons.favorite : Icons.favorite_border,
+                color: detail.favorited
+                    ? const Color(0xFFf778ba)
+                    : Colors.white,
               ),
               onPressed: _favoriteBusy ? null : _toggleFavorite,
             ),
         ],
       ),
-      body: _loading
+      body: detailAsync.isLoading
           ? const Center(child: CircularProgressIndicator())
+          : detailAsync.hasError
+          ? _DetailError(
+              onRetry: () =>
+                  ref.invalidate(comicDetailProvider(widget.comicId)),
+            )
           : LayoutBuilder(
               builder: (ctx, constraints) {
                 final header = _Header(
-                  comic: _comic!,
-                  onAuthorTap: widget.onAuthorTap,
-                  authorFavorited: _authorFavorited,
+                  comic: detail!.comic,
+                  favorited: detail.favorited,
+                  authorFavorited: detail.authorFavorited,
+                  onToggleFavorite: _favoriteBusy ? null : _toggleFavorite,
                   onToggleAuthorFavorite: _authorFavoriteBusy
                       ? null
                       : _toggleAuthorFavorite,
-                  progress: _progress,
-                  onContinue: _progress == null
+                  onAuthorTap: (author) => Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => SearchScreen(initialKeyword: author),
+                    ),
+                  ),
+                  progress: detail.progress,
+                  onContinue: detail.progress == null
                       ? null
-                      : () => _continueReading(_progress!),
+                      : () => _continueReading(detail.progress!),
                 );
                 final chapterList = _ChapterList(
                   comicId: widget.comicId,
-                  chapters: _chapters,
-                  onReaderReturn: _reloadAfterReader,
+                  chapters: detail.chapters,
                 );
                 if (constraints.maxWidth >= 720) {
                   return Row(
@@ -165,18 +162,44 @@ class _DetailScreenState extends State<DetailScreen> {
   }
 }
 
+class _DetailError extends StatelessWidget {
+  final VoidCallback onRetry;
+  const _DetailError({required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
+          const SizedBox(height: 12),
+          const Text('加载失败', style: TextStyle(color: Color(0xFF8b949e))),
+          const SizedBox(height: 12),
+          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
+        ],
+      ),
+    );
+  }
+}
+
 class _Header extends StatelessWidget {
   final Comic comic;
-  final void Function(String)? onAuthorTap;
+  final bool favorited;
   final bool authorFavorited;
+  final VoidCallback? onToggleFavorite;
   final VoidCallback? onToggleAuthorFavorite;
+  final void Function(String author)? onAuthorTap;
   final ({int chapterId, int pageNumber})? progress;
   final VoidCallback? onContinue;
+
   const _Header({
     required this.comic,
-    this.onAuthorTap,
-    this.authorFavorited = false,
+    required this.favorited,
+    required this.authorFavorited,
+    this.onToggleFavorite,
     this.onToggleAuthorFavorite,
+    this.onAuthorTap,
     this.progress,
     this.onContinue,
   });
@@ -221,10 +244,7 @@ class _Header extends StatelessWidget {
                     children: [
                       Flexible(
                         child: GestureDetector(
-                          onTap: () {
-                            onAuthorTap?.call(comic.author!);
-                            Navigator.pop(context);
-                          },
+                          onTap: () => onAuthorTap?.call(comic.author!),
                           child: Text(
                             comic.author!,
                             maxLines: 1,
@@ -295,12 +315,7 @@ class _Header extends StatelessWidget {
 class _ChapterList extends StatelessWidget {
   final int comicId;
   final List<Chapter> chapters;
-  final Future<void> Function() onReaderReturn;
-  const _ChapterList({
-    required this.comicId,
-    required this.chapters,
-    required this.onReaderReturn,
-  });
+  const _ChapterList({required this.comicId, required this.chapters});
 
   @override
   Widget build(BuildContext context) {
@@ -317,19 +332,16 @@ class _ChapterList extends StatelessWidget {
             style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14),
           ),
           trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
-          onTap: () async {
-            await Navigator.push(
-              ctx,
-              MaterialPageRoute(
-                builder: (_) => ReaderScreen(
-                  comicId: comicId,
-                  chapterId: ch.id,
-                  title: ch.title,
-                ),
+          onTap: () => Navigator.push(
+            ctx,
+            MaterialPageRoute(
+              builder: (_) => ReaderScreen(
+                comicId: comicId,
+                chapterId: ch.id,
+                title: ch.title,
               ),
-            );
-            await onReaderReturn();
-          },
+            ),
+          ),
         );
       },
     );

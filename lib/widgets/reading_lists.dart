@@ -1,79 +1,53 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
-import '../services/api.dart';
+import '../providers/comics_providers.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
 
-class RecentReadingList extends StatefulWidget {
+class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
 
   @override
-  State<RecentReadingList> createState() => _RecentReadingListState();
+  ConsumerState<RecentReadingList> createState() => _RecentReadingListState();
 }
 
-class _RecentReadingListState extends State<RecentReadingList> {
-  List<ReadingProgressEntry> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final list = await ApiService.getRecent();
-      if (mounted) setState(() => _items = list);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
+class _RecentReadingListState extends ConsumerState<RecentReadingList> {
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(recentReadingProvider);
+    final items = async.value ?? const <ReadingProgressEntry>[];
+    final loading = async.isLoading && items.isEmpty;
+
     return RefreshIndicator(
-      onRefresh: _load,
-      child: _loading && _items.isEmpty
+      onRefresh: () async => ref.invalidate(recentReadingProvider),
+      child: loading
           ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    '暂无最近阅读',
-                    style: TextStyle(color: Color(0xFF8b949e)),
-                  ),
-                ),
-              ],
-            )
+          : items.isEmpty
+          ? _EmptyList(text: '暂无最近阅读')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _items.length,
+              itemCount: items.length,
               separatorBuilder: (_, _) => const Divider(
                 color: Color(0xFF21262d),
                 height: 1,
                 indent: 76,
               ),
               itemBuilder: (ctx, i) {
-                final e = _items[i];
+                final e = items[i];
                 return _EntryTile(
                   coverUrl: e.comic.coverUrl,
                   title: e.comic.title,
                   author: e.comic.author,
                   subtitle: '${e.chapterTitle} · 第${e.pageNumber + 1}页',
-                  onTap: () async {
-                    await Navigator.push(
-                      ctx,
-                      MaterialPageRoute(
-                        builder: (_) => DetailScreen(comicId: e.comic.id),
-                      ),
-                    );
-                    _load();
-                  },
+                  onTap: () => Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => DetailScreen(comicId: e.comic.id),
+                    ),
+                  ),
                 );
               },
             ),
@@ -81,69 +55,85 @@ class _RecentReadingListState extends State<RecentReadingList> {
   }
 }
 
-class FavoritesList extends StatefulWidget {
+class FavoritesList extends ConsumerStatefulWidget {
   const FavoritesList({super.key});
 
   @override
-  State<FavoritesList> createState() => _FavoritesListState();
+  ConsumerState<FavoritesList> createState() => _FavoritesListState();
 }
 
-class FavoriteAuthorsList extends StatefulWidget {
+class _FavoritesListState extends ConsumerState<FavoritesList> {
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(favoritesProvider);
+    final items = async.value ?? const <Comic>[];
+    final loading = async.isLoading && items.isEmpty;
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(favoritesProvider),
+      child: loading
+          ? const Center(child: CircularProgressIndicator())
+          : items.isEmpty
+          ? _EmptyList(text: '暂无收藏')
+          : ListView.separated(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const Divider(
+                color: Color(0xFF21262d),
+                height: 1,
+                indent: 76,
+              ),
+              itemBuilder: (ctx, i) {
+                final comic = items[i];
+                return _EntryTile(
+                  coverUrl: comic.coverUrl,
+                  title: comic.title,
+                  author: comic.author,
+                  subtitle: '${comic.chapterCount}话 · ${comic.imageCount}P',
+                  onTap: () => Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => DetailScreen(comicId: comic.id),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class FavoriteAuthorsList extends ConsumerStatefulWidget {
   const FavoriteAuthorsList({super.key});
 
   @override
-  State<FavoriteAuthorsList> createState() => FavoriteAuthorsListState();
+  ConsumerState<FavoriteAuthorsList> createState() =>
+      _FavoriteAuthorsListState();
 }
 
-class FavoriteAuthorsListState extends State<FavoriteAuthorsList> {
-  List<FavoriteAuthor> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    reload();
-  }
-
-  Future<void> reload() async {
-    try {
-      final list = await ApiService.getFavoriteAuthors();
-      if (mounted) setState(() => _items = list);
-    } catch (_) {
-      // 加载失败保持现状，下拉可重试
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
+class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
   @override
   Widget build(BuildContext context) {
+    final async = ref.watch(favoriteAuthorsProvider);
+    final items = async.value ?? const <FavoriteAuthor>[];
+    final loading = async.isLoading && items.isEmpty;
+
     return RefreshIndicator(
-      onRefresh: reload,
-      child: _loading && _items.isEmpty
+      onRefresh: () async => ref.invalidate(favoriteAuthorsProvider),
+      child: loading
           ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    '暂无收藏作者',
-                    style: TextStyle(color: Color(0xFF8b949e)),
-                  ),
-                ),
-              ],
-            )
+          : items.isEmpty
+          ? _EmptyList(text: '暂无收藏作者')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _items.length,
+              itemCount: items.length,
               separatorBuilder: (_, _) => const Divider(
                 color: Color(0xFF21262d),
                 height: 1,
                 indent: 16,
               ),
               itemBuilder: (ctx, i) {
-                final item = _items[i];
+                final item = items[i];
                 return ListTile(
                   leading: const Icon(Icons.star, color: Color(0xFFf5c542)),
                   title: Text(
@@ -163,16 +153,12 @@ class FavoriteAuthorsListState extends State<FavoriteAuthorsList> {
                     Icons.chevron_right,
                     color: Color(0xFF8b949e),
                   ),
-                  onTap: () async {
-                    await Navigator.push(
-                      ctx,
-                      MaterialPageRoute(
-                        builder: (_) =>
-                            SearchScreen(initialKeyword: item.author),
-                      ),
-                    );
-                    reload();
-                  },
+                  onTap: () => Navigator.push(
+                    ctx,
+                    MaterialPageRoute(
+                      builder: (_) => SearchScreen(initialKeyword: item.author),
+                    ),
+                  ),
                 );
               },
             ),
@@ -180,70 +166,19 @@ class FavoriteAuthorsListState extends State<FavoriteAuthorsList> {
   }
 }
 
-class _FavoritesListState extends State<FavoritesList> {
-  List<Comic> _items = [];
-  bool _loading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    try {
-      final list = await ApiService.getFavorites();
-      if (mounted) setState(() => _items = list);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
+class _EmptyList extends StatelessWidget {
+  final String text;
+  const _EmptyList({required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: _loading && _items.isEmpty
-          ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
-          ? ListView(
-              children: const [
-                SizedBox(height: 120),
-                Center(
-                  child: Text(
-                    '暂无收藏',
-                    style: TextStyle(color: Color(0xFF8b949e)),
-                  ),
-                ),
-              ],
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 76,
-              ),
-              itemBuilder: (ctx, i) {
-                final comic = _items[i];
-                return _EntryTile(
-                  coverUrl: comic.coverUrl,
-                  title: comic.title,
-                  author: comic.author,
-                  subtitle: '${comic.chapterCount}话 · ${comic.imageCount}P',
-                  onTap: () async {
-                    await Navigator.push(
-                      ctx,
-                      MaterialPageRoute(
-                        builder: (_) => DetailScreen(comicId: comic.id),
-                      ),
-                    );
-                    _load();
-                  },
-                );
-              },
-            ),
+    return ListView(
+      children: [
+        const SizedBox(height: 120),
+        Center(
+          child: Text(text, style: const TextStyle(color: Color(0xFF8b949e))),
+        ),
+      ],
     );
   }
 }

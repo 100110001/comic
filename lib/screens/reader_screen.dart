@@ -1,13 +1,15 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/image_item.dart';
 import '../platform.dart';
-import '../services/api.dart';
+import '../providers/comics_providers.dart';
+import '../providers/reader_providers.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
 
-class ReaderScreen extends StatefulWidget {
+class ReaderScreen extends ConsumerStatefulWidget {
   final int comicId;
   final int chapterId;
   final String title;
@@ -21,10 +23,10 @@ class ReaderScreen extends StatefulWidget {
   });
 
   @override
-  State<ReaderScreen> createState() => _ReaderScreenState();
+  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends State<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   List<Chapter> _chapters = [];
   List<ImageItem> _images = [];
   int _chapterIndex = 0;
@@ -51,18 +53,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   void dispose() {
-    _saveProgress();
     _scrollController.dispose();
     super.dispose();
   }
 
   Future<void> _init() async {
     try {
-      final r = await ApiService.getComic(widget.comicId);
+      final detail = await ref.read(comicDetailProvider(widget.comicId).future);
       if (!mounted) return;
-      final idx = r.chapters.indexWhere((c) => c.id == widget.chapterId);
+      final idx = detail.chapters.indexWhere((c) => c.id == widget.chapterId);
       setState(() {
-        _chapters = r.chapters;
+        _chapters = detail.chapters;
         _chapterIndex = idx < 0 ? 0 : idx;
       });
       await _loadChapter(
@@ -125,7 +126,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _jumpGeneration++;
     });
     try {
-      final images = await ApiService.getChapterImages(chapterId);
+      final images = await ref.read(chapterImagesProvider(chapterId).future);
       if (!mounted) return;
       setState(() {
         _images = images;
@@ -275,12 +276,12 @@ class _ReaderScreenState extends State<ReaderScreen> {
   Future<void> _ensureChapters() async {
     if (_chapters.isNotEmpty) return;
     try {
-      final r = await ApiService.getComic(widget.comicId);
+      final detail = await ref.read(comicDetailProvider(widget.comicId).future);
       if (!mounted || _chapters.isNotEmpty) return;
       final targetId = _currentChapter?.id ?? widget.chapterId;
-      final idx = r.chapters.indexWhere((c) => c.id == targetId);
+      final idx = detail.chapters.indexWhere((c) => c.id == targetId);
       setState(() {
-        _chapters = r.chapters;
+        _chapters = detail.chapters;
         _chapterIndex = idx < 0 ? 0 : idx;
       });
     } catch (_) {
@@ -314,7 +315,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   void _saveProgress() {
     if (_images.isEmpty) return;
-    ApiService.updateProgress(
+    updateReadingProgress(
+      ref,
       comicId: widget.comicId,
       chapterId: _currentChapter?.id ?? widget.chapterId,
       pageNumber: _currentPage,
@@ -327,58 +329,67 @@ class _ReaderScreenState extends State<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
-    return Scaffold(
-      backgroundColor: Colors.black,
-      endDrawer: desktop
-          ? ChapterDrawer(
-              chapters: _chapters,
-              currentIndex: _chapterIndex,
-              onSelect: (i) {
-                Navigator.pop(context);
-                _goToChapter(i);
-              },
-            )
-          : null,
-      appBar: AppBar(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _saveProgress();
+      },
+      child: Scaffold(
         backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          _currentChapter?.title ?? widget.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+        endDrawer: desktop
+            ? ChapterDrawer(
+                chapters: _chapters,
+                currentIndex: _chapterIndex,
+                onSelect: (i) {
+                  Navigator.pop(context);
+                  _goToChapter(i);
+                },
+              )
+            : null,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          iconTheme: const IconThemeData(color: Colors.white),
+          title: Text(
+            _currentChapter?.title ?? widget.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+          ),
+          actions: [
+            Builder(
+              builder: (buttonContext) => IconButton(
+                icon: const Icon(
+                  Icons.format_list_bulleted,
+                  color: Colors.white,
+                ),
+                tooltip: '目录',
+                onPressed: () => _openDirectory(buttonContext),
+              ),
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.chevron_left,
+                color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+              ),
+              tooltip: '上一章',
+              onPressed: _hasPrev ? _prevChapter : null,
+            ),
+            IconButton(
+              icon: Icon(
+                Icons.chevron_right,
+                color: _hasNext ? Colors.white : const Color(0xFF484f58),
+              ),
+              tooltip: '下一章',
+              onPressed: _hasNext ? _nextChapter : null,
+            ),
+          ],
         ),
-        actions: [
-          Builder(
-            builder: (buttonContext) => IconButton(
-              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
-              tooltip: '目录',
-              onPressed: () => _openDirectory(buttonContext),
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.chevron_left,
-              color: _hasPrev ? Colors.white : const Color(0xFF484f58),
-            ),
-            tooltip: '上一章',
-            onPressed: _hasPrev ? _prevChapter : null,
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.chevron_right,
-              color: _hasNext ? Colors.white : const Color(0xFF484f58),
-            ),
-            tooltip: '下一章',
-            onPressed: _hasNext ? _nextChapter : null,
-          ),
-        ],
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : desktop
+            ? _buildPagedBody(context)
+            : _buildMobileBody(),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : desktop
-          ? _buildPagedBody(context)
-          : _buildMobileBody(),
     );
   }
 

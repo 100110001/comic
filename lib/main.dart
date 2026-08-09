@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
+import 'providers/comics_providers.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
 import 'tray/close_to_tray.dart';
@@ -9,7 +11,7 @@ import 'widgets/reading_lists.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
-  runApp(const ComicApp());
+  runApp(const ProviderScope(child: ComicApp()));
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();
@@ -87,16 +89,15 @@ class _MobileShellState extends State<MobileShell> {
 }
 
 /// 桌面壳：左侧边栏（首页/最近阅读/收藏）+ 内容区。
-class DesktopShell extends StatefulWidget {
+class DesktopShell extends ConsumerStatefulWidget {
   const DesktopShell({super.key});
 
   @override
-  State<DesktopShell> createState() => _DesktopShellState();
+  ConsumerState<DesktopShell> createState() => _DesktopShellState();
 }
 
-class _DesktopShellState extends State<DesktopShell> {
+class _DesktopShellState extends ConsumerState<DesktopShell> {
   int _index = 0;
-  final _authorsKey = GlobalKey<FavoriteAuthorsListState>();
 
   @override
   Widget build(BuildContext context) {
@@ -108,8 +109,18 @@ class _DesktopShellState extends State<DesktopShell> {
             selectedIndex: _index,
             onDestinationSelected: (i) {
               setState(() => _index = i);
-              // 切到"收藏作者"页时刷新，避免展示收藏后的旧状态
-              if (i == 3) _authorsKey.currentState?.reload();
+              // 切换侧栏入口时后台刷新对应列表
+              switch (i) {
+                case 1:
+                  ref.invalidate(recentReadingProvider);
+                  break;
+                case 2:
+                  ref.invalidate(favoritesProvider);
+                  break;
+                case 3:
+                  ref.invalidate(favoriteAuthorsProvider);
+                  break;
+              }
             },
             labelType: NavigationRailLabelType.all,
             selectedIconTheme: const IconThemeData(color: Color(0xFF58a6ff)),
@@ -151,9 +162,9 @@ class _DesktopShellState extends State<DesktopShell> {
                 const HomeScreen(),
                 const _PageScaffold(title: '最近阅读', child: RecentReadingList()),
                 const _PageScaffold(title: '收藏', child: FavoritesList()),
-                _PageScaffold(
+                const _PageScaffold(
                   title: '收藏作者',
-                  child: FavoriteAuthorsList(key: _authorsKey),
+                  child: FavoriteAuthorsList(),
                 ),
               ],
             ),
