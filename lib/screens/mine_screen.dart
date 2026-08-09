@@ -1,26 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/comics_providers.dart';
 import '../widgets/reading_lists.dart';
 
-class MineScreen extends StatefulWidget {
+class MineScreen extends ConsumerStatefulWidget {
   const MineScreen({super.key});
 
   @override
-  State<MineScreen> createState() => _MineScreenState();
+  ConsumerState<MineScreen> createState() => _MineScreenState();
 }
 
-class _MineScreenState extends State<MineScreen>
+class _MineScreenState extends ConsumerState<MineScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
-  final _authorsKey = GlobalKey<FavoriteAuthorsListState>();
 
   @override
   void initState() {
     super.initState();
     _controller = TabController(length: 3, vsync: this);
     _controller.addListener(() {
-      // 切到"收藏作者"tab 时刷新，避免展示收藏后的旧状态
-      if (_controller.indexIsChanging && _controller.index == 2) {
-        _authorsKey.currentState?.reload();
+      // 切 tab 时后台刷新对应列表，避免展示旧状态
+      if (_controller.indexIsChanging) {
+        switch (_controller.index) {
+          case 0:
+            ref.invalidate(recentReadingProvider);
+            break;
+          case 1:
+            ref.invalidate(favoritesProvider);
+            break;
+          case 2:
+            ref.invalidate(favoriteAuthorsProvider);
+            break;
+        }
       }
     });
   }
@@ -52,10 +63,10 @@ class _MineScreenState extends State<MineScreen>
       ),
       body: TabBarView(
         controller: _controller,
-        children: [
-          const RecentReadingList(),
-          const FavoritesList(),
-          FavoriteAuthorsList(key: _authorsKey),
+        children: const [
+          RecentReadingList(),
+          FavoritesList(),
+          FavoriteAuthorsList(),
         ],
       ),
     );

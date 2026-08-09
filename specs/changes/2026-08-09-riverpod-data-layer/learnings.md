@@ -24,3 +24,9 @@
 - 详情页改为 `ConsumerStatefulWidget`：数据全部来自 `comicDetailProvider`，收藏/作者收藏走 mutation 助手（失效 + 原地更新），删除 `_comic/_chapters/_favorited/_progress` 等手工状态与"返回后延迟刷新"补丁。
 - 作者点击改为进入 `SearchScreen(initialKeyword: author)`，替代原来的"回首页搜索"回调。
 - Riverpod 3 注意点：`WidgetRef` 不实现 `Ref`，mutation 助手参数用 `WidgetRef`；可空字段在守卫后需 `!` 断言。
+
+## U5 我的/侧栏迁移
+
+- 三个列表改为 `ConsumerStatefulWidget` 直接 `ref.watch` 对应 provider，删除手工 `_load/_loading` 与 `FavoriteAuthorsListState.reload` 机制。
+- 切 tab / 切侧栏入口时 `ref.invalidate` 对应 provider（后台刷新）；收藏/作者收藏/进度的 mutation 已自动失效这些 provider。
+- `DesktopShell` 改为 `ConsumerStatefulWidget`（createState 返回 `ConsumerState<DesktopShell>`）。

@@ -135,6 +135,8 @@ flowchart TB
 
 ### U5. "我的"页与桌面侧栏迁移
 
+**Status:** shipped
+
 - **Goal:** 最近阅读/收藏/收藏作者列表统一走 provider；桌面侧栏复用。
 - **Requirements:** R7, R9, R10, R11, R14, R15
 - **Dependencies:** U1
