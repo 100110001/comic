@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
+import '../models/comic.dart';
 import '../models/image_item.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
@@ -14,12 +15,18 @@ class ReaderScreen extends ConsumerStatefulWidget {
   final int chapterId;
   final String title;
   final int? initialPage;
+  final Future<Comic?> Function()? onNextComic;
+  final Future<Comic?> Function()? onPrevComic;
+  final bool Function()? canPrevComic;
   const ReaderScreen({
     super.key,
     required this.comicId,
     required this.chapterId,
     required this.title,
     this.initialPage,
+    this.onNextComic,
+    this.onPrevComic,
+    this.canPrevComic,
   });
 
   @override
@@ -36,6 +43,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _initialJumping = false;
   int _jumpGeneration = 0;
   bool _loading = true;
+  String _title = '';
+  bool _switchingComic = false;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
 
@@ -43,10 +52,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _chapters.isEmpty ? null : _chapters[_chapterIndex];
   bool get _hasPrev => _chapterIndex > 0;
   bool get _hasNext => _chapterIndex < _chapters.length - 1;
+  bool get _canPrevComic => widget.canPrevComic?.call() ?? false;
 
   @override
   void initState() {
     super.initState();
+    _title = widget.title;
     _scrollController.addListener(_onScroll);
     _init();
   }
@@ -112,7 +123,66 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// 自动续章：主体形态在越过本章最后一页时调用。
   Future<void> _autoContinue() async {
-    if (_hasNext) await _nextChapter();
+    if (_hasNext) {
+      await _nextChapter();
+    } else if (widget.onNextComic != null) {
+      await _nextComic();
+    }
+  }
+
+  /// 发现模式：切到序列里的下一本漫画（从第 1 章开始）。
+  Future<void> _nextComic() async {
+    final next = widget.onNextComic;
+    if (next == null || _switchingComic) return;
+    setState(() => _switchingComic = true);
+    await _saveProgress();
+    final comic = await next();
+    if (!mounted) return;
+    if (comic == null) {
+      setState(() => _switchingComic = false);
+      return;
+    }
+    await _loadComic(comic);
+  }
+
+  /// 发现模式：切到序列里的上一本漫画（从第 1 章开始）。
+  Future<void> _prevComic() async {
+    final prev = widget.onPrevComic;
+    if (prev == null || _switchingComic || !_canPrevComic) return;
+    setState(() => _switchingComic = true);
+    await _saveProgress();
+    final comic = await prev();
+    if (!mounted) return;
+    if (comic == null) {
+      setState(() => _switchingComic = false);
+      return;
+    }
+    await _loadComic(comic);
+  }
+
+  /// 整体替换为另一本漫画：章节列表 + 定位到第 1 章。
+  Future<void> _loadComic(Comic comic) async {
+    ComicDetail? detail;
+    try {
+      detail = await ref.read(comicDetailProvider(comic.id).future);
+    } catch (_) {
+      detail = null;
+    }
+    if (!mounted) return;
+    if (detail == null || detail.chapters.isEmpty) {
+      setState(() => _switchingComic = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('暂无章节')));
+      return;
+    }
+    setState(() {
+      _title = comic.title;
+      _chapters = detail!.chapters;
+      _chapterIndex = 0;
+    });
+    await _loadChapter(_chapters[0].id);
+    if (mounted) setState(() => _switchingComic = false);
   }
 
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
@@ -313,14 +383,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  void _saveProgress() {
+  Future<void> _saveProgress() async {
     if (_images.isEmpty) return;
-    updateReadingProgress(
-      ref,
-      comicId: widget.comicId,
-      chapterId: _currentChapter?.id ?? widget.chapterId,
-      pageNumber: _currentPage,
-    ).catchError((_) {});
+    try {
+      await updateReadingProgress(
+        ref,
+        comicId: widget.comicId,
+        chapterId: _currentChapter?.id ?? widget.chapterId,
+        pageNumber: _currentPage,
+      );
+    } catch (_) {
+      // 进度保存失败不阻塞阅读
+    }
   }
 
   @override
@@ -350,7 +424,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           backgroundColor: Colors.black,
           iconTheme: const IconThemeData(color: Colors.white),
           title: Text(
-            _currentChapter?.title ?? widget.title,
+            _currentChapter?.title ?? _title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.white, fontSize: 15),
@@ -366,6 +440,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 onPressed: () => _openDirectory(buttonContext),
               ),
             ),
+            if (widget.onPrevComic != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  Icons.skip_previous,
+                  color: _canPrevComic && !_switchingComic
+                      ? Colors.white
+                      : const Color(0xFF484f58),
+                ),
+                tooltip: '上一本',
+                onPressed: _canPrevComic && !_switchingComic
+                    ? _prevComic
+                    : null,
+              ),
+            if (widget.onNextComic != null)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  Icons.skip_next,
+                  color: _switchingComic
+                      ? const Color(0xFF484f58)
+                      : Colors.white,
+                ),
+                tooltip: '下一本',
+                onPressed: _switchingComic ? null : _nextComic,
+              ),
             IconButton(
               icon: Icon(
                 Icons.chevron_left,
