@@ -429,60 +429,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: Colors.white, fontSize: 15),
           ),
-          actions: [
-            Builder(
-              builder: (buttonContext) => IconButton(
-                icon: const Icon(
-                  Icons.format_list_bulleted,
-                  color: Colors.white,
-                ),
-                tooltip: '目录',
-                onPressed: () => _openDirectory(buttonContext),
-              ),
-            ),
-            if (widget.onPrevComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_previous,
-                  color: _canPrevComic && !_switchingComic
-                      ? Colors.white
-                      : const Color(0xFF484f58),
-                ),
-                tooltip: '上一本',
-                onPressed: _canPrevComic && !_switchingComic
-                    ? _prevComic
-                    : null,
-              ),
-            if (widget.onNextComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_next,
-                  color: _switchingComic
-                      ? const Color(0xFF484f58)
-                      : Colors.white,
-                ),
-                tooltip: '下一本',
-                onPressed: _switchingComic ? null : _nextComic,
-              ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_left,
-                color: _hasPrev ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '上一章',
-              onPressed: _hasPrev ? _prevChapter : null,
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right,
-                color: _hasNext ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '下一章',
-              onPressed: _hasNext ? _nextChapter : null,
-            ),
-          ],
         ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -503,15 +449,104 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           bottom: 0,
           child: SafeArea(
             top: false,
-            child: ReaderProgressBar(
-              currentPage: _currentPage,
-              totalPages: _images.length,
-              onSeek: _jumpToPage,
+            child: _buildBottomBar(context, onSeek: _jumpToPage),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 底部控制区：进度条（含章节标识）在上，按钮行在下；按钮行均分排布
+  /// 目录、上一章/下一章（发现模式含上一本/下一本），不展示章节标识。
+  /// 顶部 AppBar 只保留返回与标题。
+  Widget _buildBottomBar(
+    BuildContext context, {
+    required ValueChanged<int> onSeek,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ReaderProgressBar(
+          currentPage: _currentPage,
+          totalPages: _images.length,
+          onSeek: onSeek,
+          leadingText: _chapterLabel(),
+        ),
+        Material(
+          color: const Color(0xFF161b22),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            child: Row(
+              children: [
+                _barButton(
+                  icon: Icons.format_list_bulleted,
+                  tooltip: '目录',
+                  enabled: true,
+                  onPressed: () => _openDirectory(context),
+                ),
+                if (widget.onPrevComic != null)
+                  _barButton(
+                    icon: Icons.skip_previous,
+                    tooltip: '上一本',
+                    enabled: _canPrevComic && !_switchingComic,
+                    onPressed: _prevComic,
+                  ),
+                if (widget.onNextComic != null)
+                  _barButton(
+                    icon: Icons.skip_next,
+                    tooltip: '下一本',
+                    enabled: !_switchingComic,
+                    onPressed: _nextComic,
+                  ),
+                _barButton(
+                  icon: Icons.chevron_left,
+                  tooltip: '上一章',
+                  enabled: _hasPrev,
+                  onPressed: _prevChapter,
+                ),
+                _barButton(
+                  icon: Icons.chevron_right,
+                  tooltip: '下一章',
+                  enabled: _hasNext,
+                  onPressed: _nextChapter,
+                ),
+              ],
             ),
           ),
         ),
       ],
     );
+  }
+
+  /// 均分按钮行里的单个按钮：图标居中，禁用时置灰。
+  Widget _barButton({
+    required IconData icon,
+    required String tooltip,
+    required bool enabled,
+    required VoidCallback? onPressed,
+  }) {
+    return Expanded(
+      child: Center(
+        child: IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: Icon(
+            icon,
+            color: enabled ? Colors.white : const Color(0xFF484f58),
+          ),
+          tooltip: tooltip,
+          onPressed: enabled ? onPressed : null,
+        ),
+      ),
+    );
+  }
+
+  /// 底部章节标识：按章节在列表中的序号显示"第 N 话"；
+  /// 章节列表不可用时回退显示章节标题。
+  String _chapterLabel() {
+    if (_chapters.isNotEmpty && _chapterIndex < _chapters.length) {
+      return '第 ${_chapterIndex + 1} 话';
+    }
+    return _currentChapter?.title ?? _title;
   }
 
   Widget _buildScrollBody() {
@@ -563,9 +598,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ),
             ),
           ),
-          ReaderProgressBar(
-            currentPage: page,
-            totalPages: _images.length,
+          _buildBottomBar(
+            context,
             onSeek: (p) {
               setState(() => _currentPage = p);
               _precacheAround(p);
