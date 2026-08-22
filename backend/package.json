@@ -11,6 +11,7 @@
     "start": "node dist/server.js",
     "setup": "ts-node src/db/init.ts && ts-node src/scripts/scan.ts && ts-node src/scripts/seed.ts",
     "reorganize-chapters": "ts-node src/scripts/reorganize-chapters.ts",
+    "flatten-original": "ts-node src/scripts/flatten-original.ts",
     "fix-chapter-order": "ts-node src/scripts/fix-chapter-order.ts",
     "format": "prettier --write \"src/**/*.ts\""
   },
