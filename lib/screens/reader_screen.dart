@@ -476,41 +476,45 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           color: const Color(0xFF161b22),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            child: Row(
-              children: [
-                _barButton(
-                  icon: Icons.format_list_bulleted,
-                  tooltip: '目录',
-                  enabled: true,
-                  onPressed: () => _openDirectory(context),
-                ),
-                if (widget.onPrevComic != null)
+            // Builder 让按钮拿到 Scaffold 内部的 context，
+            // 否则桌面端 Scaffold.of 找不到 Scaffold，侧边面板打不开。
+            child: Builder(
+              builder: (barContext) => Row(
+                children: [
                   _barButton(
-                    icon: Icons.skip_previous,
-                    tooltip: '上一本',
-                    enabled: _canPrevComic && !_switchingComic,
-                    onPressed: _prevComic,
+                    icon: Icons.format_list_bulleted,
+                    tooltip: '目录',
+                    enabled: true,
+                    onPressed: () => _openDirectory(barContext),
                   ),
-                if (widget.onNextComic != null)
+                  if (widget.onPrevComic != null)
+                    _barButton(
+                      icon: Icons.skip_previous,
+                      tooltip: '上一本',
+                      enabled: _canPrevComic && !_switchingComic,
+                      onPressed: _prevComic,
+                    ),
+                  if (widget.onNextComic != null)
+                    _barButton(
+                      icon: Icons.skip_next,
+                      tooltip: '下一本',
+                      enabled: !_switchingComic,
+                      onPressed: _nextComic,
+                    ),
                   _barButton(
-                    icon: Icons.skip_next,
-                    tooltip: '下一本',
-                    enabled: !_switchingComic,
-                    onPressed: _nextComic,
+                    icon: Icons.chevron_left,
+                    tooltip: '上一章',
+                    enabled: _hasPrev,
+                    onPressed: _prevChapter,
                   ),
-                _barButton(
-                  icon: Icons.chevron_left,
-                  tooltip: '上一章',
-                  enabled: _hasPrev,
-                  onPressed: _prevChapter,
-                ),
-                _barButton(
-                  icon: Icons.chevron_right,
-                  tooltip: '下一章',
-                  enabled: _hasNext,
-                  onPressed: _nextChapter,
-                ),
-              ],
+                  _barButton(
+                    icon: Icons.chevron_right,
+                    tooltip: '下一章',
+                    enabled: _hasNext,
+                    onPressed: _nextChapter,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
