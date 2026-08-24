@@ -79,7 +79,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 新建主题文件集中定义颜色/圆角/字体/间距与 `ThemeData` 组件主题（AppBar、Card、按钮、输入框、Slider、导航、Tab、SnackBar、Divider、进度指示器）；`main.dart` 引用并移除重复的组件样式。
 - **Verification:** `flutter analyze` 无问题；全 App 默认组件呈现统一深色风格，无与自定配色冲突的默认样式。
 
-### U2. 通用状态组件
+### U2. ✅ 通用状态组件
 
 - **Goal:** 空态/错误态抽成共用组件，全 App 一致。
 - **Requirements:** R7, R9

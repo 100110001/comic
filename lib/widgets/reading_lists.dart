@@ -6,6 +6,7 @@ import '../models/reading_progress_entry.dart';
 import '../providers/comics_providers.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
+import 'status_views.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
@@ -26,7 +27,7 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无最近阅读')
+          ? const EmptyListView(message: '暂无最近阅读')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
@@ -74,7 +75,7 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无收藏')
+          ? const EmptyListView(message: '暂无收藏')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
@@ -123,7 +124,7 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无收藏作者')
+          ? const EmptyListView(message: '暂无收藏作者')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
@@ -162,23 +163,6 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                 );
               },
             ),
-    );
-  }
-}
-
-class _EmptyList extends StatelessWidget {
-  final String text;
-  const _EmptyList({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 120),
-        Center(
-          child: Text(text, style: const TextStyle(color: Color(0xFF8b949e))),
-        ),
-      ],
     );
   }
 }

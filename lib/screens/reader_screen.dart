@@ -12,6 +12,7 @@ import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
+import '../widgets/status_views.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   final int comicId;
@@ -604,34 +605,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Widget _buildLoadError() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('章节加载失败', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: _reloadChapter,
-            child: const Text('重试'),
-          ),
-        ],
-      ),
+    return StatusView(
+      icon: Icons.cloud_off,
+      message: '章节加载失败',
+      actionLabel: '重试',
+      onAction: _reloadChapter,
     );
   }
 
   Widget _buildEmptyChapter() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: _reloadChapter,
-            child: const Text('重试'),
-          ),
-        ],
-      ),
+    return StatusView(
+      icon: Icons.photo_outlined,
+      message: '本章暂无图片',
+      actionLabel: '重试',
+      onAction: _reloadChapter,
     );
   }
 

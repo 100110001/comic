@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
 
@@ -107,8 +108,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       body: detailAsync.isLoading
           ? const Center(child: CircularProgressIndicator())
           : detailAsync.hasError
-          ? _DetailError(
-              onRetry: () =>
+          ? StatusView(
+              icon: Icons.cloud_off,
+              message: '加载失败',
+              actionLabel: '重试',
+              onAction: () =>
                   ref.invalidate(comicDetailProvider(widget.comicId)),
             )
           : LayoutBuilder(
@@ -158,27 +162,6 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 );
               },
             ),
-    );
-  }
-}
-
-class _DetailError extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _DetailError({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
-          const SizedBox(height: 12),
-          const Text('加载失败', style: TextStyle(color: Color(0xFF8b949e))),
-          const SizedBox(height: 12),
-          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
-        ],
-      ),
     );
   }
 }
