@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
 import '../providers/discovery_providers.dart';
+import '../theme.dart';
 import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 
@@ -146,9 +147,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: kText1,
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (comic.author != null) ...[
@@ -157,19 +158,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                         comic.author!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF8b949e),
-                          fontSize: 13,
-                        ),
+                        style: const TextStyle(color: kText2, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 8),
                     Text(
                       '${comic.chapterCount}话 · ${comic.imageCount}P',
-                      style: const TextStyle(
-                        color: Color(0xFF58a6ff),
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: kAccent, fontSize: 12),
                     ),
                   ],
                 ),
@@ -178,12 +173,12 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ),
           Text(
             '序列第 ${s.index + 1} / ${s.total} 本',
-            style: const TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+            style: const TextStyle(color: kText2, fontSize: 12),
           ),
           const SizedBox(height: 6),
           const Text(
             '拖拽切换 · 点击阅读',
-            style: TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+            style: TextStyle(color: kText2, fontSize: 12),
           ),
           const SizedBox(height: 24),
         ],
@@ -191,23 +186,18 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: const Text('发现', style: TextStyle(color: Colors.white)),
+        title: const Text('发现'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF8b949e)),
+            icon: const Icon(Icons.refresh, color: kText2),
             tooltip: '换一批',
             onPressed: _refresh,
           ),
         ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: SizedBox(
-            height: 1,
-            child: ColoredBox(color: Color(0xFF21262d)),
-          ),
+          child: SizedBox(height: 1, child: ColoredBox(color: kBorderStrong)),
         ),
       ),
       body: body,
@@ -300,19 +290,31 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   }
 
   Widget _mainCover(Comic comic, double coverWidth) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: coverWidth,
-        height: coverWidth * 4 / 3,
-        color: const Color(0xFF21262d),
-        child: comic.coverUrl != null
-            ? Image.network(
-                comic.coverUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder(),
-              )
-            : _placeholder(),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(kRadiusFloat),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kRadiusFloat),
+        child: Container(
+          width: coverWidth,
+          height: coverWidth * 4 / 3,
+          color: kSurface2,
+          child: comic.coverUrl != null
+              ? Image.network(
+                  comic.coverUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _placeholder(),
+                )
+              : _placeholder(),
+        ),
       ),
     );
   }
@@ -321,11 +323,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     return Opacity(
       opacity: 0.6,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kRadiusThumb),
         child: Container(
           width: width,
           height: height,
-          color: const Color(0xFF21262d),
+          color: kSurface2,
           child: comic.coverUrl != null
               ? Image.network(
                   comic.coverUrl!,
@@ -339,7 +341,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   }
 
   Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+    color: kSurface2,
+    child: const Icon(Icons.image_not_supported, color: kText2),
   );
 }

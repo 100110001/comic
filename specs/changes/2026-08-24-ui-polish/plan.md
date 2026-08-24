@@ -124,7 +124,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 头部信息区用面板（surface2 + 边框 + 圆角）承载封面与信息；按钮走主题；章节列表缩略圆角与文字层级统一。
 - **Verification:** 桌面双栏与手机纵向布局样式统一，收藏/续读/章节跳转逻辑不变。
 
-### U7. 发现与搜索
+### U7. ✅ 发现与搜索
 
 - **Goal:** 发现主卡/侧卡与搜索页视觉精修。
 - **Requirements:** R7, R9

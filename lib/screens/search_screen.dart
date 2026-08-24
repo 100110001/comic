@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../theme.dart';
 import '../widgets/comic_grid.dart';
 import '../widgets/status_views.dart';
 import 'detail_screen.dart';
@@ -55,18 +56,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final loading = searchAsync.isLoading && comics.isEmpty;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        iconTheme: const IconThemeData(color: Colors.white),
         title: TextField(
           controller: _controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(color: kText1, fontSize: 14),
           decoration: const InputDecoration(
             hintText: '搜索漫画、作者…',
-            hintStyle: TextStyle(color: Color(0xFF8b949e)),
+            hintStyle: TextStyle(color: kText2),
             border: InputBorder.none,
+            isDense: true,
+            prefixIcon: Icon(Icons.search, color: kText2, size: 20),
           ),
           onSubmitted: _search,
         ),
