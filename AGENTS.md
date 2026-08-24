@@ -23,3 +23,11 @@ cd backend && npm run build
 ## Commit conventions
 
 No commit-message trailer is required in this repo.
+
+## Change workflow (user preference)
+
+- Every new piece of work starts from `master` on its own branch
+  (`codex/<slug>`), and the whole change loop (define → plan → work) happens on
+  that single branch.
+- When the change is complete, open a PR and merge it directly into `master`
+  (not `dev`).
