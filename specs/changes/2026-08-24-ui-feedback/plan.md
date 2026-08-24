@@ -61,11 +61,21 @@ origin: specs/changes/2026-08-24-ui-feedback/define.md
 - **Approach:** `PageTransitionsTheme` 全平台 `CupertinoPageTransitionsBuilder`。
 - **Verification:** 打开详情/阅读器从右滑入，不再缩放弹出。
 
+### U5. ✅ Codex 风按钮反馈 (PR #18)
+
+- **Goal:** 按钮悬停/按压反馈参考 Codex：平滑过渡 + 轻按压缩放。
+- **Requirements:** R1, R5
+- **Dependencies:** 无
+- **Files:** `lib/widgets/pressable.dart`（新建）、`lib/main.dart`、`lib/screens/discovery_screen.dart`、`lib/widgets/window_title_bar.dart`、`lib/theme.dart`
+- **Approach:** 新增 `Pressable`（悬停底色 160ms + 按下缩放 0.97）；侧栏导航项、发现页悬浮按钮接入；窗口按钮按压缩放 0.92；FilledButton 动画 150ms。
+- **Verification:** 悬停过渡平滑，按下有轻微缩放反馈。
+
 ## Acceptance Examples
 
 - AE1. 按钮 hover/点击反馈明显。Covers R1。
 - AE2. 最小化/最大化 hover 可见。Covers R2。
 - AE3. 路由侧滑进入。Covers R4。
+- AE4. 按钮按下轻微缩放、悬停平滑过渡。Covers R1。
 
 ## Spec Impact
 

@@ -248,7 +248,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
-      ),
+      ).copyWith(animationDuration: const Duration(milliseconds: 150)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

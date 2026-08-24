@@ -10,6 +10,7 @@ import 'screens/mine_screen.dart';
 import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'tray/close_to_tray.dart';
+import 'widgets/pressable.dart';
 import 'widgets/reading_lists.dart';
 import 'widgets/window_title_bar.dart';
 
@@ -258,60 +259,42 @@ class _SideNavItem extends StatefulWidget {
 }
 
 class _SideNavItemState extends State<_SideNavItem> {
-  bool _hovered = false;
-
   @override
   Widget build(BuildContext context) {
     final c = context.appColors;
     final selected = widget.selected;
-    final bg = selected
-        ? c.accent.withValues(alpha: 0.15)
-        : _hovered
-        ? c.border
-        : Colors.transparent;
-    final fg = selected
-        ? c.accent
-        : _hovered
-        ? c.text1
-        : c.text2;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+    final fg = selected ? c.accent : c.text2;
+    return Pressable(
+      onTap: widget.onTap,
+      hoverColor: selected ? Colors.transparent : c.border,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
-          color: bg,
+          color: selected
+              ? c.accent.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(kRadiusButton),
-            splashColor: c.accent.withValues(alpha: 0.18),
-            highlightColor: c.accent.withValues(alpha: 0.08),
-            onTap: widget.onTap,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              child: Row(
-                children: [
-                  Icon(
-                    selected ? widget.selectedIcon : widget.icon,
-                    size: 20,
-                    color: fg,
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    widget.label,
-                    style: TextStyle(
-                      color: fg,
-                      fontSize: 14,
-                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                selected ? widget.selectedIcon : widget.icon,
+                size: 20,
+                color: fg,
               ),
-            ),
+              const SizedBox(width: 10),
+              Text(
+                widget.label,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
           ),
         ),
       ),

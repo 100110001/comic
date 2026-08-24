@@ -122,6 +122,7 @@ class _TitleBarButton extends StatefulWidget {
 
 class _TitleBarButtonState extends State<_TitleBarButton> {
   bool _hovered = false;
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -132,16 +133,31 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
         : (_hovered ? c.text1 : c.text2);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onExit: (_) {
+        setState(() {
+          _hovered = false;
+          _pressed = false;
+        });
+      },
       child: InkWell(
         hoverColor: widget.danger
             ? const Color(0xFFe81123)
             : Colors.white.withValues(alpha: 0.08),
         onTap: widget.onTap,
-        child: SizedBox(
-          width: 46,
-          height: 40,
-          child: Icon(widget.icon, size: 16, color: iconColor),
+        child: Listener(
+          onPointerDown: (_) => setState(() => _pressed = true),
+          onPointerUp: (_) => setState(() => _pressed = false),
+          onPointerCancel: (_) => setState(() => _pressed = false),
+          child: AnimatedScale(
+            scale: _pressed ? 0.92 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+            child: SizedBox(
+              width: 46,
+              height: 40,
+              child: Icon(widget.icon, size: 16, color: iconColor),
+            ),
+          ),
         ),
       ),
     );
