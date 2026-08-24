@@ -43,16 +43,16 @@ class ComicGrid extends StatelessWidget {
             // 卡片高度 = 封面（3:4，占卡宽×4/3）+ 固定文字区（约 48px），
             // 按实际卡宽动态计算高宽比，避免卡片底部留白或文字溢出。
             final cardWidth =
-                (constraints.maxWidth - 24 - 10 * (columns - 1)) / columns;
-            final childAspectRatio = cardWidth / (cardWidth * 4 / 3 + 48);
+                (constraints.maxWidth - 32 - 12 * (columns - 1)) / columns;
+            final childAspectRatio = cardWidth / (cardWidth * 4 / 3 + 50);
             return GridView.builder(
               controller: controller,
-              padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + bottomPadding),
+              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
               gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: columns,
                 childAspectRatio: childAspectRatio,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
               ),
               itemCount: comics.length + (loading ? 1 : 0),
               itemBuilder: (ctx, i) {

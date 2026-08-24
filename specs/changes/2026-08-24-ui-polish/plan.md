@@ -88,7 +88,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 提供 `StatusView`（图标+文案+可选按钮）与空态包装；各页错误/空态改为引用，删除重复实现。
 - **Verification:** 各页错误与空态样式统一；重试行为不变。
 
-### U3. 漫画卡片与网格
+### U3. ✅ 漫画卡片与网格
 
 - **Goal:** 网格卡片视觉统一：封面圆角、边框/阴影、占位、文字层级、收藏角标。
 - **Requirements:** R3, R9
