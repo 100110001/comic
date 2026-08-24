@@ -69,7 +69,7 @@ stateDiagram-v2
 
 ## Implementation Units
 
-### U1. 键盘翻页
+### U1. ✅ 键盘翻页
 
 - **Goal:** 桌面形态可用键盘完成翻页、章内首尾直达，边界语义与滚轮一致。
 - **Requirements:** R1, R2

@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
@@ -119,6 +120,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     } else {
       _prevChapter();
     }
+  }
+
+  /// 桌面形态章内直达指定页（页码越界时收敛到首/末页）。
+  void _goToPage(int page) {
+    if (_images.isEmpty) return;
+    final target = page.clamp(0, _images.length - 1).toInt();
+    setState(() => _currentPage = target);
+    _precacheAround(target);
+  }
+
+  /// 桌面形态的键盘翻页绑定；边界行为复用现有翻页语义。
+  Map<ShortcutActivator, VoidCallback> _desktopShortcutBindings() {
+    return {
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
+      const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.pageUp): _prevPage,
+      const SingleActivator(LogicalKeyboardKey.pageDown): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.space): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.home): () => _goToPage(0),
+      const SingleActivator(LogicalKeyboardKey.end): () =>
+          _goToPage(_images.length - 1),
+    };
   }
 
   /// 自动续章：主体形态在越过本章最后一页时调用。
@@ -403,93 +426,92 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final Widget scaffold = Scaffold(
+      backgroundColor: Colors.black,
+      endDrawer: desktop
+          ? ChapterDrawer(
+              chapters: _chapters,
+              currentIndex: _chapterIndex,
+              onSelect: (i) {
+                Navigator.pop(context);
+                _goToChapter(i);
+              },
+            )
+          : null,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          _currentChapter?.title ?? _title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+        ),
+        actions: [
+          Builder(
+            builder: (buttonContext) => IconButton(
+              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
+              tooltip: '目录',
+              onPressed: () => _openDirectory(buttonContext),
+            ),
+          ),
+          if (widget.onPrevComic != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.skip_previous,
+                color: _canPrevComic && !_switchingComic
+                    ? Colors.white
+                    : const Color(0xFF484f58),
+              ),
+              tooltip: '上一本',
+              onPressed: _canPrevComic && !_switchingComic ? _prevComic : null,
+            ),
+          if (widget.onNextComic != null)
+            IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: Icon(
+                Icons.skip_next,
+                color: _switchingComic ? const Color(0xFF484f58) : Colors.white,
+              ),
+              tooltip: '下一本',
+              onPressed: _switchingComic ? null : _nextComic,
+            ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_left,
+              color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+            ),
+            tooltip: '上一章',
+            onPressed: _hasPrev ? _prevChapter : null,
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.chevron_right,
+              color: _hasNext ? Colors.white : const Color(0xFF484f58),
+            ),
+            tooltip: '下一章',
+            onPressed: _hasNext ? _nextChapter : null,
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : desktop
+          ? _buildPagedBody(context)
+          : _buildMobileBody(),
+    );
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _saveProgress();
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        endDrawer: desktop
-            ? ChapterDrawer(
-                chapters: _chapters,
-                currentIndex: _chapterIndex,
-                onSelect: (i) {
-                  Navigator.pop(context);
-                  _goToChapter(i);
-                },
-              )
-            : null,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text(
-            _currentChapter?.title ?? _title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
-          ),
-          actions: [
-            Builder(
-              builder: (buttonContext) => IconButton(
-                icon: const Icon(
-                  Icons.format_list_bulleted,
-                  color: Colors.white,
-                ),
-                tooltip: '目录',
-                onPressed: () => _openDirectory(buttonContext),
-              ),
-            ),
-            if (widget.onPrevComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_previous,
-                  color: _canPrevComic && !_switchingComic
-                      ? Colors.white
-                      : const Color(0xFF484f58),
-                ),
-                tooltip: '上一本',
-                onPressed: _canPrevComic && !_switchingComic
-                    ? _prevComic
-                    : null,
-              ),
-            if (widget.onNextComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_next,
-                  color: _switchingComic
-                      ? const Color(0xFF484f58)
-                      : Colors.white,
-                ),
-                tooltip: '下一本',
-                onPressed: _switchingComic ? null : _nextComic,
-              ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_left,
-                color: _hasPrev ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '上一章',
-              onPressed: _hasPrev ? _prevChapter : null,
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right,
-                color: _hasNext ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '下一章',
-              onPressed: _hasNext ? _nextChapter : null,
-            ),
-          ],
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : desktop
-            ? _buildPagedBody(context)
-            : _buildMobileBody(),
-      ),
+      child: desktop
+          ? CallbackShortcuts(
+              bindings: _desktopShortcutBindings(),
+              child: Focus(autofocus: true, child: scaffold),
+            )
+          : scaffold,
     );
   }
 
