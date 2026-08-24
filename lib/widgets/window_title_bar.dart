@@ -126,14 +126,8 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
   @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final iconColor = widget.danger
-        ? (_hovered
-              ? Colors.white
-              : dark
-              ? Colors.white
-              : c.text1)
-        : c.text2;
+    // 三个按钮平时颜色一致；关闭按钮 hover 红底时图标切白色。
+    final iconColor = widget.danger && _hovered ? Colors.white : c.text2;
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
