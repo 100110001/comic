@@ -25,7 +25,7 @@ origin: specs/changes/2026-08-24-ui-feedback/define.md
 
 ## Implementation Units
 
-### U1. 全局按钮反馈加强
+### U1. ✅ 全局按钮反馈加强
 
 - **Goal:** hover/点击反馈可感知。
 - **Requirements:** R1, R5
@@ -34,7 +34,7 @@ origin: specs/changes/2026-08-24-ui-feedback/define.md
 - **Approach:** `hoverColor` accent 8%、`splashColor` 12%、`highlightColor` 6%，新增 `IconButtonThemeData` hover/splash。
 - **Verification:** 悬停按钮/图标底色明显，点击有水波。
 
-### U2. 窗口按钮 hover
+### U2. ✅ 窗口按钮 hover
 
 - **Goal:** 三按钮 hover 均可见。
 - **Requirements:** R2, R5
@@ -43,7 +43,7 @@ origin: specs/changes/2026-08-24-ui-feedback/define.md
 - **Approach:** 非关闭按钮 hover 背景半透明白 8%、图标变 `text1`；关闭红底白图标不变。
 - **Verification:** 最小化/最大化悬停有反馈。
 
-### U3. 区域对比
+### U3. ✅ 区域对比
 
 - **Goal:** 侧栏与内容区分明。
 - **Requirements:** R3, R5
@@ -52,7 +52,7 @@ origin: specs/changes/2026-08-24-ui-feedback/define.md
 - **Approach:** 深色 `navBg` 提亮到 `#21262d`；侧栏分隔线用 `c.border`；导航项 hover 底色用 `c.border`。
 - **Verification:** 深浅模式下侧栏/内容区分明。
 
-### U4. 路由转场侧滑
+### U4. ✅ 路由转场侧滑
 
 - **Goal:** 详情/阅读器等推入为侧滑。
 - **Requirements:** R4, R5

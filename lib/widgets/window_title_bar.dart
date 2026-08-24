@@ -127,12 +127,16 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
   Widget build(BuildContext context) {
     final c = context.appColors;
     // 三个按钮平时颜色一致；关闭按钮 hover 红底时图标切白色。
-    final iconColor = widget.danger && _hovered ? Colors.white : c.text2;
+    final iconColor = widget.danger
+        ? (_hovered ? Colors.white : c.text2)
+        : (_hovered ? c.text1 : c.text2);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: InkWell(
-        hoverColor: widget.danger ? const Color(0xFFe81123) : c.surface2,
+        hoverColor: widget.danger
+            ? const Color(0xFFe81123)
+            : Colors.white.withValues(alpha: 0.08),
         onTap: widget.onTap,
         child: SizedBox(
           width: 46,

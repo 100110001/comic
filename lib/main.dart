@@ -125,6 +125,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Scaffold(
       body: Row(
         children: [
@@ -146,7 +147,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               }
             },
           ),
-          const VerticalDivider(width: 1),
+          VerticalDivider(width: 1, color: c.border),
           Expanded(
             child: TweenAnimationBuilder<double>(
               key: ValueKey('page-$_index'),
@@ -266,7 +267,7 @@ class _SideNavItemState extends State<_SideNavItem> {
     final bg = selected
         ? c.accent.withValues(alpha: 0.15)
         : _hovered
-        ? c.surface2
+        ? c.border
         : Colors.transparent;
     final fg = selected
         ? c.accent
