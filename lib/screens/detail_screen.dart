@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../theme.dart';
+import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
 
@@ -78,17 +80,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(comicDetailProvider(widget.comicId));
     final detail = detailAsync.value;
+    final c = context.appColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           detail?.comic.title ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
           if (detail != null)
@@ -96,9 +95,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               tooltip: detail.favorited ? '取消收藏' : '收藏',
               icon: Icon(
                 detail.favorited ? Icons.favorite : Icons.favorite_border,
-                color: detail.favorited
-                    ? const Color(0xFFf778ba)
-                    : Colors.white,
+                color: detail.favorited ? c.favorite : c.text1,
               ),
               onPressed: _favoriteBusy ? null : _toggleFavorite,
             ),
@@ -107,8 +104,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
       body: detailAsync.isLoading
           ? const Center(child: CircularProgressIndicator())
           : detailAsync.hasError
-          ? _DetailError(
-              onRetry: () =>
+          ? StatusView(
+              icon: Icons.cloud_off,
+              message: '加载失败',
+              actionLabel: '重试',
+              onAction: () =>
                   ref.invalidate(comicDetailProvider(widget.comicId)),
             )
           : LayoutBuilder(
@@ -144,7 +144,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         width: 330,
                         child: SingleChildScrollView(child: header),
                       ),
-                      const VerticalDivider(width: 1, color: Color(0xFF21262d)),
+                      const VerticalDivider(width: 1),
                       Expanded(child: chapterList),
                     ],
                   );
@@ -152,33 +152,12 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 return Column(
                   children: [
                     header,
-                    const Divider(color: Color(0xFF21262d), height: 1),
+                    const Divider(height: 1),
                     Expanded(child: chapterList),
                   ],
                 );
               },
             ),
-    );
-  }
-}
-
-class _DetailError extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _DetailError({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
-          const SizedBox(height: 12),
-          const Text('加载失败', style: TextStyle(color: Color(0xFF8b949e))),
-          const SizedBox(height: 12),
-          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
-        ],
-      ),
     );
   }
 }
@@ -206,22 +185,29 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final c = context.appColors;
+    return Container(
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        border: Border.all(color: c.border),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(kRadiusThumb),
             child: comic.coverUrl != null
                 ? Image.network(
                     comic.coverUrl!,
                     width: 100,
                     height: 140,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _placeholder(),
+                    errorBuilder: (_, _, _) => _placeholder(context),
                   )
-                : _placeholder(),
+                : _placeholder(context),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -232,11 +218,7 @@ class _Header extends StatelessWidget {
                   comic.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
@@ -249,11 +231,11 @@ class _Header extends StatelessWidget {
                             comic.author!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF58a6ff),
+                            style: TextStyle(
+                              color: c.accent,
                               fontSize: 13,
                               decoration: TextDecoration.underline,
-                              decorationColor: Color(0xFF58a6ff),
+                              decorationColor: c.accent,
                             ),
                           ),
                         ),
@@ -265,9 +247,7 @@ class _Header extends StatelessWidget {
                           tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
                           icon: Icon(
                             authorFavorited ? Icons.star : Icons.star_border,
-                            color: authorFavorited
-                                ? const Color(0xFFf5c542)
-                                : const Color(0xFF8b949e),
+                            color: authorFavorited ? c.star : c.text2,
                             size: 18,
                           ),
                           onPressed: onToggleAuthorFavorite,
@@ -279,18 +259,11 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${comic.chapterCount}话 · ${comic.imageCount}P',
-                  style: const TextStyle(
-                    color: Color(0xFF58a6ff),
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: c.accent, fontSize: 12),
                 ),
                 if (progress != null) ...[
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF58a6ff),
-                      foregroundColor: Colors.black,
-                    ),
                     icon: const Icon(Icons.play_arrow, size: 18),
                     label: const Text('继续阅读'),
                     onPressed: onContinue,
@@ -304,12 +277,15 @@ class _Header extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-    width: 100,
-    height: 140,
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      width: 100,
+      height: 140,
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }
 
 class _ChapterList extends StatelessWidget {
@@ -319,19 +295,16 @@ class _ChapterList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: chapters.length,
-      separatorBuilder: (_, _) =>
-          const Divider(color: Color(0xFF21262d), height: 1, indent: 16),
+      separatorBuilder: (_, _) => Divider(height: 1, indent: 16),
       itemBuilder: (ctx, i) {
         final ch = chapters[i];
         return ListTile(
-          title: Text(
-            ch.title,
-            style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14),
-          ),
-          trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
+          title: Text(ch.title, style: TextStyle(color: c.text1, fontSize: 14)),
+          trailing: Icon(Icons.chevron_right, color: c.text2),
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
 import '../providers/discovery_providers.dart';
+import '../theme.dart';
+import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 
 /// 发现：随机阅读入口。一次展示一本漫画，拖拽（触摸滑动/鼠标按住拖动）
@@ -36,24 +38,18 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _dragX = 0);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('切换失败，请重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('切换失败，请重试')));
     }
   }
 
   void _handleDragEnd() {
     final threshold = _threshold(MediaQuery.of(context).size.width);
     if (_dragX <= -threshold) {
-      _switchTo(
-        () => ref.read(discoveryProvider.notifier).next(),
-        next: true,
-      );
+      _switchTo(() => ref.read(discoveryProvider.notifier).next(), next: true);
     } else if (_dragX >= threshold) {
-      _switchTo(
-        () => ref.read(discoveryProvider.notifier).prev(),
-        next: false,
-      );
+      _switchTo(() => ref.read(discoveryProvider.notifier).prev(), next: false);
     } else {
       setState(() {
         _dragging = false;
@@ -67,9 +63,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       await ref.read(discoveryProvider.notifier).refresh();
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('换一批失败，请重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('换一批失败，请重试')));
     }
   }
 
@@ -99,9 +95,9 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('加载失败，请重试')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('加载失败，请重试')));
     }
   }
 
@@ -110,16 +106,20 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final async = ref.watch(discoveryProvider);
     final state = async.value;
     final comic = state?.current;
+    final c = context.appColors;
 
     final Widget body;
     if (async.isLoading && comic == null) {
       body = const Center(child: CircularProgressIndicator());
     } else if (async.hasError && comic == null) {
-      body = _DiscoveryError(onRetry: () => ref.invalidate(discoveryProvider));
-    } else if (comic == null) {
-      body = const Center(
-        child: Text('书库为空', style: TextStyle(color: Color(0xFF8b949e))),
+      body = StatusView(
+        icon: Icons.cloud_off,
+        message: '加载失败',
+        actionLabel: '重试',
+        onAction: () => ref.invalidate(discoveryProvider),
       );
+    } else if (comic == null) {
+      body = const StatusView(icon: Icons.menu_book_outlined, message: '书库为空');
     } else {
       final s = state!;
       body = Column(
@@ -147,10 +147,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: c.text1,
                         fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (comic.author != null) ...[
@@ -159,19 +159,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                         comic.author!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Color(0xFF8b949e),
-                          fontSize: 13,
-                        ),
+                        style: TextStyle(color: c.text2, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 8),
                     Text(
                       '${comic.chapterCount}话 · ${comic.imageCount}P',
-                      style: const TextStyle(
-                        color: Color(0xFF58a6ff),
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: c.accent, fontSize: 12),
                     ),
                   ],
                 ),
@@ -180,36 +174,28 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ),
           Text(
             '序列第 ${s.index + 1} / ${s.total} 本',
-            style: const TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+            style: TextStyle(color: c.text2, fontSize: 12),
           ),
           const SizedBox(height: 6),
-          const Text(
-            '拖拽切换 · 点击阅读',
-            style: TextStyle(color: Color(0xFF8b949e), fontSize: 12),
-          ),
+          Text('拖拽切换 · 点击阅读', style: TextStyle(color: c.text2, fontSize: 12)),
           const SizedBox(height: 24),
         ],
       );
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: const Text('发现', style: TextStyle(color: Colors.white)),
+        title: const Text('发现'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF8b949e)),
+            icon: Icon(Icons.refresh, color: c.text2),
             tooltip: '换一批',
             onPressed: _refresh,
           ),
         ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: SizedBox(
-            height: 1,
-            child: ColoredBox(color: Color(0xFF21262d)),
-          ),
+          child: SizedBox(height: 1, child: ColoredBox(color: c.borderStrong)),
         ),
       ),
       body: body,
@@ -276,8 +262,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onHorizontalDragStart: (_) => setState(() => _dragging = true),
-            onHorizontalDragUpdate: (d) =>
-                setState(() => _dragX += d.delta.dx),
+            onHorizontalDragUpdate: (d) => setState(() => _dragX += d.delta.dx),
             onHorizontalDragEnd: (_) => _handleDragEnd(),
             onTap: () => _openReader(comic),
             child: AnimatedSwitcher(
@@ -303,32 +288,24 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   }
 
   Widget _mainCover(Comic comic, double coverWidth) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: coverWidth,
-        height: coverWidth * 4 / 3,
-        color: const Color(0xFF21262d),
-        child: comic.coverUrl != null
-            ? Image.network(
-                comic.coverUrl!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _placeholder(),
-              )
-            : _placeholder(),
+    final c = context.appColors;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(kRadiusFloat),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
-    );
-  }
-
-  Widget _miniCover(Comic comic, double width, double height) {
-    return Opacity(
-      opacity: 0.6,
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kRadiusFloat),
         child: Container(
-          width: width,
-          height: height,
-          color: const Color(0xFF21262d),
+          width: coverWidth,
+          height: coverWidth * 4 / 3,
+          color: c.surface2,
           child: comic.coverUrl != null
               ? Image.network(
                   comic.coverUrl!,
@@ -341,29 +318,33 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     );
   }
 
-  Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-  );
-}
-
-class _DiscoveryError extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _DiscoveryError({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
-          const SizedBox(height: 12),
-          const Text('加载失败', style: TextStyle(color: Color(0xFF8b949e))),
-          const SizedBox(height: 12),
-          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
-        ],
+  Widget _miniCover(Comic comic, double width, double height) {
+    final c = context.appColors;
+    return Opacity(
+      opacity: 0.6,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kRadiusThumb),
+        child: Container(
+          width: width,
+          height: height,
+          color: c.surface2,
+          child: comic.coverUrl != null
+              ? Image.network(
+                  comic.coverUrl!,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _placeholder(),
+                )
+              : _placeholder(),
+        ),
       ),
+    );
+  }
+
+  Widget _placeholder() {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
     );
   }
 }

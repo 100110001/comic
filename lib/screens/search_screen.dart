@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../theme.dart';
 import '../widgets/comic_grid.dart';
+import '../widgets/status_views.dart';
 import 'detail_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -52,49 +54,39 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final keyword = state?.keyword ?? '';
     final hasError = searchAsync.hasError;
     final loading = searchAsync.isLoading && comics.isEmpty;
+    final c = context.appColors;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        iconTheme: const IconThemeData(color: Colors.white),
         title: TextField(
           controller: _controller,
           autofocus: true,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: const InputDecoration(
+          style: TextStyle(color: c.text1, fontSize: 14),
+          decoration: InputDecoration(
             hintText: '搜索漫画、作者…',
-            hintStyle: TextStyle(color: Color(0xFF8b949e)),
+            hintStyle: TextStyle(color: c.text2),
             border: InputBorder.none,
+            isDense: true,
+            prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
           ),
           onSubmitted: _search,
         ),
       ),
       body: keyword.isEmpty
-          ? const Center(
-              child: Text(
-                '输入关键字搜索漫画或作者',
-                style: TextStyle(color: Color(0xFF8b949e)),
-              ),
-            )
+          ? const StatusView(icon: Icons.search, message: '输入关键字搜索漫画或作者')
           : RefreshIndicator(
               onRefresh: () => _search(keyword),
               child: hasError && comics.isEmpty
-                  ? _SearchError(onRetry: () => ref.invalidate(searchProvider))
+                  ? StatusView(
+                      icon: Icons.cloud_off,
+                      message: '搜索失败',
+                      actionLabel: '重试',
+                      onAction: () => ref.invalidate(searchProvider),
+                    )
                   : loading
                   ? const Center(child: CircularProgressIndicator())
                   : comics.isEmpty
-                  ? ListView(
-                      children: const [
-                        SizedBox(height: 120),
-                        Center(
-                          child: Text(
-                            '没有找到相关漫画',
-                            style: TextStyle(color: Color(0xFF8b949e)),
-                          ),
-                        ),
-                      ],
-                    )
+                  ? const EmptyListView(message: '没有找到相关漫画')
                   : ComicGrid(
                       controller: _scrollController,
                       comics: comics,
@@ -107,27 +99,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       ),
                     ),
             ),
-    );
-  }
-}
-
-class _SearchError extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _SearchError({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.cloud_off, color: Color(0xFF8b949e), size: 48),
-          const SizedBox(height: 12),
-          const Text('搜索失败', style: TextStyle(color: Color(0xFF8b949e))),
-          const SizedBox(height: 12),
-          FilledButton.tonal(onPressed: onRetry, child: const Text('重试')),
-        ],
-      ),
     );
   }
 }

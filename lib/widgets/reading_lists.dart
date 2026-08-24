@@ -6,6 +6,8 @@ import '../models/reading_progress_entry.dart';
 import '../providers/comics_providers.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
+import '../theme.dart';
+import 'status_views.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
@@ -26,15 +28,11 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无最近阅读')
+          ? const EmptyListView(message: '暂无最近阅读')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 76,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
               itemBuilder: (ctx, i) {
                 final e = items[i];
                 return _EntryTile(
@@ -74,15 +72,11 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无收藏')
+          ? const EmptyListView(message: '暂无收藏')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 76,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
               itemBuilder: (ctx, i) {
                 final comic = items[i];
                 return _EntryTile(
@@ -123,35 +117,34 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
       child: loading
           ? const Center(child: CircularProgressIndicator())
           : items.isEmpty
-          ? _EmptyList(text: '暂无收藏作者')
+          ? const EmptyListView(message: '暂无收藏作者')
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 16,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
               itemBuilder: (ctx, i) {
                 final item = items[i];
                 return ListTile(
-                  leading: const Icon(Icons.star, color: Color(0xFFf5c542)),
+                  leading: Icon(Icons.star, color: context.appColors.star),
                   title: Text(
                     item.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: TextStyle(
+                      color: context.appColors.text1,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: Text(
                     '${item.comicCount} 部作品',
-                    style: const TextStyle(
-                      color: Color(0xFF8b949e),
+                    style: TextStyle(
+                      color: context.appColors.text2,
                       fontSize: 12,
                     ),
                   ),
-                  trailing: const Icon(
+                  trailing: Icon(
                     Icons.chevron_right,
-                    color: Color(0xFF8b949e),
+                    color: context.appColors.text2,
                   ),
                   onTap: () => Navigator.push(
                     ctx,
@@ -162,23 +155,6 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                 );
               },
             ),
-    );
-  }
-}
-
-class _EmptyList extends StatelessWidget {
-  final String text;
-  const _EmptyList({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        const SizedBox(height: 120),
-        Center(
-          child: Text(text, style: const TextStyle(color: Color(0xFF8b949e))),
-        ),
-      ],
     );
   }
 }
@@ -200,10 +176,11 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return ListTile(
       onTap: onTap,
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kRadiusThumb),
         child: SizedBox(
           width: 52,
           height: 68,
@@ -211,29 +188,32 @@ class _EntryTile extends StatelessWidget {
               ? Image.network(
                   coverUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => _placeholder(),
+                  errorBuilder: (_, _, _) => _placeholder(context),
                 )
-              : _placeholder(),
+              : _placeholder(context),
         ),
       ),
       title: Text(
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: c.text1, fontSize: 14),
       ),
       subtitle: Text(
         author != null ? '$subtitle · $author' : subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+        style: TextStyle(color: c.text2, fontSize: 12),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
+      trailing: Icon(Icons.chevron_right, color: c.text2),
     );
   }
 
-  Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }
