@@ -8,6 +8,12 @@
 - 移动端不受影响：隐藏回调先判断 `isDesktopAt`，且移动端布局没有包 `MouseRegion`/快捷键。
 - `Focus.onKeyEvent` 返回 `KeyEventResult.ignored` 让按键继续冒泡给 `CallbackShortcuts`，两者不冲突。
 
+## U3. 翻页过渡
+
+- 用 `AnimatedSwitcher` + `ValueKey('reader-page-N')` 实现"目标页立即替换 + 淡入淡出"：快速连翻时当前子项始终是最新页，旧页只做淡出，不阻塞新页。
+- 过渡期间新旧两张图同时在树里，依赖 U1 的 `_precacheAround` 让新页通常已在图片缓存中，避免淡入时闪加载圈。
+- 加载中与失败占位（`loadingBuilder`/`errorBuilder`）原样保留，符合 R6。
+
 ## U1. 键盘翻页
 
 - 键盘处理用 `CallbackShortcuts` + `Focus` 包裹**整个 Scaffold**（不是只包主体），否则焦点落在 AppBar 按钮上时按键无法冒泡到快捷键。

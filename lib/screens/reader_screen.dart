@@ -639,18 +639,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       child: Column(
         children: [
           Expanded(
-            child: Container(
-              color: Colors.black,
-              alignment: Alignment.center,
-              child: Image.network(
-                _images[page].url,
-                fit: BoxFit.contain,
-                loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (_, _, _) => const Center(
-                  child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeIn,
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
+              child: Container(
+                key: ValueKey('reader-page-$page'),
+                color: Colors.black,
+                alignment: Alignment.center,
+                child: Image.network(
+                  _images[page].url,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) {
+                    if (progress == null) return child;
+                    return const Center(child: CircularProgressIndicator());
+                  },
+                  errorBuilder: (_, _, _) => const Center(
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.grey,
+                      size: 48,
+                    ),
+                  ),
                 ),
               ),
             ),
