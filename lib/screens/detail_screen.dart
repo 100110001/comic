@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../theme.dart';
 import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
@@ -81,15 +82,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final detail = detailAsync.value;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        iconTheme: const IconThemeData(color: Colors.white),
         title: Text(
           detail?.comic.title ?? '',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
         actions: [
           if (detail != null)
@@ -97,9 +94,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               tooltip: detail.favorited ? '取消收藏' : '收藏',
               icon: Icon(
                 detail.favorited ? Icons.favorite : Icons.favorite_border,
-                color: detail.favorited
-                    ? const Color(0xFFf778ba)
-                    : Colors.white,
+                color: detail.favorited ? kFavorite : kText1,
               ),
               onPressed: _favoriteBusy ? null : _toggleFavorite,
             ),
@@ -148,7 +143,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                         width: 330,
                         child: SingleChildScrollView(child: header),
                       ),
-                      const VerticalDivider(width: 1, color: Color(0xFF21262d)),
+                      const VerticalDivider(width: 1),
                       Expanded(child: chapterList),
                     ],
                   );
@@ -156,7 +151,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 return Column(
                   children: [
                     header,
-                    const Divider(color: Color(0xFF21262d), height: 1),
+                    const Divider(height: 1),
                     Expanded(child: chapterList),
                   ],
                 );
@@ -189,13 +184,19 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: kSurface2,
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        border: Border.all(color: kBorder),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(kRadiusThumb),
             child: comic.coverUrl != null
                 ? Image.network(
                     comic.coverUrl!,
@@ -215,11 +216,7 @@ class _Header extends StatelessWidget {
                   comic.title,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(context).textTheme.titleMedium,
                 ),
                 if (comic.author != null) ...[
                   const SizedBox(height: 6),
@@ -233,10 +230,10 @@ class _Header extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Color(0xFF58a6ff),
+                              color: kAccent,
                               fontSize: 13,
                               decoration: TextDecoration.underline,
-                              decorationColor: Color(0xFF58a6ff),
+                              decorationColor: kAccent,
                             ),
                           ),
                         ),
@@ -248,9 +245,7 @@ class _Header extends StatelessWidget {
                           tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
                           icon: Icon(
                             authorFavorited ? Icons.star : Icons.star_border,
-                            color: authorFavorited
-                                ? const Color(0xFFf5c542)
-                                : const Color(0xFF8b949e),
+                            color: authorFavorited ? kStar : kText2,
                             size: 18,
                           ),
                           onPressed: onToggleAuthorFavorite,
@@ -262,18 +257,11 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${comic.chapterCount}话 · ${comic.imageCount}P',
-                  style: const TextStyle(
-                    color: Color(0xFF58a6ff),
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: kAccent, fontSize: 12),
                 ),
                 if (progress != null) ...[
                   const SizedBox(height: 12),
                   FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF58a6ff),
-                      foregroundColor: Colors.black,
-                    ),
                     icon: const Icon(Icons.play_arrow, size: 18),
                     label: const Text('继续阅读'),
                     onPressed: onContinue,
@@ -290,8 +278,8 @@ class _Header extends StatelessWidget {
   Widget _placeholder() => Container(
     width: 100,
     height: 140,
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+    color: kSurface2,
+    child: const Icon(Icons.image_not_supported, color: kText2),
   );
 }
 
@@ -312,9 +300,9 @@ class _ChapterList extends StatelessWidget {
         return ListTile(
           title: Text(
             ch.title,
-            style: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 14),
+            style: const TextStyle(color: kText1, fontSize: 14),
           ),
-          trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
+          trailing: const Icon(Icons.chevron_right, color: kText2),
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(

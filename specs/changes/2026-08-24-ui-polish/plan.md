@@ -115,7 +115,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 搜索框走输入框主题；错误态用共用组件；悬浮续读条用主题圆角/阴影并统一文字层级。
 - **Verification:** 首页各状态样式统一，搜索/刷新/续读条逻辑不变。
 
-### U6. 详情页
+### U6. ✅ 详情页
 
 - **Goal:** 详情头部面板化，按钮与章节列表视觉统一。
 - **Requirements:** R5, R9
