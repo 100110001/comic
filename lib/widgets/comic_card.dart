@@ -9,6 +9,7 @@ class ComicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Card(
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -27,9 +28,9 @@ class ComicCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
-                          errorBuilder: (_, _, _) => _placeholder(),
+                          errorBuilder: (_, _, _) => _placeholder(context),
                         )
-                      : _placeholder(),
+                      : _placeholder(context),
                   Positioned(
                     right: 4,
                     bottom: 4,
@@ -43,9 +44,9 @@ class ComicCard extends StatelessWidget {
                               color: Colors.black.withValues(alpha: 0.55),
                               borderRadius: BorderRadius.circular(kRadiusSmall),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.favorite,
-                              color: kFavorite,
+                              color: c.favorite,
                               size: 13,
                             ),
                           ),
@@ -62,7 +63,7 @@ class ComicCard extends StatelessWidget {
                           ),
                           child: Text(
                             '${comic.chapterCount}话 · ${comic.imageCount}P',
-                            style: const TextStyle(color: kText1, fontSize: 10),
+                            style: TextStyle(color: c.text1, fontSize: 10),
                           ),
                         ),
                       ],
@@ -80,8 +81,8 @@ class ComicCard extends StatelessWidget {
                     comic.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: kText1,
+                    style: TextStyle(
+                      color: c.text1,
                       fontSize: 13,
                       height: 1.25,
                       fontWeight: FontWeight.w500,
@@ -92,8 +93,8 @@ class ComicCard extends StatelessWidget {
                       comic.author!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: kText2,
+                      style: TextStyle(
+                        color: c.text2,
                         fontSize: 11,
                         height: 1.25,
                       ),
@@ -107,8 +108,11 @@ class ComicCard extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-    color: kSurface2,
-    child: const Icon(Icons.image_not_supported, color: kText2),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }

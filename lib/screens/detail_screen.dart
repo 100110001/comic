@@ -80,6 +80,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(comicDetailProvider(widget.comicId));
     final detail = detailAsync.value;
+    final c = context.appColors;
 
     return Scaffold(
       appBar: AppBar(
@@ -94,7 +95,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
               tooltip: detail.favorited ? '取消收藏' : '收藏',
               icon: Icon(
                 detail.favorited ? Icons.favorite : Icons.favorite_border,
-                color: detail.favorited ? kFavorite : kText1,
+                color: detail.favorited ? c.favorite : c.text1,
               ),
               onPressed: _favoriteBusy ? null : _toggleFavorite,
             ),
@@ -184,13 +185,14 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: kSurface2,
+        color: c.surface2,
         borderRadius: BorderRadius.circular(kRadiusCard),
-        border: Border.all(color: kBorder),
+        border: Border.all(color: c.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,9 +205,9 @@ class _Header extends StatelessWidget {
                     width: 100,
                     height: 140,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _placeholder(),
+                    errorBuilder: (_, _, _) => _placeholder(context),
                   )
-                : _placeholder(),
+                : _placeholder(context),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -229,11 +231,11 @@ class _Header extends StatelessWidget {
                             comic.author!,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: kAccent,
+                            style: TextStyle(
+                              color: c.accent,
                               fontSize: 13,
                               decoration: TextDecoration.underline,
-                              decorationColor: kAccent,
+                              decorationColor: c.accent,
                             ),
                           ),
                         ),
@@ -245,7 +247,7 @@ class _Header extends StatelessWidget {
                           tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
                           icon: Icon(
                             authorFavorited ? Icons.star : Icons.star_border,
-                            color: authorFavorited ? kStar : kText2,
+                            color: authorFavorited ? c.star : c.text2,
                             size: 18,
                           ),
                           onPressed: onToggleAuthorFavorite,
@@ -257,7 +259,7 @@ class _Header extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   '${comic.chapterCount}话 · ${comic.imageCount}P',
-                  style: const TextStyle(color: kAccent, fontSize: 12),
+                  style: TextStyle(color: c.accent, fontSize: 12),
                 ),
                 if (progress != null) ...[
                   const SizedBox(height: 12),
@@ -275,12 +277,15 @@ class _Header extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-    width: 100,
-    height: 140,
-    color: kSurface2,
-    child: const Icon(Icons.image_not_supported, color: kText2),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      width: 100,
+      height: 140,
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }
 
 class _ChapterList extends StatelessWidget {
@@ -290,19 +295,16 @@ class _ChapterList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return ListView.separated(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: chapters.length,
-      separatorBuilder: (_, _) =>
-          const Divider(color: Color(0xFF21262d), height: 1, indent: 16),
+      separatorBuilder: (_, _) => Divider(height: 1, indent: 16),
       itemBuilder: (ctx, i) {
         final ch = chapters[i];
         return ListTile(
-          title: Text(
-            ch.title,
-            style: const TextStyle(color: kText1, fontSize: 14),
-          ),
-          trailing: const Icon(Icons.chevron_right, color: kText2),
+          title: Text(ch.title, style: TextStyle(color: c.text1, fontSize: 14)),
+          trailing: Icon(Icons.chevron_right, color: c.text2),
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(

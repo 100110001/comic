@@ -1,93 +1,208 @@
 import 'package:flutter/material.dart';
 
-// ---- 设计令牌：颜色 ----
-const kBg = Color(0xFF0d1117);
-const kSurface1 = Color(0xFF161b22);
-const kSurface2 = Color(0xFF1c2128);
-const kBorder = Color(0xFF30363d);
-const kBorderStrong = Color(0xFF21262d);
-const kAccent = Color(0xFF58a6ff);
-const kText1 = Color(0xFFe6edf3);
-const kText2 = Color(0xFF8b949e);
-const kFavorite = Color(0xFFf778ba);
-const kStar = Color(0xFFf5c542);
-
-// ---- 设计令牌：圆角 ----
+// ---- 圆角令牌（浅/深共用） ----
 const kRadiusSmall = 6.0;
 const kRadiusThumb = 8.0;
 const kRadiusButton = 8.0;
 const kRadiusCard = 10.0;
 const kRadiusFloat = 14.0;
 
-/// 全 App 深色主题：延续 GitHub 深色体系，统一组件外观。
-ThemeData buildAppTheme() {
-  final scheme = const ColorScheme.dark(
-    primary: kAccent,
-    onPrimary: Colors.black,
-    secondaryContainer: kSurface2,
-    onSecondaryContainer: kText1,
-    surface: kSurface1,
-    onSurface: kText1,
-    onSurfaceVariant: kText2,
-    outline: kBorder,
+/// 双套颜色令牌：组件通过 `context.appColors.*` 取色。
+@immutable
+class AppColors extends ThemeExtension<AppColors> {
+  final Color bg;
+  final Color surface1;
+  final Color surface2;
+  final Color border;
+  final Color borderStrong;
+  final Color accent;
+  final Color text1;
+  final Color text2;
+  final Color favorite;
+  final Color star;
+  final Color readerBg;
+  final Color readerBar;
+
+  const AppColors({
+    required this.bg,
+    required this.surface1,
+    required this.surface2,
+    required this.border,
+    required this.borderStrong,
+    required this.accent,
+    required this.text1,
+    required this.text2,
+    required this.favorite,
+    required this.star,
+    required this.readerBg,
+    required this.readerBar,
+  });
+
+  static const dark = AppColors(
+    bg: Color(0xFF0d1117),
+    surface1: Color(0xFF161b22),
+    surface2: Color(0xFF1c2128),
+    border: Color(0xFF30363d),
+    borderStrong: Color(0xFF21262d),
+    accent: Color(0xFF58a6ff),
+    text1: Color(0xFFe6edf3),
+    text2: Color(0xFF8b949e),
+    favorite: Color(0xFFf778ba),
+    star: Color(0xFFf5c542),
+    readerBg: Colors.black,
+    readerBar: Color(0xFF161b22),
   );
-  const textTheme = TextTheme(
+
+  static const light = AppColors(
+    bg: Color(0xFFf6f8fa),
+    surface1: Color(0xFFffffff),
+    surface2: Color(0xFFffffff),
+    border: Color(0xFFd0d7de),
+    borderStrong: Color(0xFFd8dee4),
+    accent: Color(0xFF0969da),
+    text1: Color(0xFF1f2328),
+    text2: Color(0xFF57606a),
+    favorite: Color(0xFFd03592),
+    star: Color(0xFF9a6700),
+    readerBg: Color(0xFFf6f8fa),
+    readerBar: Color(0xFFffffff),
+  );
+
+  @override
+  AppColors copyWith({
+    Color? bg,
+    Color? surface1,
+    Color? surface2,
+    Color? border,
+    Color? borderStrong,
+    Color? accent,
+    Color? text1,
+    Color? text2,
+    Color? favorite,
+    Color? star,
+    Color? readerBg,
+    Color? readerBar,
+  }) {
+    return AppColors(
+      bg: bg ?? this.bg,
+      surface1: surface1 ?? this.surface1,
+      surface2: surface2 ?? this.surface2,
+      border: border ?? this.border,
+      borderStrong: borderStrong ?? this.borderStrong,
+      accent: accent ?? this.accent,
+      text1: text1 ?? this.text1,
+      text2: text2 ?? this.text2,
+      favorite: favorite ?? this.favorite,
+      star: star ?? this.star,
+      readerBg: readerBg ?? this.readerBg,
+      readerBar: readerBar ?? this.readerBar,
+    );
+  }
+
+  @override
+  AppColors lerp(ThemeExtension<AppColors>? other, double t) {
+    if (other is! AppColors) return this;
+    return AppColors(
+      bg: Color.lerp(bg, other.bg, t)!,
+      surface1: Color.lerp(surface1, other.surface1, t)!,
+      surface2: Color.lerp(surface2, other.surface2, t)!,
+      border: Color.lerp(border, other.border, t)!,
+      borderStrong: Color.lerp(borderStrong, other.borderStrong, t)!,
+      accent: Color.lerp(accent, other.accent, t)!,
+      text1: Color.lerp(text1, other.text1, t)!,
+      text2: Color.lerp(text2, other.text2, t)!,
+      favorite: Color.lerp(favorite, other.favorite, t)!,
+      star: Color.lerp(star, other.star, t)!,
+      readerBg: Color.lerp(readerBg, other.readerBg, t)!,
+      readerBar: Color.lerp(readerBar, other.readerBar, t)!,
+    );
+  }
+}
+
+extension AppColorsContext on BuildContext {
+  AppColors get appColors => Theme.of(this).extension<AppColors>()!;
+}
+
+/// 全 App 主题：按亮度构建浅/深两套外观。
+ThemeData buildAppTheme(Brightness brightness) {
+  final c = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
+  final scheme = ColorScheme(
+    brightness: brightness,
+    primary: c.accent,
+    onPrimary: brightness == Brightness.dark ? Colors.black : Colors.white,
+    secondary: c.accent,
+    onSecondary: brightness == Brightness.dark ? Colors.black : Colors.white,
+    secondaryContainer: c.surface2,
+    onSecondaryContainer: c.text1,
+    surface: c.surface1,
+    onSurface: c.text1,
+    onSurfaceVariant: c.text2,
+    outline: c.border,
+    error: brightness == Brightness.dark
+        ? const Color(0xFFf85149)
+        : const Color(0xFFcf222e),
+    onError: brightness == Brightness.dark ? Colors.black : Colors.white,
+  );
+  final textTheme = TextTheme(
     titleLarge: TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w600,
-      color: kText1,
+      color: c.text1,
       letterSpacing: 0.2,
     ),
     titleMedium: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
-      color: kText1,
+      color: c.text1,
     ),
-    bodyLarge: TextStyle(fontSize: 15, color: kText1),
-    bodyMedium: TextStyle(fontSize: 14, color: kText1),
-    bodySmall: TextStyle(fontSize: 12, color: kText2),
+    bodyLarge: TextStyle(fontSize: 15, color: c.text1),
+    bodyMedium: TextStyle(fontSize: 14, color: c.text1),
+    bodySmall: TextStyle(fontSize: 12, color: c.text2),
     labelLarge: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w600,
-      color: kText1,
+      color: c.text1,
     ),
-    labelMedium: TextStyle(fontSize: 12, color: kText1),
-    labelSmall: TextStyle(fontSize: 11, color: kText2, letterSpacing: 0.2),
+    labelMedium: TextStyle(fontSize: 12, color: c.text1),
+    labelSmall: TextStyle(fontSize: 11, color: c.text2, letterSpacing: 0.2),
   );
 
   return ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
+    brightness: brightness,
     colorScheme: scheme,
-    scaffoldBackgroundColor: kBg,
+    scaffoldBackgroundColor: c.bg,
     textTheme: textTheme,
-    appBarTheme: const AppBarTheme(
-      backgroundColor: kSurface1,
-      foregroundColor: kText1,
+    extensions: [c],
+    appBarTheme: AppBarTheme(
+      backgroundColor: c.surface1,
+      foregroundColor: c.text1,
       elevation: 0,
       scrolledUnderElevation: 0,
       surfaceTintColor: Colors.transparent,
-      iconTheme: IconThemeData(color: kText1),
+      iconTheme: IconThemeData(color: c.text1),
       titleTextStyle: TextStyle(
-        color: kText1,
+        color: c.text1,
         fontSize: 16,
         fontWeight: FontWeight.w600,
       ),
       centerTitle: false,
     ),
     cardTheme: CardThemeData(
-      color: kSurface2,
+      color: c.surface2,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusCard),
-        side: const BorderSide(color: kBorder),
+        side: BorderSide(color: c.border),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: kAccent,
-        foregroundColor: Colors.black,
+        backgroundColor: c.accent,
+        foregroundColor: brightness == Brightness.dark
+            ? Colors.black
+            : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(
@@ -97,70 +212,70 @@ ThemeData buildAppTheme() {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: kSurface1,
-      hintStyle: const TextStyle(color: kText2),
+      fillColor: c.surface1,
+      hintStyle: TextStyle(color: c.text2),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
-        borderSide: const BorderSide(color: kBorder),
+        borderSide: BorderSide(color: c.border),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
-        borderSide: const BorderSide(color: kBorder),
+        borderSide: BorderSide(color: c.border),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
-        borderSide: const BorderSide(color: kAccent, width: 1.5),
+        borderSide: BorderSide(color: c.accent, width: 1.5),
       ),
     ),
     sliderTheme: SliderThemeData(
       trackHeight: 3,
-      activeTrackColor: kAccent,
-      inactiveTrackColor: kBorder,
-      thumbColor: kAccent,
-      overlayColor: kAccent.withValues(alpha: 0.12),
+      activeTrackColor: c.accent,
+      inactiveTrackColor: c.border,
+      thumbColor: c.accent,
+      overlayColor: c.accent.withValues(alpha: 0.12),
       thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
     ),
-    navigationRailTheme: const NavigationRailThemeData(
-      backgroundColor: kSurface1,
-      indicatorColor: Color(0x2658a6ff),
-      selectedIconTheme: IconThemeData(color: kAccent),
-      unselectedIconTheme: IconThemeData(color: kText2),
-      selectedLabelTextStyle: TextStyle(color: kAccent, fontSize: 12),
-      unselectedLabelTextStyle: TextStyle(color: kText2, fontSize: 12),
+    navigationRailTheme: NavigationRailThemeData(
+      backgroundColor: c.surface1,
+      indicatorColor: c.accent.withValues(alpha: 0.15),
+      selectedIconTheme: IconThemeData(color: c.accent),
+      unselectedIconTheme: IconThemeData(color: c.text2),
+      selectedLabelTextStyle: TextStyle(color: c.accent, fontSize: 12),
+      unselectedLabelTextStyle: TextStyle(color: c.text2, fontSize: 12),
       labelType: NavigationRailLabelType.all,
     ),
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: kSurface1,
-      selectedItemColor: kAccent,
-      unselectedItemColor: kText2,
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: c.surface1,
+      selectedItemColor: c.accent,
+      unselectedItemColor: c.text2,
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
-    tabBarTheme: const TabBarThemeData(
-      labelColor: kAccent,
-      unselectedLabelColor: kText2,
-      indicatorColor: kAccent,
+    tabBarTheme: TabBarThemeData(
+      labelColor: c.accent,
+      unselectedLabelColor: c.text2,
+      indicatorColor: c.accent,
       dividerColor: Colors.transparent,
-      labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: TextStyle(fontSize: 14),
+      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: const TextStyle(fontSize: 14),
     ),
-    dividerTheme: const DividerThemeData(
-      color: kBorderStrong,
+    dividerTheme: DividerThemeData(
+      color: c.borderStrong,
       thickness: 1,
       space: 1,
     ),
     snackBarTheme: SnackBarThemeData(
-      backgroundColor: kSurface2,
-      contentTextStyle: const TextStyle(color: kText1),
+      backgroundColor: c.surface2,
+      contentTextStyle: TextStyle(color: c.text1),
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
       ),
     ),
-    progressIndicatorTheme: const ProgressIndicatorThemeData(color: kAccent),
-    splashColor: kAccent.withValues(alpha: 0.06),
-    highlightColor: kAccent.withValues(alpha: 0.05),
+    progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent),
+    splashColor: c.accent.withValues(alpha: 0.06),
+    highlightColor: c.accent.withValues(alpha: 0.05),
   );
 }

@@ -106,6 +106,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final async = ref.watch(discoveryProvider);
     final state = async.value;
     final comic = state?.current;
+    final c = context.appColors;
 
     final Widget body;
     if (async.isLoading && comic == null) {
@@ -146,8 +147,8 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: kText1,
+                      style: TextStyle(
+                        color: c.text1,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -158,13 +159,13 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                         comic.author!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: kText2, fontSize: 13),
+                        style: TextStyle(color: c.text2, fontSize: 13),
                       ),
                     ],
                     const SizedBox(height: 8),
                     Text(
                       '${comic.chapterCount}话 · ${comic.imageCount}P',
-                      style: const TextStyle(color: kAccent, fontSize: 12),
+                      style: TextStyle(color: c.accent, fontSize: 12),
                     ),
                   ],
                 ),
@@ -173,13 +174,10 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ),
           Text(
             '序列第 ${s.index + 1} / ${s.total} 本',
-            style: const TextStyle(color: kText2, fontSize: 12),
+            style: TextStyle(color: c.text2, fontSize: 12),
           ),
           const SizedBox(height: 6),
-          const Text(
-            '拖拽切换 · 点击阅读',
-            style: TextStyle(color: kText2, fontSize: 12),
-          ),
+          Text('拖拽切换 · 点击阅读', style: TextStyle(color: c.text2, fontSize: 12)),
           const SizedBox(height: 24),
         ],
       );
@@ -190,14 +188,14 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         title: const Text('发现'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: kText2),
+            icon: Icon(Icons.refresh, color: c.text2),
             tooltip: '换一批',
             onPressed: _refresh,
           ),
         ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: SizedBox(height: 1, child: ColoredBox(color: kBorderStrong)),
+          child: SizedBox(height: 1, child: ColoredBox(color: c.borderStrong)),
         ),
       ),
       body: body,
@@ -290,6 +288,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   }
 
   Widget _mainCover(Comic comic, double coverWidth) {
+    final c = context.appColors;
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(kRadiusFloat),
@@ -306,7 +305,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         child: Container(
           width: coverWidth,
           height: coverWidth * 4 / 3,
-          color: kSurface2,
+          color: c.surface2,
           child: comic.coverUrl != null
               ? Image.network(
                   comic.coverUrl!,
@@ -320,6 +319,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   }
 
   Widget _miniCover(Comic comic, double width, double height) {
+    final c = context.appColors;
     return Opacity(
       opacity: 0.6,
       child: ClipRRect(
@@ -327,7 +327,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         child: Container(
           width: width,
           height: height,
-          color: kSurface2,
+          color: c.surface2,
           child: comic.coverUrl != null
               ? Image.network(
                   comic.coverUrl!,
@@ -340,8 +340,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     );
   }
 
-  Widget _placeholder() => Container(
-    color: kSurface2,
-    child: const Icon(Icons.image_not_supported, color: kText2),
-  );
+  Widget _placeholder() {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }

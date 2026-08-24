@@ -475,8 +475,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final c = context.appColors;
     final Widget scaffold = Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: c.readerBg,
       endDrawer: desktop
           ? ChapterDrawer(
               chapters: _chapters,
@@ -504,28 +505,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             child: IgnorePointer(
               ignoring: !_chromeVisible,
               child: AppBar(
-                backgroundColor: Colors.black,
-                iconTheme: const IconThemeData(color: kText1),
+                backgroundColor: c.readerBar,
+                iconTheme: IconThemeData(color: c.text1),
                 title: Text(
                   _currentChapter?.title ?? _title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kText1, fontSize: 15),
+                  style: TextStyle(color: c.text1, fontSize: 15),
                 ),
-                bottom: const PreferredSize(
+                bottom: PreferredSize(
                   preferredSize: Size.fromHeight(1),
                   child: SizedBox(
                     height: 1,
-                    child: ColoredBox(color: kBorderStrong),
+                    child: ColoredBox(color: c.borderStrong),
                   ),
                 ),
                 actions: [
                   Builder(
                     builder: (buttonContext) => IconButton(
-                      icon: const Icon(
-                        Icons.format_list_bulleted,
-                        color: kText1,
-                      ),
+                      icon: Icon(Icons.format_list_bulleted, color: c.text1),
                       tooltip: '目录',
                       onPressed: () => _openDirectory(buttonContext),
                     ),
@@ -666,6 +664,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Widget _buildPagedBody(BuildContext context) {
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
+    final c = context.appColors;
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
@@ -680,7 +679,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         children: [
           Expanded(
             child: Container(
-              color: Colors.black,
+              color: c.readerBg,
               alignment: Alignment.center,
               child: Image.network(
                 _images[page].url,
@@ -788,7 +787,7 @@ class _LazyImageState extends State<_LazyImage> {
   }
 
   Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
-    color: kSurface1,
+    color: context.appColors.readerBar,
     child: Center(
       child: progress != null && progress.expectedTotalBytes != null
           ? CircularProgressIndicator(
@@ -807,7 +806,7 @@ class _ImageRetryBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: kSurface1,
+      color: context.appColors.readerBar,
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -116,6 +116,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
         ? randomAsync.isLoading ||
               (random != null && random.comics.length < random.total)
         : searchAsync.isLoading && search?.comics.isEmpty == true;
+    final c = context.appColors;
 
     return Scaffold(
       appBar: AppBar(
@@ -123,31 +124,23 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
             ? Container(
                 constraints: const BoxConstraints(maxWidth: 420),
                 decoration: BoxDecoration(
-                  color: kSurface2,
+                  color: c.surface2,
                   borderRadius: BorderRadius.circular(kRadiusButton),
-                  border: Border.all(color: kBorder),
+                  border: Border.all(color: c.border),
                 ),
                 child: TextField(
                   controller: _searchController,
-                  style: const TextStyle(color: kText1, fontSize: 14),
+                  style: TextStyle(color: c.text1, fontSize: 14),
                   decoration: InputDecoration(
                     hintText: '搜索漫画、作者…',
-                    hintStyle: const TextStyle(color: kText2),
+                    hintStyle: TextStyle(color: c.text2),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      color: kText2,
-                      size: 20,
-                    ),
+                    prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
                     suffixIcon: _keyword.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(
-                              Icons.close,
-                              color: kText2,
-                              size: 18,
-                            ),
+                            icon: Icon(Icons.close, color: c.text2, size: 18),
                             onPressed: () {
                               _searchController.clear();
                               _search('');
@@ -163,7 +156,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
             ? null
             : [
                 IconButton(
-                  icon: const Icon(Icons.search, color: kText2),
+                  icon: Icon(Icons.search, color: c.text2),
                   tooltip: '搜索',
                   onPressed: () => Navigator.push(
                     context,
@@ -171,9 +164,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: SizedBox(height: 1, child: ColoredBox(color: kBorderStrong)),
+          child: SizedBox(height: 1, child: ColoredBox(color: c.borderStrong)),
         ),
       ),
       body: RefreshIndicator(
@@ -247,15 +240,16 @@ class _FloatingContinueBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final comic = entry.comic;
+    final c = context.appColors;
     return Material(
-      color: kSurface2,
+      color: c.surface2,
       elevation: 4,
       borderRadius: BorderRadius.circular(kRadiusFloat),
       clipBehavior: Clip.antiAlias,
       shadowColor: Colors.black.withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusFloat),
-        side: const BorderSide(color: kBorder),
+        side: BorderSide(color: c.border),
       ),
       child: InkWell(
         onTap: () async {
@@ -285,9 +279,9 @@ class _FloatingContinueBar extends StatelessWidget {
                       ? Image.network(
                           comic.coverUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => _placeholder(),
+                          errorBuilder: (_, _, _) => _placeholder(context),
                         )
-                      : _placeholder(),
+                      : _placeholder(context),
                 ),
               ),
               const SizedBox(width: 12),
@@ -295,17 +289,17 @@ class _FloatingContinueBar extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '继续阅读',
-                      style: TextStyle(color: kAccent, fontSize: 12),
+                      style: TextStyle(color: c.accent, fontSize: 12),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       comic.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: kText1,
+                      style: TextStyle(
+                        color: c.text1,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -313,12 +307,12 @@ class _FloatingContinueBar extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${entry.chapterTitle} · 第${entry.pageNumber + 1}页',
-                      style: const TextStyle(color: kText2, fontSize: 12),
+                      style: TextStyle(color: c.text2, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.play_circle_fill, color: kAccent, size: 32),
+              Icon(Icons.play_circle_fill, color: c.accent, size: 32),
             ],
           ),
         ),
@@ -326,8 +320,11 @@ class _FloatingContinueBar extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-    color: kSurface2,
-    child: const Icon(Icons.image_not_supported, color: kText2),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }

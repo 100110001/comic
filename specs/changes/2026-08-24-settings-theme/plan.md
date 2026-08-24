@@ -51,7 +51,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 
 ## Implementation Units
 
-### U1. 双套主题令牌（ThemeExtension）
+### U1. ✅ 双套主题令牌（ThemeExtension）
 
 - **Goal:** 主题从单套深色常量扩展为浅/深双套，组件可经 `context.appColors` 取色。
 - **Requirements:** R3, R7
@@ -87,7 +87,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 侧栏新增"设置"目的地；"我的"页 AppBar 加齿轮按钮。
 - **Verification:** 两端都能进入设置页，导航逻辑不变。
 
-### U5. 全 App 改用主题色
+### U5. ✅ 全 App 改用主题色
 
 - **Goal:** 各页面/组件从 `context.appColors` 取色，浅色下全 App 正确呈现。
 - **Requirements:** R3, R7

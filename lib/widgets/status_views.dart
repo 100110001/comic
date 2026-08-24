@@ -18,6 +18,7 @@ class StatusView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -26,17 +27,17 @@ class StatusView extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: kSurface2,
+              color: c.surface2,
               shape: BoxShape.circle,
-              border: Border.all(color: kBorder),
+              border: Border.all(color: c.border),
             ),
-            child: Icon(icon, color: kText2, size: 28),
+            child: Icon(icon, color: c.text2, size: 28),
           ),
           const SizedBox(height: 16),
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: kText2, fontSize: 14),
+            style: TextStyle(color: c.text2, fontSize: 14),
           ),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 16),

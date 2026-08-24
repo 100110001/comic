@@ -27,7 +27,7 @@ class ComicApp extends StatelessWidget {
       title: '漫画库',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
-      theme: buildAppTheme(),
+      theme: buildAppTheme(Brightness.dark),
       builder: (context, child) => Listener(
         behavior: HitTestBehavior.translucent,
         // 鼠标侧键（后退键）触发页面返回

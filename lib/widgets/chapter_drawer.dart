@@ -15,18 +15,19 @@ class ChapterDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Drawer(
-      backgroundColor: kSurface1,
+      backgroundColor: c.surface1,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(16),
               child: Text(
                 '目录',
                 style: TextStyle(
-                  color: kText1,
+                  color: c.text1,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -35,8 +36,8 @@ class ChapterDrawer extends StatelessWidget {
             const Divider(height: 1),
             Expanded(
               child: chapters.isEmpty
-                  ? const Center(
-                      child: Text('暂无章节', style: TextStyle(color: kText2)),
+                  ? Center(
+                      child: Text('暂无章节', style: TextStyle(color: c.text2)),
                     )
                   : ListView.builder(
                       itemCount: chapters.length,
@@ -45,13 +46,13 @@ class ChapterDrawer extends StatelessWidget {
                         return ListTile(
                           dense: true,
                           selected: selected,
-                          selectedTileColor: kSurface2,
+                          selectedTileColor: c.surface2,
                           title: Text(
                             chapters[i].title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: selected ? kAccent : kText1,
+                              color: selected ? c.accent : c.text1,
                               fontSize: 13,
                             ),
                           ),

@@ -125,18 +125,27 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
               itemBuilder: (ctx, i) {
                 final item = items[i];
                 return ListTile(
-                  leading: const Icon(Icons.star, color: kStar),
+                  leading: Icon(Icons.star, color: context.appColors.star),
                   title: Text(
                     item.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: kText1, fontSize: 14),
+                    style: TextStyle(
+                      color: context.appColors.text1,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: Text(
                     '${item.comicCount} 部作品',
-                    style: const TextStyle(color: kText2, fontSize: 12),
+                    style: TextStyle(
+                      color: context.appColors.text2,
+                      fontSize: 12,
+                    ),
                   ),
-                  trailing: const Icon(Icons.chevron_right, color: kText2),
+                  trailing: Icon(
+                    Icons.chevron_right,
+                    color: context.appColors.text2,
+                  ),
                   onTap: () => Navigator.push(
                     ctx,
                     MaterialPageRoute(
@@ -167,6 +176,7 @@ class _EntryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return ListTile(
       onTap: onTap,
       leading: ClipRRect(
@@ -178,29 +188,32 @@ class _EntryTile extends StatelessWidget {
               ? Image.network(
                   coverUrl!,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => _placeholder(),
+                  errorBuilder: (_, _, _) => _placeholder(context),
                 )
-              : _placeholder(),
+              : _placeholder(context),
         ),
       ),
       title: Text(
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: kText1, fontSize: 14),
+        style: TextStyle(color: c.text1, fontSize: 14),
       ),
       subtitle: Text(
         author != null ? '$subtitle · $author' : subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: kText2, fontSize: 12),
+        style: TextStyle(color: c.text2, fontSize: 12),
       ),
-      trailing: const Icon(Icons.chevron_right, color: kText2),
+      trailing: Icon(Icons.chevron_right, color: c.text2),
     );
   }
 
-  Widget _placeholder() => Container(
-    color: kSurface2,
-    child: const Icon(Icons.image_not_supported, color: kText2),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }

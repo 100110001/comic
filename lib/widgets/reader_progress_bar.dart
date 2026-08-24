@@ -14,14 +14,15 @@ class ReaderProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     final max = totalPages > 1 ? totalPages - 1 : 0;
     final label = Text(
       '第 ${currentPage + 1} / $totalPages 页',
-      style: const TextStyle(color: kText1, fontSize: 12),
+      style: TextStyle(color: c.text1, fontSize: 12),
     );
     if (max <= 0) {
       return Material(
-        color: kSurface1,
+        color: c.readerBar,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(children: [label]),
@@ -29,7 +30,7 @@ class ReaderProgressBar extends StatelessWidget {
       );
     }
     return Material(
-      color: kSurface1,
+      color: c.readerBar,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Row(

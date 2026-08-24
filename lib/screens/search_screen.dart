@@ -54,19 +54,20 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final keyword = state?.keyword ?? '';
     final hasError = searchAsync.hasError;
     final loading = searchAsync.isLoading && comics.isEmpty;
+    final c = context.appColors;
 
     return Scaffold(
       appBar: AppBar(
         title: TextField(
           controller: _controller,
           autofocus: true,
-          style: const TextStyle(color: kText1, fontSize: 14),
-          decoration: const InputDecoration(
+          style: TextStyle(color: c.text1, fontSize: 14),
+          decoration: InputDecoration(
             hintText: '搜索漫画、作者…',
-            hintStyle: TextStyle(color: kText2),
+            hintStyle: TextStyle(color: c.text2),
             border: InputBorder.none,
             isDense: true,
-            prefixIcon: Icon(Icons.search, color: kText2, size: 20),
+            prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
           ),
           onSubmitted: _search,
         ),
