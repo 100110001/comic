@@ -6,6 +6,7 @@ import 'providers/comics_providers.dart';
 import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
+import 'theme.dart';
 import 'tray/close_to_tray.dart';
 import 'widgets/reading_lists.dart';
 
@@ -26,10 +27,7 @@ class ComicApp extends StatelessWidget {
       title: '漫画库',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0d1117),
-        colorScheme: const ColorScheme.dark(primary: Color(0xFF58a6ff)),
-      ),
+      theme: buildAppTheme(),
       builder: (context, child) => Listener(
         behavior: HitTestBehavior.translucent,
         // 鼠标侧键（后退键）触发页面返回

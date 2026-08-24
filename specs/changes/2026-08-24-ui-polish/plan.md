@@ -70,7 +70,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 
 ## Implementation Units
 
-### U1. 主题令牌与组件主题
+### U1. ✅ 主题令牌与组件主题
 
 - **Goal:** 建立集中设计令牌与全局组件主题，替换主题相关硬编码。
 - **Requirements:** R1, R2, R9
