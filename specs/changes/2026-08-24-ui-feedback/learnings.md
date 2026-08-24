@@ -14,3 +14,4 @@
 - 侧栏导航项改用 `Pressable`（选中态底色由内部 AnimatedContainer 承担，悬停色透明避免覆盖选中态）。
 - 发现页悬浮按钮外包 `Pressable`（`hoverColor` 透明，FAB 自带反馈），窗口按钮按压缩放 0.92。
 - `FilledButton.styleFrom(...).copyWith(animationDuration: 150ms)` 让 Material 按钮 hover 过渡更顺。
+- 顶部标题栏高度 40 → 32，窗口按钮同步 46x32，整体更紧凑。

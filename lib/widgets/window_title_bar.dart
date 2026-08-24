@@ -62,7 +62,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
     return Material(
       color: c.navBg,
       child: Container(
-        height: 40,
+        height: 32,
         decoration: BoxDecoration(
           border: Border(bottom: BorderSide(color: c.borderStrong)),
         ),
@@ -154,7 +154,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
             curve: Curves.easeOut,
             child: SizedBox(
               width: 46,
-              height: 40,
+              height: 32,
               child: Icon(widget.icon, size: 16, color: iconColor),
             ),
           ),
