@@ -17,3 +17,8 @@
 - 卡片原来是白底黑字（`Colors.white` + `#1a1a1a`），在深色 App 里非常突兀；改为主题 surface2 + 主文字令牌，去掉了显式 elevation/shape。
 - 文字区固定高度从 48 调到 50（标题字号 12→13），网格高宽比计算同步更新，避免文字溢出；卡片间距 10→12、页边距 12→16。
 - 封面角标与"话数/P"标签统一为黑 55% 底 + 圆角 6。
+
+## U4. 外壳导航
+
+- 桌面侧栏与手机底部 tab 全部去掉硬编码颜色/文字样式，改由 `NavigationRailThemeData`/`BottomNavigationBarThemeData` 统一提供（选中胶囊、accent 图标、12px 标签）。
+- `_PageScaffold` 与 `VerticalDivider` 走主题，移除显式色值。

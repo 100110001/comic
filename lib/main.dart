@@ -75,9 +75,6 @@ class _MobileShellState extends State<MobileShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
-        backgroundColor: const Color(0xFF161b22),
-        selectedItemColor: const Color(0xFF58a6ff),
-        unselectedItemColor: const Color(0xFF8b949e),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: '首页'),
           BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
@@ -105,7 +102,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
       body: Row(
         children: [
           NavigationRail(
-            backgroundColor: const Color(0xFF161b22),
             selectedIndex: _index,
             onDestinationSelected: (i) {
               setState(() => _index = i);
@@ -122,17 +118,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   break;
               }
             },
-            labelType: NavigationRailLabelType.all,
-            selectedIconTheme: const IconThemeData(color: Color(0xFF58a6ff)),
-            unselectedIconTheme: const IconThemeData(color: Color(0xFF8b949e)),
-            selectedLabelTextStyle: const TextStyle(
-              color: Color(0xFF58a6ff),
-              fontSize: 12,
-            ),
-            unselectedLabelTextStyle: const TextStyle(
-              color: Color(0xFF8b949e),
-              fontSize: 12,
-            ),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.menu_book),
@@ -158,7 +143,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               ),
             ],
           ),
-          const VerticalDivider(width: 1, color: Color(0xFF21262d)),
+          const VerticalDivider(width: 1),
           Expanded(
             child: IndexedStack(
               index: _index,
@@ -188,11 +173,7 @@ class _PageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: child,
     );
   }

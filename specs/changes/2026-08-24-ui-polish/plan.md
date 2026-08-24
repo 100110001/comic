@@ -97,7 +97,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 卡片用主题圆角（10）+ 细边框 + 轻阴影；封面占位统一；标题/作者字号与颜色走令牌；角标与话数标签统一样式。
 - **Verification:** 桌面与手机网格观感统一；卡片高度计算不变（文字区高度保持一致）。
 
-### U4. 外壳导航
+### U4. ✅ 外壳导航
 
 - **Goal:** 桌面侧栏与手机底部 tab 视觉精修。
 - **Requirements:** R6, R9
