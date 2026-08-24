@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
@@ -43,10 +46,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _initialJumping = false;
   int _jumpGeneration = 0;
   bool _loading = true;
+  bool _loadFailed = false;
+  int _imageRetryTick = 0;
   String _title = '';
   bool _switchingComic = false;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
+  Timer? _hideTimer;
+  bool _chromeVisible = true;
+  bool _pointerOverChrome = false;
 
   Chapter? get _currentChapter =>
       _chapters.isEmpty ? null : _chapters[_chapterIndex];
@@ -59,13 +67,41 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     super.initState();
     _title = widget.title;
     _scrollController.addListener(_onScroll);
+    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
     _init();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 桌面沉浸：点击阅读区或按键等有意交互恢复工具栏并重置隐藏计时；
+  /// 滚轮翻页视为阅读动作，不触发。
+  void _onActivity() {
+    if (!mounted) return;
+    if (!_chromeVisible) setState(() => _chromeVisible = true);
+    _restartHideTimer();
+  }
+
+  void _restartHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+  }
+
+  /// 无操作超时后隐藏工具栏；指针停留在工具栏区域时推迟隐藏。
+  void _maybeHideChrome() {
+    if (!mounted) return;
+    if (_pointerOverChrome) {
+      _restartHideTimer();
+      return;
+    }
+    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    if (desktop && _chromeVisible) {
+      setState(() => _chromeVisible = false);
+    }
   }
 
   Future<void> _init() async {
@@ -119,6 +155,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     } else {
       _prevChapter();
     }
+  }
+
+  /// 桌面形态章内直达指定页（页码越界时收敛到首/末页）。
+  void _goToPage(int page) {
+    if (_images.isEmpty) return;
+    final target = page.clamp(0, _images.length - 1).toInt();
+    setState(() => _currentPage = target);
+    _precacheAround(target);
+  }
+
+  /// 桌面形态的键盘翻页绑定；边界行为复用现有翻页语义。
+  Map<ShortcutActivator, VoidCallback> _desktopShortcutBindings() {
+    return {
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
+      const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.pageUp): _prevPage,
+      const SingleActivator(LogicalKeyboardKey.pageDown): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.space): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.home): () => _goToPage(0),
+      const SingleActivator(LogicalKeyboardKey.end): () =>
+          _goToPage(_images.length - 1),
+    };
   }
 
   /// 自动续章：主体形态在越过本章最后一页时调用。
@@ -188,6 +246,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
     setState(() {
       _loading = true;
+      _loadFailed = false;
       _images = [];
       _extents.clear();
       _pendingJumpPage = null;
@@ -213,8 +272,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       });
       _precacheAround(_currentPage);
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadFailed = true;
+        });
+      }
     }
+  }
+
+  /// 章节级重试：重新拉取当前章节的图片列表。
+  Future<void> _reloadChapter() async {
+    final chapterId = _currentChapter?.id ?? widget.chapterId;
+    await _loadChapter(chapterId);
   }
 
   /// 预加载当前页前后各 1–2 张图片，避免翻页/滚动切换时闪屏。
@@ -403,92 +473,164 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final Widget scaffold = Scaffold(
+      backgroundColor: Colors.black,
+      endDrawer: desktop
+          ? ChapterDrawer(
+              chapters: _chapters,
+              currentIndex: _chapterIndex,
+              onSelect: (i) {
+                Navigator.pop(context);
+                _goToChapter(i);
+              },
+            )
+          : null,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: MouseRegion(
+          onEnter: (_) {
+            setState(() => _pointerOverChrome = true);
+            _restartHideTimer();
+          },
+          onExit: (_) {
+            setState(() => _pointerOverChrome = false);
+            _restartHideTimer();
+          },
+          child: AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: AppBar(
+                backgroundColor: Colors.black,
+                iconTheme: const IconThemeData(color: Colors.white),
+                title: Text(
+                  _currentChapter?.title ?? _title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
+                actions: [
+                  Builder(
+                    builder: (buttonContext) => IconButton(
+                      icon: const Icon(
+                        Icons.format_list_bulleted,
+                        color: Colors.white,
+                      ),
+                      tooltip: '目录',
+                      onPressed: () => _openDirectory(buttonContext),
+                    ),
+                  ),
+                  if (widget.onPrevComic != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.skip_previous,
+                        color: _canPrevComic && !_switchingComic
+                            ? Colors.white
+                            : const Color(0xFF484f58),
+                      ),
+                      tooltip: '上一本',
+                      onPressed: _canPrevComic && !_switchingComic
+                          ? _prevComic
+                          : null,
+                    ),
+                  if (widget.onNextComic != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.skip_next,
+                        color: _switchingComic
+                            ? const Color(0xFF484f58)
+                            : Colors.white,
+                      ),
+                      tooltip: '下一本',
+                      onPressed: _switchingComic ? null : _nextComic,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_left,
+                      color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+                    ),
+                    tooltip: '上一章',
+                    onPressed: _hasPrev ? _prevChapter : null,
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_right,
+                      color: _hasNext ? Colors.white : const Color(0xFF484f58),
+                    ),
+                    tooltip: '下一章',
+                    onPressed: _hasNext ? _nextChapter : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: _buildChapterBody(desktop),
+    );
     return PopScope(
       canPop: true,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _saveProgress();
       },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        endDrawer: desktop
-            ? ChapterDrawer(
-                chapters: _chapters,
-                currentIndex: _chapterIndex,
-                onSelect: (i) {
-                  Navigator.pop(context);
-                  _goToChapter(i);
-                },
-              )
-            : null,
-        appBar: AppBar(
-          backgroundColor: Colors.black,
-          iconTheme: const IconThemeData(color: Colors.white),
-          title: Text(
-            _currentChapter?.title ?? _title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 15),
+      child: desktop
+          ? GestureDetector(
+              onTap: _onActivity,
+              child: CallbackShortcuts(
+                bindings: _desktopShortcutBindings(),
+                child: Focus(
+                  autofocus: true,
+                  onKeyEvent: (node, event) {
+                    _onActivity();
+                    return KeyEventResult.ignored;
+                  },
+                  child: scaffold,
+                ),
+              ),
+            )
+          : scaffold,
+    );
+  }
+
+  /// 章节主体的统一状态分支：加载中 / 加载失败 / 空章 / 正常阅读。
+  Widget _buildChapterBody(bool desktop) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loadFailed) return _buildLoadError();
+    if (_images.isEmpty) return _buildEmptyChapter();
+    return desktop ? _buildPagedBody(context) : _buildMobileBody();
+  }
+
+  Widget _buildLoadError() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('章节加载失败', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 12),
+          FilledButton.tonal(
+            onPressed: _reloadChapter,
+            child: const Text('重试'),
           ),
-          actions: [
-            Builder(
-              builder: (buttonContext) => IconButton(
-                icon: const Icon(
-                  Icons.format_list_bulleted,
-                  color: Colors.white,
-                ),
-                tooltip: '目录',
-                onPressed: () => _openDirectory(buttonContext),
-              ),
-            ),
-            if (widget.onPrevComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_previous,
-                  color: _canPrevComic && !_switchingComic
-                      ? Colors.white
-                      : const Color(0xFF484f58),
-                ),
-                tooltip: '上一本',
-                onPressed: _canPrevComic && !_switchingComic
-                    ? _prevComic
-                    : null,
-              ),
-            if (widget.onNextComic != null)
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                icon: Icon(
-                  Icons.skip_next,
-                  color: _switchingComic
-                      ? const Color(0xFF484f58)
-                      : Colors.white,
-                ),
-                tooltip: '下一本',
-                onPressed: _switchingComic ? null : _nextComic,
-              ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_left,
-                color: _hasPrev ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '上一章',
-              onPressed: _hasPrev ? _prevChapter : null,
-            ),
-            IconButton(
-              icon: Icon(
-                Icons.chevron_right,
-                color: _hasNext ? Colors.white : const Color(0xFF484f58),
-              ),
-              tooltip: '下一章',
-              onPressed: _hasNext ? _nextChapter : null,
-            ),
-          ],
-        ),
-        body: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : desktop
-            ? _buildPagedBody(context)
-            : _buildMobileBody(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyChapter() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 12),
+          FilledButton.tonal(
+            onPressed: _reloadChapter,
+            child: const Text('重试'),
+          ),
+        ],
       ),
     );
   }
@@ -528,11 +670,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Widget _buildPagedBody(BuildContext context) {
-    if (_images.isEmpty) {
-      return const Center(
-        child: Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
-      );
-    }
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
     return Listener(
       onPointerSignal: (event) {
@@ -552,28 +689,50 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               alignment: Alignment.center,
               child: Image.network(
                 _images[page].url,
+                key: ValueKey('page-img-$page-$_imageRetryTick'),
                 fit: BoxFit.contain,
                 loadingBuilder: (_, child, progress) {
                   if (progress == null) return child;
                   return const Center(child: CircularProgressIndicator());
                 },
-                errorBuilder: (_, _, _) => const Center(
-                  child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
+                errorBuilder: (_, _, _) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _retryCurrentImage,
+                  child: const _ImageRetryBox(),
                 ),
               ),
             ),
           ),
-          ReaderProgressBar(
-            currentPage: page,
-            totalPages: _images.length,
-            onSeek: (p) {
-              setState(() => _currentPage = p);
-              _precacheAround(p);
-            },
+          AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: ReaderProgressBar(
+                currentPage: page,
+                totalPages: _images.length,
+                onSeek: (p) {
+                  setState(() => _currentPage = p);
+                  _precacheAround(p);
+                  _onActivity();
+                },
+              ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  /// 单图重试：清理该 URL 缓存后强制重建当前页图片。
+  void _retryCurrentImage() {
+    if (_images.isEmpty) return;
+    PaintingBinding.instance.imageCache.evict(
+      NetworkImage(
+        _images[_currentPage.clamp(0, _images.length - 1).toInt()].url,
+      ),
+    );
+    setState(() => _imageRetryTick++);
   }
 }
 
@@ -588,6 +747,7 @@ class _LazyImage extends StatefulWidget {
 
 class _LazyImageState extends State<_LazyImage> {
   bool _visible = false;
+  int _retryTick = 0;
 
   @override
   void initState() {
@@ -609,6 +769,7 @@ class _LazyImageState extends State<_LazyImage> {
             ? _loadingBox()
             : Image.network(
                 widget.url,
+                key: ValueKey('lazy-${widget.url}-$_retryTick'),
                 width: double.infinity,
                 height: widget.height,
                 fit: BoxFit.fitWidth,
@@ -616,10 +777,19 @@ class _LazyImageState extends State<_LazyImage> {
                   if (progress == null) return child;
                   return _loadingBox(progress: progress);
                 },
-                errorBuilder: (_, _, _) => _errorBox(),
+                errorBuilder: (_, _, _) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _retry,
+                  child: const _ImageRetryBox(),
+                ),
               ),
       ),
     );
+  }
+
+  void _retry() {
+    PaintingBinding.instance.imageCache.evict(NetworkImage(widget.url));
+    setState(() => _retryTick++);
   }
 
   Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
@@ -633,11 +803,26 @@ class _LazyImageState extends State<_LazyImage> {
           : const CircularProgressIndicator(),
     ),
   );
+}
 
-  Widget _errorBox() => ColoredBox(
-    color: const Color(0xFF161b22),
-    child: const Center(
-      child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
-    ),
-  );
+/// 单图失败占位：显示可点击的"重试"提示。
+class _ImageRetryBox extends StatelessWidget {
+  const _ImageRetryBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF161b22),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            SizedBox(height: 6),
+            Text('点击重试', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
 }
