@@ -12,8 +12,10 @@ class SettingsScreen extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
     final closeToTray = ref.watch(closeToTrayProvider);
     final c = context.appColors;
+    // 桌面侧栏嵌入时无需标题；手机端推入时保留返回箭头。
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
-      appBar: AppBar(title: const Text('设置')),
+      appBar: canPop ? AppBar() : null,
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

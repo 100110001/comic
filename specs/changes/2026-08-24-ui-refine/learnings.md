@@ -11,3 +11,4 @@
 - **主题切换动画**：`MaterialApp` 内置 `AnimatedTheme`（200ms）且 `AppColors` 实现了 lerp，深浅切换已是平滑过渡，无需额外代码。
 - **关闭按钮颜色**：X 图标默认白色（浅色模式用深色保证可见），hover 红底时切白色图标，避免红图标叠红底；`_TitleBarButton` 改 Stateful 用 MouseRegion 跟踪 hover。
 - **三按钮颜色统一**：最小化/最大化/关闭平时图标同为 `text2`；关闭按钮 hover 红底时图标切白色（Windows 惯例），默认状态三者视觉一致。
+- **设置页标题移除**：桌面侧栏嵌入时无 AppBar；手机端推入时用 `Navigator.canPop()` 判断，仅保留返回箭头不带标题。
