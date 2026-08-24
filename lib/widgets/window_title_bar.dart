@@ -105,7 +105,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   }
 }
 
-class _TitleBarButton extends StatelessWidget {
+class _TitleBarButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool danger;
@@ -117,18 +117,33 @@ class _TitleBarButton extends StatelessWidget {
   });
 
   @override
+  State<_TitleBarButton> createState() => _TitleBarButtonState();
+}
+
+class _TitleBarButtonState extends State<_TitleBarButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    return InkWell(
-      hoverColor: danger ? const Color(0xFFe81123) : c.surface2,
-      onTap: onTap,
-      child: SizedBox(
-        width: 46,
-        height: 40,
-        child: Icon(
-          icon,
-          size: 16,
-          color: danger ? const Color(0xFFe81123) : c.text2,
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final iconColor = widget.danger
+        ? (_hovered
+              ? Colors.white
+              : dark
+              ? Colors.white
+              : c.text1)
+        : c.text2;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: InkWell(
+        hoverColor: widget.danger ? const Color(0xFFe81123) : c.surface2,
+        onTap: widget.onTap,
+        child: SizedBox(
+          width: 46,
+          height: 40,
+          child: Icon(widget.icon, size: 16, color: iconColor),
         ),
       ),
     );
