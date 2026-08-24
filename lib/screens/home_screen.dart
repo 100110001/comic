@@ -6,6 +6,7 @@ import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
+import '../theme.dart';
 import '../widgets/comic_grid.dart';
 import '../widgets/status_views.dart';
 import 'detail_screen.dart';
@@ -117,44 +118,52 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
         : searchAsync.isLoading && search?.comics.isEmpty == true;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
         title: desktop
-            ? TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: '搜索漫画、作者…',
-                  hintStyle: const TextStyle(color: Color(0xFF8b949e)),
-                  border: InputBorder.none,
-                  prefixIcon: const Icon(
-                    Icons.search,
-                    color: Color(0xFF8b949e),
-                    size: 20,
-                  ),
-                  suffixIcon: _keyword.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(
-                            Icons.close,
-                            color: Color(0xFF8b949e),
-                            size: 18,
-                          ),
-                          onPressed: () {
-                            _searchController.clear();
-                            _search('');
-                          },
-                        )
-                      : null,
+            ? Container(
+                constraints: const BoxConstraints(maxWidth: 420),
+                decoration: BoxDecoration(
+                  color: kSurface2,
+                  borderRadius: BorderRadius.circular(kRadiusButton),
+                  border: Border.all(color: kBorder),
                 ),
-                onSubmitted: _search,
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: kText1, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: '搜索漫画、作者…',
+                    hintStyle: const TextStyle(color: kText2),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: kText2,
+                      size: 20,
+                    ),
+                    suffixIcon: _keyword.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.close,
+                              color: kText2,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              _searchController.clear();
+                              _search('');
+                            },
+                          )
+                        : null,
+                  ),
+                  onSubmitted: _search,
+                ),
               )
-            : const Text('漫画库', style: TextStyle(color: Colors.white)),
+            : const Text('漫画库'),
         actions: desktop
             ? null
             : [
                 IconButton(
-                  icon: const Icon(Icons.search, color: Color(0xFF8b949e)),
+                  icon: const Icon(Icons.search, color: kText2),
                   tooltip: '搜索',
                   onPressed: () => Navigator.push(
                     context,
@@ -164,10 +173,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
               ],
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: SizedBox(
-            height: 1,
-            child: ColoredBox(color: Color(0xFF21262d)),
-          ),
+          child: SizedBox(height: 1, child: ColoredBox(color: kBorderStrong)),
         ),
       ),
       body: RefreshIndicator(
@@ -242,10 +248,15 @@ class _FloatingContinueBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final comic = entry.comic;
     return Material(
-      color: const Color(0xFF1f2937),
-      elevation: 6,
-      borderRadius: BorderRadius.circular(12),
+      color: kSurface2,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(kRadiusFloat),
       clipBehavior: Clip.antiAlias,
+      shadowColor: Colors.black.withValues(alpha: 0.4),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusFloat),
+        side: const BorderSide(color: kBorder),
+      ),
       child: InkWell(
         onTap: () async {
           await Navigator.push(
@@ -266,7 +277,7 @@ class _FloatingContinueBar extends StatelessWidget {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(kRadiusThumb),
                 child: SizedBox(
                   width: 44,
                   height: 60,
@@ -286,7 +297,7 @@ class _FloatingContinueBar extends StatelessWidget {
                   children: [
                     const Text(
                       '继续阅读',
-                      style: TextStyle(color: Color(0xFF58a6ff), fontSize: 12),
+                      style: TextStyle(color: kAccent, fontSize: 12),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -294,7 +305,7 @@ class _FloatingContinueBar extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: kText1,
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
                       ),
@@ -302,19 +313,12 @@ class _FloatingContinueBar extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${entry.chapterTitle} · 第${entry.pageNumber + 1}页',
-                      style: const TextStyle(
-                        color: Color(0xFF8b949e),
-                        fontSize: 12,
-                      ),
+                      style: const TextStyle(color: kText2, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              const Icon(
-                Icons.play_circle_fill,
-                color: Color(0xFF58a6ff),
-                size: 32,
-              ),
+              const Icon(Icons.play_circle_fill, color: kAccent, size: 32),
             ],
           ),
         ),
@@ -323,7 +327,7 @@ class _FloatingContinueBar extends StatelessWidget {
   }
 
   Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+    color: kSurface2,
+    child: const Icon(Icons.image_not_supported, color: kText2),
   );
 }

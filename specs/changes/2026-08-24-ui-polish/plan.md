@@ -106,7 +106,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 侧栏选中态用胶囊指示、图标与标签间距统一；底部 tab 选中态、图标填充与背景统一；页面脚手架 AppBar 加层次（分隔线）。
 - **Verification:** 桌面/手机切换导航视觉统一，条目与切换逻辑不变。
 
-### U5. 首页
+### U5. ✅ 首页
 
 - **Goal:** 首页 AppBar/搜索框、错误态、悬浮续读条视觉精修。
 - **Requirements:** R7, R9

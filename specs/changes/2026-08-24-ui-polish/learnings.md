@@ -22,3 +22,9 @@
 
 - 桌面侧栏与手机底部 tab 全部去掉硬编码颜色/文字样式，改由 `NavigationRailThemeData`/`BottomNavigationBarThemeData` 统一提供（选中胶囊、accent 图标、12px 标签）。
 - `_PageScaffold` 与 `VerticalDivider` 走主题，移除显式色值。
+
+## U5. 首页
+
+- 桌面搜索框改为"胶囊"样式：surface2 底 + 圆角 8 + 细边框，最大宽度 420，替代原来的裸输入框。
+- 悬浮续读条改用 surface2 + 圆角 14 + 边框 + 轻阴影，缩略图圆角 8，文字走令牌。
+- AppBar 底色/搜索按钮等去掉硬编码，交给主题。
