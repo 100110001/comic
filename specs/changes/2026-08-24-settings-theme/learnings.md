@@ -7,3 +7,9 @@
 - `ColorScheme` 构造需要显式 `secondary`/`onSecondary`/`onError`，否则编译报 missing required argument。
 - 阅读器新增 `readerBg`/`readerBar` 令牌：深色为黑底 `#161b22` 条，浅色为浅灰底白条；`reader_progress_bar`、`_LazyImage` 加载框、`_ImageRetryBox` 都用 `readerBar`。
 - 浅色强调色用 `#0969da`（onPrimary 白色），深色保持 `#58a6ff`（onPrimary 黑色）。
+
+## U2. 主题偏好状态与持久化
+
+- 新增依赖 `shared_preferences`（2.5.5），`ThemeModeNotifier` 用 `NotifierProvider` 承载，`setMode` 写盘、`loadThemeMode` 启动读取。
+- `main()` 启动时先 `loadThemeMode()`，再通过 `ProviderScope(overrides: [...])` 注入初始值，避免启动闪一下默认主题。
+- `MaterialApp` 同时提供 `theme`（浅）与 `darkTheme`（深），`themeMode` 由 provider 驱动，跟随系统由 `ThemeMode.system` 天然支持。

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'providers/comics_providers.dart';
+import 'providers/settings_provider.dart';
 import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
@@ -13,21 +14,34 @@ import 'widgets/reading_lists.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
-  runApp(const ProviderScope(child: ComicApp()));
+  final themeMode = await loadThemeMode();
+  runApp(
+    ProviderScope(
+      overrides: [
+        themeModeProvider.overrideWith(
+          () => ThemeModeNotifier(initial: themeMode),
+        ),
+      ],
+      child: const ComicApp(),
+    ),
+  );
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
-class ComicApp extends StatelessWidget {
+class ComicApp extends ConsumerWidget {
   const ComicApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: '漫画库',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
-      theme: buildAppTheme(Brightness.dark),
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
+      themeMode: themeMode,
       builder: (context, child) => Listener(
         behavior: HitTestBehavior.translucent,
         // 鼠标侧键（后退键）触发页面返回

@@ -60,7 +60,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 定义 `AppColors`（`ThemeExtension`）含浅/深两套值，`buildAppTheme(Brightness)` 构建对应主题并注册 extension；新增 `appColors` 上下文扩展。
 - **Verification:** `flutter analyze` 无问题；深色模式外观与现状一致。
 
-### U2. 主题偏好状态与持久化
+### U2. ✅ 主题偏好状态与持久化
 
 - **Goal:** 主题模式由 Riverpod 状态驱动并持久化。
 - **Requirements:** R1, R2, R4, R7
