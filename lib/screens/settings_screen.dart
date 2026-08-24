@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
@@ -9,6 +10,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final closeToTray = ref.watch(closeToTrayProvider);
     final c = context.appColors;
     return Scaffold(
       appBar: AppBar(title: const Text('设置')),
@@ -80,6 +82,44 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
+          if (defaultTargetPlatform == TargetPlatform.windows) ...[
+            const SizedBox(height: 24),
+            Text(
+              '窗口',
+              style: TextStyle(
+                color: c.text2,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: c.surface2,
+                borderRadius: BorderRadius.circular(kRadiusCard),
+                border: Border.all(color: c.border),
+              ),
+              child: SwitchListTile(
+                value: closeToTray,
+                onChanged: (value) =>
+                    ref.read(closeToTrayProvider.notifier).setEnabled(value),
+                title: Text(
+                  '关闭窗口时最小化到系统托盘',
+                  style: TextStyle(
+                    color: c.text1,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                subtitle: Text(
+                  '开启后点击右上角关闭会退到托盘继续运行',
+                  style: TextStyle(color: c.text2, fontSize: 13),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+            ),
+          ],
         ],
       ),
     );

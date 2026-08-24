@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
+import '../providers/settings_provider.dart';
 
 /// Windows 桌面：关闭窗口时最小化到系统托盘。
 Future<void> setupCloseToTray() async {
@@ -28,7 +30,13 @@ Future<void> setupCloseToTray() async {
 class _CloseHandler extends WindowListener {
   @override
   void onWindowClose() async {
-    await windowManager.hide();
+    final prefs = await SharedPreferences.getInstance();
+    final minimizeToTray = prefs.getBool(kCloseToTrayKey) ?? true;
+    if (minimizeToTray) {
+      await windowManager.hide();
+    } else {
+      await windowManager.destroy();
+    }
   }
 }
 

@@ -16,11 +16,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
   final themeMode = await loadThemeMode();
+  final closeToTray = await loadCloseToTray();
   runApp(
     ProviderScope(
       overrides: [
         themeModeProvider.overrideWith(
           () => ThemeModeNotifier(initial: themeMode),
+        ),
+        closeToTrayProvider.overrideWith(
+          () => CloseToTrayNotifier(initial: closeToTray),
         ),
       ],
       child: const ComicApp(),
