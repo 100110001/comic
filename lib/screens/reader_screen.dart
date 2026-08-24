@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +50,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _switchingComic = false;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
+  Timer? _hideTimer;
+  bool _chromeVisible = true;
+  bool _pointerOverChrome = false;
 
   Chapter? get _currentChapter =>
       _chapters.isEmpty ? null : _chapters[_chapterIndex];
@@ -60,13 +65,40 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     super.initState();
     _title = widget.title;
     _scrollController.addListener(_onScroll);
+    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
     _init();
   }
 
   @override
   void dispose() {
+    _hideTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  /// 桌面沉浸：任意交互（鼠标移动/按键/翻页）恢复工具栏并重置隐藏计时。
+  void _onActivity() {
+    if (!mounted) return;
+    if (!_chromeVisible) setState(() => _chromeVisible = true);
+    _restartHideTimer();
+  }
+
+  void _restartHideTimer() {
+    _hideTimer?.cancel();
+    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+  }
+
+  /// 无操作超时后隐藏工具栏；指针停留在工具栏区域时推迟隐藏。
+  void _maybeHideChrome() {
+    if (!mounted) return;
+    if (_pointerOverChrome) {
+      _restartHideTimer();
+      return;
+    }
+    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    if (desktop && _chromeVisible) {
+      setState(() => _chromeVisible = false);
+    }
   }
 
   Future<void> _init() async {
@@ -438,62 +470,89 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               },
             )
           : null,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          _currentChapter?.title ?? _title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: MouseRegion(
+          onEnter: (_) {
+            setState(() => _pointerOverChrome = true);
+            _restartHideTimer();
+          },
+          onExit: (_) {
+            setState(() => _pointerOverChrome = false);
+            _restartHideTimer();
+          },
+          child: AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: AppBar(
+                backgroundColor: Colors.black,
+                iconTheme: const IconThemeData(color: Colors.white),
+                title: Text(
+                  _currentChapter?.title ?? _title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
+                actions: [
+                  Builder(
+                    builder: (buttonContext) => IconButton(
+                      icon: const Icon(
+                        Icons.format_list_bulleted,
+                        color: Colors.white,
+                      ),
+                      tooltip: '目录',
+                      onPressed: () => _openDirectory(buttonContext),
+                    ),
+                  ),
+                  if (widget.onPrevComic != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.skip_previous,
+                        color: _canPrevComic && !_switchingComic
+                            ? Colors.white
+                            : const Color(0xFF484f58),
+                      ),
+                      tooltip: '上一本',
+                      onPressed: _canPrevComic && !_switchingComic
+                          ? _prevComic
+                          : null,
+                    ),
+                  if (widget.onNextComic != null)
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      icon: Icon(
+                        Icons.skip_next,
+                        color: _switchingComic
+                            ? const Color(0xFF484f58)
+                            : Colors.white,
+                      ),
+                      tooltip: '下一本',
+                      onPressed: _switchingComic ? null : _nextComic,
+                    ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_left,
+                      color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+                    ),
+                    tooltip: '上一章',
+                    onPressed: _hasPrev ? _prevChapter : null,
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.chevron_right,
+                      color: _hasNext ? Colors.white : const Color(0xFF484f58),
+                    ),
+                    tooltip: '下一章',
+                    onPressed: _hasNext ? _nextChapter : null,
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-        actions: [
-          Builder(
-            builder: (buttonContext) => IconButton(
-              icon: const Icon(Icons.format_list_bulleted, color: Colors.white),
-              tooltip: '目录',
-              onPressed: () => _openDirectory(buttonContext),
-            ),
-          ),
-          if (widget.onPrevComic != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.skip_previous,
-                color: _canPrevComic && !_switchingComic
-                    ? Colors.white
-                    : const Color(0xFF484f58),
-              ),
-              tooltip: '上一本',
-              onPressed: _canPrevComic && !_switchingComic ? _prevComic : null,
-            ),
-          if (widget.onNextComic != null)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                Icons.skip_next,
-                color: _switchingComic ? const Color(0xFF484f58) : Colors.white,
-              ),
-              tooltip: '下一本',
-              onPressed: _switchingComic ? null : _nextComic,
-            ),
-          IconButton(
-            icon: Icon(
-              Icons.chevron_left,
-              color: _hasPrev ? Colors.white : const Color(0xFF484f58),
-            ),
-            tooltip: '上一章',
-            onPressed: _hasPrev ? _prevChapter : null,
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.chevron_right,
-              color: _hasNext ? Colors.white : const Color(0xFF484f58),
-            ),
-            tooltip: '下一章',
-            onPressed: _hasNext ? _nextChapter : null,
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -507,9 +566,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         if (didPop) _saveProgress();
       },
       child: desktop
-          ? CallbackShortcuts(
-              bindings: _desktopShortcutBindings(),
-              child: Focus(autofocus: true, child: scaffold),
+          ? MouseRegion(
+              onHover: (_) => _onActivity(),
+              child: CallbackShortcuts(
+                bindings: _desktopShortcutBindings(),
+                child: Focus(
+                  autofocus: true,
+                  onKeyEvent: (node, event) {
+                    _onActivity();
+                    return KeyEventResult.ignored;
+                  },
+                  child: scaffold,
+                ),
+              ),
             )
           : scaffold,
     );
@@ -559,6 +628,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
+          _onActivity();
           if (event.scrollDelta.dy > 0) {
             _nextPage();
           } else {
@@ -585,13 +655,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ),
             ),
           ),
-          ReaderProgressBar(
-            currentPage: page,
-            totalPages: _images.length,
-            onSeek: (p) {
-              setState(() => _currentPage = p);
-              _precacheAround(p);
-            },
+          AnimatedOpacity(
+            opacity: _chromeVisible ? 1 : 0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !_chromeVisible,
+              child: ReaderProgressBar(
+                currentPage: page,
+                totalPages: _images.length,
+                onSeek: (p) {
+                  setState(() => _currentPage = p);
+                  _precacheAround(p);
+                  _onActivity();
+                },
+              ),
+            ),
           ),
         ],
       ),
