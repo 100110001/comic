@@ -78,7 +78,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     super.dispose();
   }
 
-  /// 桌面沉浸：任意交互（鼠标移动/按键/翻页）恢复工具栏并重置隐藏计时。
+  /// 桌面沉浸：点击阅读区或按键等有意交互恢复工具栏并重置隐藏计时；
+  /// 滚轮翻页视为阅读动作，不触发。
   void _onActivity() {
     if (!mounted) return;
     if (!_chromeVisible) setState(() => _chromeVisible = true);
@@ -576,8 +577,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         if (didPop) _saveProgress();
       },
       child: desktop
-          ? MouseRegion(
-              onHover: (_) => _onActivity(),
+          ? GestureDetector(
+              onTap: _onActivity,
               child: CallbackShortcuts(
                 bindings: _desktopShortcutBindings(),
                 child: Focus(
@@ -673,7 +674,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
-          _onActivity();
           if (event.scrollDelta.dy > 0) {
             _nextPage();
           } else {
