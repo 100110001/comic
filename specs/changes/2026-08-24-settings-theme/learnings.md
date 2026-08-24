@@ -18,3 +18,9 @@
 
 - 设置页用 `SegmentedButton<ThemeMode>` 三选一，`expandedInsets: EdgeInsets.zero` 撑满宽度避免窄屏溢出，`showSelectedIcon: false`。
 - 桌面侧栏新增第 6 个"设置"目的地（`settings_outlined`）；手机"我的"页 AppBar 加齿轮按钮，两者都进同一个 `SettingsScreen`。
+
+## U6. 阅读器浅色适配
+
+- 阅读器工具栏按钮/目录图标残留的 `Colors.white` 全部换成 `c.text1`，否则浅色模式下白底上看不见。
+- 手机端章节底部抽屉背景换 `c.surface1`、选中/未选中文字走 accent/text1。
+- 禁用的"上一章/下一章"保持 `#484f58`，深浅模式下都可读。

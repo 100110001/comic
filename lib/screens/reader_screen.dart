@@ -385,9 +385,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _openMobileDirectory() {
     if (_chapters.isEmpty) return;
+    final c = context.appColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF161b22),
+      backgroundColor: c.surface1,
       builder: (ctx) => SafeArea(
         child: ListView.builder(
           itemCount: _chapters.length,
@@ -400,7 +401,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? const Color(0xFF58a6ff) : Colors.white,
+                  color: selected ? c.accent : c.text1,
                   fontSize: 13,
                 ),
               ),
@@ -534,7 +535,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       icon: Icon(
                         Icons.skip_previous,
                         color: _canPrevComic && !_switchingComic
-                            ? Colors.white
+                            ? c.text1
                             : const Color(0xFF484f58),
                       ),
                       tooltip: '上一本',
@@ -549,7 +550,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         Icons.skip_next,
                         color: _switchingComic
                             ? const Color(0xFF484f58)
-                            : Colors.white,
+                            : c.text1,
                       ),
                       tooltip: '下一本',
                       onPressed: _switchingComic ? null : _nextComic,
@@ -557,7 +558,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.chevron_left,
-                      color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+                      color: _hasPrev ? c.text1 : const Color(0xFF484f58),
                     ),
                     tooltip: '上一章',
                     onPressed: _hasPrev ? _prevChapter : null,
@@ -565,7 +566,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.chevron_right,
-                      color: _hasNext ? Colors.white : const Color(0xFF484f58),
+                      color: _hasNext ? c.text1 : const Color(0xFF484f58),
                     ),
                     tooltip: '下一章',
                     onPressed: _hasNext ? _nextChapter : null,
