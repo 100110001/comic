@@ -120,9 +120,9 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
     return Scaffold(
       body: Row(
         children: [
-          NavigationRail(
+          _DesktopSidebar(
             selectedIndex: _index,
-            onDestinationSelected: (i) {
+            onSelect: (i) {
               setState(() => _index = i);
               // 切换侧栏入口时后台刷新对应列表
               switch (i) {
@@ -137,34 +137,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   break;
               }
             },
-            destinations: const [
-              NavigationRailDestination(
-                icon: Icon(Icons.menu_book),
-                label: Text('首页'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.explore),
-                label: Text('发现'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.history),
-                label: Text('最近阅读'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
-                label: Text('收藏'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.star_border),
-                selectedIcon: Icon(Icons.star),
-                label: Text('收藏作者'),
-              ),
-              NavigationRailDestination(
-                icon: Icon(Icons.settings_outlined),
-                label: Text('设置'),
-              ),
-            ],
           ),
           const VerticalDivider(width: 1),
           Expanded(
@@ -184,6 +156,121 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 主侧栏导航项（不含底部固定的"设置"）。
+const _mainNavItems = [
+  (icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, label: '首页'),
+  (icon: Icons.explore_outlined, selectedIcon: Icons.explore, label: '发现'),
+  (icon: Icons.history, selectedIcon: Icons.history, label: '最近阅读'),
+  (icon: Icons.favorite_border, selectedIcon: Icons.favorite, label: '收藏'),
+  (icon: Icons.star_border, selectedIcon: Icons.star, label: '收藏作者'),
+];
+
+/// 桌面左侧导航：图标+文字列表式，选中强调色淡底，悬停浅底，"设置"固定底部。
+class _DesktopSidebar extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onSelect;
+
+  const _DesktopSidebar({required this.selectedIndex, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 208,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+            child: Text(
+              '漫画库',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                for (var i = 0; i < _mainNavItems.length; i++)
+                  _SideNavItem(
+                    icon: _mainNavItems[i].icon,
+                    selectedIcon: _mainNavItems[i].selectedIcon,
+                    label: _mainNavItems[i].label,
+                    selected: selectedIndex == i,
+                    onTap: () => onSelect(i),
+                  ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, indent: 12, endIndent: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            child: _SideNavItem(
+              icon: Icons.settings_outlined,
+              selectedIcon: Icons.settings,
+              label: '设置',
+              selected: selectedIndex == _mainNavItems.length,
+              onTap: () => onSelect(_mainNavItems.length),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SideNavItem extends StatelessWidget {
+  final IconData icon;
+  final IconData selectedIcon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SideNavItem({
+    required this.icon,
+    required this.selectedIcon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.appColors;
+    return Material(
+      color: selected ? c.accent.withValues(alpha: 0.15) : Colors.transparent,
+      borderRadius: BorderRadius.circular(kRadiusButton),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(kRadiusButton),
+        hoverColor: selected ? Colors.transparent : c.surface2,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(
+                selected ? selectedIcon : icon,
+                size: 20,
+                color: selected ? c.accent : c.text2,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? c.accent : c.text2,
+                  fontSize: 14,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
