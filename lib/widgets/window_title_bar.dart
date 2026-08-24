@@ -79,22 +79,12 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                 ),
               ),
             ),
-            _TitleBarButton(
-              icon: Icons.remove,
-              tooltip: '最小化',
-              onTap: _minimize,
-            ),
+            _TitleBarButton(icon: Icons.remove, onTap: _minimize),
             _TitleBarButton(
               icon: _maximized ? Icons.filter_none : Icons.crop_square,
-              tooltip: _maximized ? '还原' : '最大化',
               onTap: _toggleMaximize,
             ),
-            _TitleBarButton(
-              icon: Icons.close,
-              tooltip: '关闭',
-              onTap: _close,
-              danger: true,
-            ),
+            _TitleBarButton(icon: Icons.close, onTap: _close, danger: true),
           ],
         ),
       ),
@@ -104,13 +94,11 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
 
 class _TitleBarButton extends StatelessWidget {
   final IconData icon;
-  final String tooltip;
   final VoidCallback onTap;
   final bool danger;
 
   const _TitleBarButton({
     required this.icon,
-    required this.tooltip,
     required this.onTap,
     this.danger = false,
   });
@@ -118,19 +106,16 @@ class _TitleBarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        hoverColor: danger ? const Color(0xFFe81123) : c.surface2,
-        onTap: onTap,
-        child: SizedBox(
-          width: 46,
-          height: 40,
-          child: Icon(
-            icon,
-            size: 16,
-            color: danger ? const Color(0xFFe81123) : c.text2,
-          ),
+    return InkWell(
+      hoverColor: danger ? const Color(0xFFe81123) : c.surface2,
+      onTap: onTap,
+      child: SizedBox(
+        width: 46,
+        height: 40,
+        child: Icon(
+          icon,
+          size: 16,
+          color: danger ? const Color(0xFFe81123) : c.text2,
         ),
       ),
     );
