@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
+import '../theme.dart';
 
 class ComicCard extends StatelessWidget {
   final Comic comic;
@@ -8,12 +9,9 @@ class ComicCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = context.appColors;
     return Card(
-      color: Colors.white,
-      elevation: 2,
-      margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
       child: InkWell(
         onTap: onTap,
         child: Column(
@@ -30,9 +28,9 @@ class ComicCard extends StatelessWidget {
                           fit: BoxFit.cover,
                           width: double.infinity,
                           height: double.infinity,
-                          errorBuilder: (_, _, _) => _placeholder(),
+                          errorBuilder: (_, _, _) => _placeholder(context),
                         )
-                      : _placeholder(),
+                      : _placeholder(context),
                   Positioned(
                     right: 4,
                     bottom: 4,
@@ -43,32 +41,29 @@ class ComicCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(2),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(kRadiusSmall),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.favorite,
-                              color: Color(0xFFf778ba),
-                              size: 12,
+                              color: c.favorite,
+                              size: 13,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 5),
                         ],
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
+                            horizontal: 6,
+                            vertical: 2.5,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(4),
+                            color: Colors.black.withValues(alpha: 0.55),
+                            borderRadius: BorderRadius.circular(kRadiusSmall),
                           ),
                           child: Text(
                             '${comic.chapterCount}话 · ${comic.imageCount}P',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                            ),
+                            style: TextStyle(color: c.text1, fontSize: 10),
                           ),
                         ),
                       ],
@@ -78,7 +73,7 @@ class ComicCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(6, 5, 6, 6),
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -86,10 +81,11 @@ class ComicCard extends StatelessWidget {
                     comic.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF1a1a1a),
-                      fontSize: 12,
-                      height: 1.2,
+                    style: TextStyle(
+                      color: c.text1,
+                      fontSize: 13,
+                      height: 1.25,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                   if (comic.author != null)
@@ -97,10 +93,10 @@ class ComicCard extends StatelessWidget {
                       comic.author!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
+                      style: TextStyle(
+                        color: c.text2,
                         fontSize: 11,
-                        height: 1.2,
+                        height: 1.25,
                       ),
                     ),
                 ],
@@ -112,8 +108,11 @@ class ComicCard extends StatelessWidget {
     );
   }
 
-  Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
-  );
+  Widget _placeholder(BuildContext context) {
+    final c = context.appColors;
+    return Container(
+      color: c.surface2,
+      child: Icon(Icons.image_not_supported, color: c.text2),
+    );
+  }
 }

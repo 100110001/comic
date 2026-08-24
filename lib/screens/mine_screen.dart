@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/comics_providers.dart';
 import '../widgets/reading_lists.dart';
+import 'settings_screen.dart';
 
 class MineScreen extends ConsumerStatefulWidget {
   const MineScreen({super.key});
@@ -45,15 +46,20 @@ class _MineScreenState extends ConsumerState<MineScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: const Text('我的', style: TextStyle(color: Colors.white)),
+        title: const Text('我的'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '设置',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _controller,
-          indicatorColor: const Color(0xFF58a6ff),
-          labelColor: const Color(0xFF58a6ff),
-          unselectedLabelColor: const Color(0xFF8b949e),
           tabs: const [
             Tab(text: '最近阅读'),
             Tab(text: '收藏'),

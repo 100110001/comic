@@ -10,8 +10,10 @@ import '../models/image_item.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
+import '../theme.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
+import '../widgets/status_views.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   final int comicId;
@@ -383,9 +385,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   void _openMobileDirectory() {
     if (_chapters.isEmpty) return;
+    final c = context.appColors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF161b22),
+      backgroundColor: c.surface1,
       builder: (ctx) => SafeArea(
         child: ListView.builder(
           itemCount: _chapters.length,
@@ -398,7 +401,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: selected ? const Color(0xFF58a6ff) : Colors.white,
+                  color: selected ? c.accent : c.text1,
                   fontSize: 13,
                 ),
               ),
@@ -473,8 +476,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final c = context.appColors;
     final Widget scaffold = Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: c.readerBg,
       endDrawer: desktop
           ? ChapterDrawer(
               chapters: _chapters,
@@ -502,21 +506,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             child: IgnorePointer(
               ignoring: !_chromeVisible,
               child: AppBar(
-                backgroundColor: Colors.black,
-                iconTheme: const IconThemeData(color: Colors.white),
+                backgroundColor: c.readerBar,
+                iconTheme: IconThemeData(color: c.text1),
                 title: Text(
                   _currentChapter?.title ?? _title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: TextStyle(color: c.text1, fontSize: 15),
+                ),
+                bottom: PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: SizedBox(
+                    height: 1,
+                    child: ColoredBox(color: c.borderStrong),
+                  ),
                 ),
                 actions: [
                   Builder(
                     builder: (buttonContext) => IconButton(
-                      icon: const Icon(
-                        Icons.format_list_bulleted,
-                        color: Colors.white,
-                      ),
+                      icon: Icon(Icons.format_list_bulleted, color: c.text1),
                       tooltip: '目录',
                       onPressed: () => _openDirectory(buttonContext),
                     ),
@@ -527,7 +535,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                       icon: Icon(
                         Icons.skip_previous,
                         color: _canPrevComic && !_switchingComic
-                            ? Colors.white
+                            ? c.text1
                             : const Color(0xFF484f58),
                       ),
                       tooltip: '上一本',
@@ -542,7 +550,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         Icons.skip_next,
                         color: _switchingComic
                             ? const Color(0xFF484f58)
-                            : Colors.white,
+                            : c.text1,
                       ),
                       tooltip: '下一本',
                       onPressed: _switchingComic ? null : _nextComic,
@@ -550,7 +558,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.chevron_left,
-                      color: _hasPrev ? Colors.white : const Color(0xFF484f58),
+                      color: _hasPrev ? c.text1 : const Color(0xFF484f58),
                     ),
                     tooltip: '上一章',
                     onPressed: _hasPrev ? _prevChapter : null,
@@ -558,7 +566,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   IconButton(
                     icon: Icon(
                       Icons.chevron_right,
-                      color: _hasNext ? Colors.white : const Color(0xFF484f58),
+                      color: _hasNext ? c.text1 : const Color(0xFF484f58),
                     ),
                     tooltip: '下一章',
                     onPressed: _hasNext ? _nextChapter : null,
@@ -604,34 +612,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Widget _buildLoadError() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('章节加载失败', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: _reloadChapter,
-            child: const Text('重试'),
-          ),
-        ],
-      ),
+    return StatusView(
+      icon: Icons.cloud_off,
+      message: '章节加载失败',
+      actionLabel: '重试',
+      onAction: _reloadChapter,
     );
   }
 
   Widget _buildEmptyChapter() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
-          const SizedBox(height: 12),
-          FilledButton.tonal(
-            onPressed: _reloadChapter,
-            child: const Text('重试'),
-          ),
-        ],
-      ),
+    return StatusView(
+      icon: Icons.photo_outlined,
+      message: '本章暂无图片',
+      actionLabel: '重试',
+      onAction: _reloadChapter,
     );
   }
 
@@ -671,6 +665,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Widget _buildPagedBody(BuildContext context) {
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
+    final c = context.appColors;
     return Listener(
       onPointerSignal: (event) {
         if (event is PointerScrollEvent) {
@@ -685,7 +680,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         children: [
           Expanded(
             child: Container(
-              color: Colors.black,
+              color: c.readerBg,
               alignment: Alignment.center,
               child: Image.network(
                 _images[page].url,
@@ -793,7 +788,7 @@ class _LazyImageState extends State<_LazyImage> {
   }
 
   Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
-    color: const Color(0xFF161b22),
+    color: context.appColors.readerBar,
     child: Center(
       child: progress != null && progress.expectedTotalBytes != null
           ? CircularProgressIndicator(
@@ -812,7 +807,7 @@ class _ImageRetryBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFF161b22),
+      color: context.appColors.readerBar,
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

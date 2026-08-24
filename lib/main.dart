@@ -3,33 +3,46 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'providers/comics_providers.dart';
+import 'providers/settings_provider.dart';
 import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
+import 'screens/settings_screen.dart';
+import 'theme.dart';
 import 'tray/close_to_tray.dart';
 import 'widgets/reading_lists.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
-  runApp(const ProviderScope(child: ComicApp()));
+  final themeMode = await loadThemeMode();
+  runApp(
+    ProviderScope(
+      overrides: [
+        themeModeProvider.overrideWith(
+          () => ThemeModeNotifier(initial: themeMode),
+        ),
+      ],
+      child: const ComicApp(),
+    ),
+  );
 }
 
 final _navigatorKey = GlobalKey<NavigatorState>();
 
-class ComicApp extends StatelessWidget {
+class ComicApp extends ConsumerWidget {
   const ComicApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: '漫画库',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0d1117),
-        colorScheme: const ColorScheme.dark(primary: Color(0xFF58a6ff)),
-      ),
+      theme: buildAppTheme(Brightness.light),
+      darkTheme: buildAppTheme(Brightness.dark),
+      themeMode: themeMode,
       builder: (context, child) => Listener(
         behavior: HitTestBehavior.translucent,
         // 鼠标侧键（后退键）触发页面返回
@@ -77,9 +90,6 @@ class _MobileShellState extends State<MobileShell> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
-        backgroundColor: const Color(0xFF161b22),
-        selectedItemColor: const Color(0xFF58a6ff),
-        unselectedItemColor: const Color(0xFF8b949e),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: '首页'),
           BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
@@ -107,7 +117,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
       body: Row(
         children: [
           NavigationRail(
-            backgroundColor: const Color(0xFF161b22),
             selectedIndex: _index,
             onDestinationSelected: (i) {
               setState(() => _index = i);
@@ -124,17 +133,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   break;
               }
             },
-            labelType: NavigationRailLabelType.all,
-            selectedIconTheme: const IconThemeData(color: Color(0xFF58a6ff)),
-            unselectedIconTheme: const IconThemeData(color: Color(0xFF8b949e)),
-            selectedLabelTextStyle: const TextStyle(
-              color: Color(0xFF58a6ff),
-              fontSize: 12,
-            ),
-            unselectedLabelTextStyle: const TextStyle(
-              color: Color(0xFF8b949e),
-              fontSize: 12,
-            ),
             destinations: const [
               NavigationRailDestination(
                 icon: Icon(Icons.menu_book),
@@ -158,9 +156,13 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 selectedIcon: Icon(Icons.star),
                 label: Text('收藏作者'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings_outlined),
+                label: Text('设置'),
+              ),
             ],
           ),
-          const VerticalDivider(width: 1, color: Color(0xFF21262d)),
+          const VerticalDivider(width: 1),
           Expanded(
             child: IndexedStack(
               index: _index,
@@ -173,6 +175,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   title: '收藏作者',
                   child: FavoriteAuthorsList(),
                 ),
+                const _PageScaffold(title: '设置', child: SettingsScreen()),
               ],
             ),
           ),
@@ -190,11 +193,7 @@ class _PageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: Text(title)),
       body: child,
     );
   }
