@@ -51,7 +51,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 
 ## Implementation Units
 
-### U1. ✅ 双套主题令牌（ThemeExtension）
+### U1. ✅ 双套主题令牌（ThemeExtension）(PR #9)
 
 - **Goal:** 主题从单套深色常量扩展为浅/深双套，组件可经 `context.appColors` 取色。
 - **Requirements:** R3, R7
@@ -60,7 +60,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 定义 `AppColors`（`ThemeExtension`）含浅/深两套值，`buildAppTheme(Brightness)` 构建对应主题并注册 extension；新增 `appColors` 上下文扩展。
 - **Verification:** `flutter analyze` 无问题；深色模式外观与现状一致。
 
-### U2. ✅ 主题偏好状态与持久化
+### U2. ✅ 主题偏好状态与持久化 (PR #9)
 
 - **Goal:** 主题模式由 Riverpod 状态驱动并持久化。
 - **Requirements:** R1, R2, R4, R7
@@ -69,7 +69,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 新增 `shared_preferences` 依赖；`ThemeModeNotifier` 持有模式并在 setter 中持久化；`main()` 启动时读取偏好；`MaterialApp` 提供 `theme`/`darkTheme`/`themeMode`。
 - **Verification:** 选择模式即时生效；重启后保持；跟随系统随 OS 切换。
 
-### U3. ✅ 设置页
+### U3. ✅ 设置页 (PR #9)
 
 - **Goal:** 设置页提供外观三选一。
 - **Requirements:** R1, R7
@@ -78,7 +78,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 页面含"外观"区：`SegmentedButton<ThemeMode>` 三选项（浅色/深色/跟随系统），选择即写入 provider。
 - **Verification:** 三个选项可切换且即时生效。
 
-### U4. ✅ 入口
+### U4. ✅ 入口 (PR #9)
 
 - **Goal:** 桌面侧栏与手机"我的"页可进入设置页。
 - **Requirements:** R6, R7
@@ -87,7 +87,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 侧栏新增"设置"目的地；"我的"页 AppBar 加齿轮按钮。
 - **Verification:** 两端都能进入设置页，导航逻辑不变。
 
-### U5. ✅ 全 App 改用主题色
+### U5. ✅ 全 App 改用主题色 (PR #9)
 
 - **Goal:** 各页面/组件从 `context.appColors` 取色，浅色下全 App 正确呈现。
 - **Requirements:** R3, R7
@@ -96,7 +96,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 把 UI 打磨引入的 `k*` 常量引用替换为 `context.appColors.*`（卡片、状态组件、导航、首页、详情、发现、搜索、我的/列表、目录、进度条）。
 - **Verification:** 深色不变、浅色全页面协调；`flutter analyze` 无问题。
 
-### U6. ✅ 阅读器浅色适配
+### U6. ✅ 阅读器浅色适配 (PR #9)
 
 - **Goal:** 阅读器跟随主题：浅底浅工具栏，交互不变。
 - **Requirements:** R5, R7

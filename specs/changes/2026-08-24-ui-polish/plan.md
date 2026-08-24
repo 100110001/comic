@@ -70,7 +70,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 
 ## Implementation Units
 
-### U1. ✅ 主题令牌与组件主题
+### U1. ✅ 主题令牌与组件主题 (PR #9)
 
 - **Goal:** 建立集中设计令牌与全局组件主题，替换主题相关硬编码。
 - **Requirements:** R1, R2, R9
@@ -79,7 +79,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 新建主题文件集中定义颜色/圆角/字体/间距与 `ThemeData` 组件主题（AppBar、Card、按钮、输入框、Slider、导航、Tab、SnackBar、Divider、进度指示器）；`main.dart` 引用并移除重复的组件样式。
 - **Verification:** `flutter analyze` 无问题；全 App 默认组件呈现统一深色风格，无与自定配色冲突的默认样式。
 
-### U2. ✅ 通用状态组件
+### U2. ✅ 通用状态组件 (PR #9)
 
 - **Goal:** 空态/错误态抽成共用组件，全 App 一致。
 - **Requirements:** R7, R9
@@ -88,7 +88,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 提供 `StatusView`（图标+文案+可选按钮）与空态包装；各页错误/空态改为引用，删除重复实现。
 - **Verification:** 各页错误与空态样式统一；重试行为不变。
 
-### U3. ✅ 漫画卡片与网格
+### U3. ✅ 漫画卡片与网格 (PR #9)
 
 - **Goal:** 网格卡片视觉统一：封面圆角、边框/阴影、占位、文字层级、收藏角标。
 - **Requirements:** R3, R9
@@ -97,7 +97,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 卡片用主题圆角（10）+ 细边框 + 轻阴影；封面占位统一；标题/作者字号与颜色走令牌；角标与话数标签统一样式。
 - **Verification:** 桌面与手机网格观感统一；卡片高度计算不变（文字区高度保持一致）。
 
-### U4. ✅ 外壳导航
+### U4. ✅ 外壳导航 (PR #9)
 
 - **Goal:** 桌面侧栏与手机底部 tab 视觉精修。
 - **Requirements:** R6, R9
@@ -106,7 +106,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 侧栏选中态用胶囊指示、图标与标签间距统一；底部 tab 选中态、图标填充与背景统一；页面脚手架 AppBar 加层次（分隔线）。
 - **Verification:** 桌面/手机切换导航视觉统一，条目与切换逻辑不变。
 
-### U5. ✅ 首页
+### U5. ✅ 首页 (PR #9)
 
 - **Goal:** 首页 AppBar/搜索框、错误态、悬浮续读条视觉精修。
 - **Requirements:** R7, R9
@@ -115,7 +115,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 搜索框走输入框主题；错误态用共用组件；悬浮续读条用主题圆角/阴影并统一文字层级。
 - **Verification:** 首页各状态样式统一，搜索/刷新/续读条逻辑不变。
 
-### U6. ✅ 详情页
+### U6. ✅ 详情页 (PR #9)
 
 - **Goal:** 详情头部面板化，按钮与章节列表视觉统一。
 - **Requirements:** R5, R9
@@ -124,7 +124,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 头部信息区用面板（surface2 + 边框 + 圆角）承载封面与信息；按钮走主题；章节列表缩略圆角与文字层级统一。
 - **Verification:** 桌面双栏与手机纵向布局样式统一，收藏/续读/章节跳转逻辑不变。
 
-### U7. ✅ 发现与搜索
+### U7. ✅ 发现与搜索 (PR #9)
 
 - **Goal:** 发现主卡/侧卡与搜索页视觉精修。
 - **Requirements:** R7, R9
@@ -133,7 +133,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 主卡与侧卡统一圆角/阴影/占位；序列提示与操作提示文字层级统一；搜索空/错误态用共用组件。
 - **Verification:** 拖拽切换与点击开读逻辑不变；搜索行为不变。
 
-### U8. ✅ 我的与列表
+### U8. ✅ 我的与列表 (PR #9)
 
 - **Goal:** "我的"页 Tab 与各列表项视觉统一。
 - **Requirements:** R4, R6, R9
@@ -142,7 +142,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 列表缩略图圆角 8 + 边框；标题/副标题走令牌；Tab 样式走主题；空态用共用组件。
 - **Verification:** 三个列表样式统一，刷新与跳转逻辑不变。
 
-### U9. ✅ 阅读器 chrome
+### U9. ✅ 阅读器 chrome (PR #9)
 
 - **Goal:** 阅读器工具栏、进度条、目录与状态页视觉精修，交互不变。
 - **Requirements:** R8, R9
