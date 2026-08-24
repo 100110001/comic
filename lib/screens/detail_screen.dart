@@ -135,6 +135,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 final chapterList = _ChapterList(
                   comicId: widget.comicId,
                   chapters: detail.chapters,
+                  currentChapterId: detail.progress?.chapterId,
                 );
                 if (constraints.maxWidth >= 720) {
                   return Row(
@@ -291,7 +292,12 @@ class _Header extends StatelessWidget {
 class _ChapterList extends StatelessWidget {
   final int comicId;
   final List<Chapter> chapters;
-  const _ChapterList({required this.comicId, required this.chapters});
+  final int? currentChapterId;
+  const _ChapterList({
+    required this.comicId,
+    required this.chapters,
+    this.currentChapterId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -302,9 +308,23 @@ class _ChapterList extends StatelessWidget {
       separatorBuilder: (_, _) => Divider(height: 1, indent: 16),
       itemBuilder: (ctx, i) {
         final ch = chapters[i];
+        final isCurrent = ch.id == currentChapterId;
         return ListTile(
-          title: Text(ch.title, style: TextStyle(color: c.text1, fontSize: 14)),
-          trailing: Icon(Icons.chevron_right, color: c.text2),
+          selected: isCurrent,
+          selectedTileColor: c.accent.withValues(alpha: 0.12),
+          title: Text(
+            ch.title,
+            style: TextStyle(
+              color: isCurrent ? c.accent : c.text1,
+              fontSize: 14,
+              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+            ),
+          ),
+          trailing: Icon(
+            isCurrent ? Icons.menu_book : Icons.chevron_right,
+            color: isCurrent ? c.accent : c.text2,
+            size: isCurrent ? 16 : 24,
+          ),
           onTap: () => Navigator.push(
             ctx,
             MaterialPageRoute(

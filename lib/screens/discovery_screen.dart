@@ -184,19 +184,12 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('发现'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: c.text2),
-            tooltip: '换一批',
-            onPressed: _refresh,
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: SizedBox(height: 1, child: ColoredBox(color: c.borderStrong)),
-        ),
+      floatingActionButton: FloatingActionButton.small(
+        tooltip: '换一批',
+        backgroundColor: c.accent,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+        onPressed: _refresh,
+        child: const Icon(Icons.refresh),
       ),
       body: body,
     );
@@ -267,15 +260,22 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
             onTap: () => _openReader(comic),
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 250),
-              transitionBuilder: (child, anim) => SlideTransition(
-                position: Tween<Offset>(
-                  begin: _slideFromLeft
-                      ? const Offset(1, 0)
-                      : const Offset(-1, 0),
-                  end: Offset.zero,
-                ).animate(anim),
-                child: child,
-              ),
+              transitionBuilder: (child, anim) {
+                final curved = CurvedAnimation(
+                  parent: anim,
+                  curve: Curves.easeOutBack,
+                  reverseCurve: Curves.easeIn,
+                );
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: _slideFromLeft
+                        ? const Offset(1, 0)
+                        : const Offset(-1, 0),
+                    end: Offset.zero,
+                  ).animate(curved),
+                  child: child,
+                );
+              },
               child: KeyedSubtree(
                 key: ValueKey('current-${comic.id}'),
                 child: _mainCover(comic, coverWidth),

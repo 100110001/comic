@@ -47,7 +47,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '选择浅色、深色或跟随系统外观',
+                  '控制 App 整体配色：浅色、深色，或跟随系统自动切换',
                   style: TextStyle(color: c.text2, fontSize: 13),
                 ),
                 const SizedBox(height: 16),
@@ -113,7 +113,7 @@ class SettingsScreen extends ConsumerWidget {
                   ),
                 ),
                 subtitle: Text(
-                  '开启后点击右上角关闭会退到托盘继续运行',
+                  '开启：点右上角 X 退到系统托盘继续运行；关闭：点右上角 X 直接退出',
                   style: TextStyle(color: c.text2, fontSize: 13),
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16),

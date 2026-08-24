@@ -60,7 +60,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Material(
-      color: c.surface1,
+      color: c.navBg,
       child: Container(
         height: 40,
         decoration: BoxDecoration(
@@ -75,7 +75,20 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                   behavior: HitTestBehavior.opaque,
                   onDoubleTap: _toggleMaximize,
                   onPanStart: (_) => windowManager.startDragging(),
-                  child: const SizedBox.expand(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '漫画库',
+                        style: TextStyle(
+                          color: c.text1,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

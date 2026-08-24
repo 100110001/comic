@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const _themeModeKey = 'themeMode';
 const kCloseToTrayKey = 'closeToTray';
+const kWindowBoundsKey = 'windowBounds';
 
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
   ThemeModeNotifier.new,
@@ -59,4 +60,22 @@ class CloseToTrayNotifier extends Notifier<bool> {
 Future<bool> loadCloseToTray() async {
   final prefs = await SharedPreferences.getInstance();
   return prefs.getBool(kCloseToTrayKey) ?? true;
+}
+
+/// 读取上次保存的窗口位置与尺寸（无记录返回 null）。
+Future<Rect?> loadWindowBounds() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(kWindowBoundsKey);
+  if (raw == null) return null;
+  final parts = raw.split(',').map(double.tryParse).toList();
+  if (parts.length != 4 || parts.any((p) => p == null)) return null;
+  return Rect.fromLTWH(parts[0]!, parts[1]!, parts[2]!, parts[3]!);
+}
+
+Future<void> saveWindowBounds(Rect bounds) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(
+    kWindowBoundsKey,
+    '${bounds.left},${bounds.top},${bounds.width},${bounds.height}',
+  );
 }
