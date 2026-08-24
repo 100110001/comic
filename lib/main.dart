@@ -7,6 +7,7 @@ import 'providers/settings_provider.dart';
 import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
+import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'tray/close_to_tray.dart';
 import 'widgets/reading_lists.dart';
@@ -155,6 +156,10 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 selectedIcon: Icon(Icons.star),
                 label: Text('收藏作者'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.settings_outlined),
+                label: Text('设置'),
+              ),
             ],
           ),
           const VerticalDivider(width: 1),
@@ -170,6 +175,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                   title: '收藏作者',
                   child: FavoriteAuthorsList(),
                 ),
+                const _PageScaffold(title: '设置', child: SettingsScreen()),
               ],
             ),
           ),

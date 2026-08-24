@@ -13,3 +13,8 @@
 - 新增依赖 `shared_preferences`（2.5.5），`ThemeModeNotifier` 用 `NotifierProvider` 承载，`setMode` 写盘、`loadThemeMode` 启动读取。
 - `main()` 启动时先 `loadThemeMode()`，再通过 `ProviderScope(overrides: [...])` 注入初始值，避免启动闪一下默认主题。
 - `MaterialApp` 同时提供 `theme`（浅）与 `darkTheme`（深），`themeMode` 由 provider 驱动，跟随系统由 `ThemeMode.system` 天然支持。
+
+## U3 + U4. 设置页与入口
+
+- 设置页用 `SegmentedButton<ThemeMode>` 三选一，`expandedInsets: EdgeInsets.zero` 撑满宽度避免窄屏溢出，`showSelectedIcon: false`。
+- 桌面侧栏新增第 6 个"设置"目的地（`settings_outlined`）；手机"我的"页 AppBar 加齿轮按钮，两者都进同一个 `SettingsScreen`。

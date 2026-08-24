@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/comics_providers.dart';
 import '../widgets/reading_lists.dart';
+import 'settings_screen.dart';
 
 class MineScreen extends ConsumerStatefulWidget {
   const MineScreen({super.key});
@@ -47,6 +48,16 @@ class _MineScreenState extends ConsumerState<MineScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '设置',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: _controller,
           tabs: const [

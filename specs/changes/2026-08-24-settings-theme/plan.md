@@ -69,7 +69,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 新增 `shared_preferences` 依赖；`ThemeModeNotifier` 持有模式并在 setter 中持久化；`main()` 启动时读取偏好；`MaterialApp` 提供 `theme`/`darkTheme`/`themeMode`。
 - **Verification:** 选择模式即时生效；重启后保持；跟随系统随 OS 切换。
 
-### U3. 设置页
+### U3. ✅ 设置页
 
 - **Goal:** 设置页提供外观三选一。
 - **Requirements:** R1, R7
@@ -78,7 +78,7 @@ App 目前只有固定深色风格，用户希望支持浅色/深色/跟随系�
 - **Approach:** 页面含"外观"区：`SegmentedButton<ThemeMode>` 三选项（浅色/深色/跟随系统），选择即写入 provider。
 - **Verification:** 三个选项可切换且即时生效。
 
-### U4. 入口
+### U4. ✅ 入口
 
 - **Goal:** 桌面侧栏与手机"我的"页可进入设置页。
 - **Requirements:** R6, R7
