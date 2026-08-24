@@ -9,6 +9,11 @@ Future<void> setupCloseToTray() async {
   if (!Platform.isWindows) return;
   await windowManager.ensureInitialized();
   await windowManager.setPreventClose(true);
+  // 隐藏系统标题栏与原生窗口按钮，由 App 自绘标题栏控制窗口。
+  await windowManager.setTitleBarStyle(
+    TitleBarStyle.hidden,
+    windowButtonVisibility: false,
+  );
   windowManager.addListener(_CloseHandler());
   trayManager.addListener(_TrayHandler());
 

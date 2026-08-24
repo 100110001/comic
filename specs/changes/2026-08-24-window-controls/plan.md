@@ -27,7 +27,7 @@ Windows 桌面版隐藏原生标题栏，自绘拖拽区与最小化/最大化/�
 
 ## Implementation Units
 
-### U1. 平台判定与隐藏原生标题栏
+### U1. ✅ 平台判定与隐藏原生标题栏
 
 - **Goal:** 新增 Windows 平台判定，并隐藏原生标题栏与按钮。
 - **Requirements:** R1, R5
@@ -36,7 +36,7 @@ Windows 桌面版隐藏原生标题栏，自绘拖拽区与最小化/最大化/�
 - **Approach:** `platform.dart` 增加 `isWindowsPlatform`；`setupCloseToTray` 中调用 `setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: false)`。
 - **Verification:** Windows 下原生标题栏消失；其他平台不受影响。
 
-### U2. 自定义标题栏组件
+### U2. ✅ 自定义标题栏组件
 
 - **Goal:** 实现标题栏：拖拽区 + 三按钮，最大化状态监听。
 - **Requirements:** R2, R4
@@ -45,7 +45,7 @@ Windows 桌面版隐藏原生标题栏，自绘拖拽区与最小化/最大化/�
 - **Approach:** `WindowTitleBar`（StatefulWidget + `WindowListener`）：拖拽区 `startDragging`、双击切换最大化；按钮 46x40，关闭按钮 hover 红色；最大化状态由 `onWindowMaximize/onWindowUnmaximize` 同步。
 - **Verification:** 三按钮可用，图标随窗口状态切换。
 
-### U3. 接入应用外壳
+### U3. ✅ 接入应用外壳
 
 - **Goal:** 标题栏在 Windows 下全局显示。
 - **Requirements:** R2, R5

@@ -11,6 +11,7 @@ import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'tray/close_to_tray.dart';
 import 'widgets/reading_lists.dart';
+import 'widgets/window_title_bar.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,7 +56,14 @@ class ComicApp extends ConsumerWidget {
             _navigatorKey.currentState?.maybePop();
           }
         },
-        child: child!,
+        child: isWindowsPlatform
+            ? Column(
+                children: [
+                  const WindowTitleBar(),
+                  Expanded(child: child!),
+                ],
+              )
+            : child!,
       ),
       home: const _AdaptiveShell(),
     );
