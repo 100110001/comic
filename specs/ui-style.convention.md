@@ -13,8 +13,9 @@ scope: convention
 
 - 背景 `#0d1117`；面板/导航 `#161b22`；卡片/浮层 `#1c2128`；边框 `#30363d`（强分隔线 `#21262d`）。
 - 强调色 `#58a6ff`；主文字 `#e6edf3`；次要文字 `#8b949e`；收藏粉 `#f778ba`；星标黄 `#f5c542`。
+- 颜色令牌为**浅/深双套**（`AppColors` `ThemeExtension`），组件经 `context.appColors.*` 取色；浅色沿用 GitHub 浅色体系（背景 `#f6f8fa`、强调 `#0969da`、主文字 `#1f2328`）。圆角为单套常量。
 - 圆角：卡片 10、缩略图 8、按钮 8、浮层 14、小角 6。
-- 令牌集中定义在 `lib/theme.dart`（`kBg`/`kSurface1`/`kSurface2`/`kBorder`/`kBorderStrong`/`kAccent`/`kText1`/`kText2`/`kFavorite`/`kStar`/`kRadius*`），页面引用令牌而非裸色值。
+- 令牌集中定义在 `lib/theme.dart`（`AppColors.dark`/`AppColors.light` 与 `kRadius*`），页面引用主题色而非裸色值。
 
 ## 组件规范
 
