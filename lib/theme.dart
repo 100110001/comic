@@ -22,6 +22,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color star;
   final Color readerBg;
   final Color readerBar;
+  final Color navBg;
 
   const AppColors({
     required this.bg,
@@ -36,6 +37,7 @@ class AppColors extends ThemeExtension<AppColors> {
     required this.star,
     required this.readerBg,
     required this.readerBar,
+    required this.navBg,
   });
 
   static const dark = AppColors(
@@ -51,10 +53,11 @@ class AppColors extends ThemeExtension<AppColors> {
     star: Color(0xFFf5c542),
     readerBg: Colors.black,
     readerBar: Color(0xFF161b22),
+    navBg: Color(0xFF1c2128),
   );
 
   static const light = AppColors(
-    bg: Color(0xFFf6f8fa),
+    bg: Color(0xFFffffff),
     surface1: Color(0xFFffffff),
     surface2: Color(0xFFffffff),
     border: Color(0xFFd0d7de),
@@ -66,6 +69,7 @@ class AppColors extends ThemeExtension<AppColors> {
     star: Color(0xFF9a6700),
     readerBg: Color(0xFFf6f8fa),
     readerBar: Color(0xFFffffff),
+    navBg: Color(0xFFf6f8fa),
   );
 
   @override
@@ -82,6 +86,7 @@ class AppColors extends ThemeExtension<AppColors> {
     Color? star,
     Color? readerBg,
     Color? readerBar,
+    Color? navBg,
   }) {
     return AppColors(
       bg: bg ?? this.bg,
@@ -96,6 +101,7 @@ class AppColors extends ThemeExtension<AppColors> {
       star: star ?? this.star,
       readerBg: readerBg ?? this.readerBg,
       readerBar: readerBar ?? this.readerBar,
+      navBg: navBg ?? this.navBg,
     );
   }
 
@@ -115,6 +121,7 @@ class AppColors extends ThemeExtension<AppColors> {
       star: Color.lerp(star, other.star, t)!,
       readerBg: Color.lerp(readerBg, other.readerBg, t)!,
       readerBar: Color.lerp(readerBar, other.readerBar, t)!,
+      navBg: Color.lerp(navBg, other.navBg, t)!,
     );
   }
 }
@@ -308,6 +315,11 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent),
+    scrollbarTheme: ScrollbarThemeData(
+      thickness: const WidgetStatePropertyAll(8),
+      thumbColor: WidgetStatePropertyAll(c.text2.withValues(alpha: 0.3)),
+      radius: const Radius.circular(4),
+    ),
     splashColor: c.accent.withValues(alpha: 0.06),
     highlightColor: c.accent.withValues(alpha: 0.05),
   );

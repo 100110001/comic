@@ -14,6 +14,13 @@ Future<void> setupCloseToTray() async {
     TitleBarStyle.hidden,
     windowButtonVisibility: false,
   );
+  // 恢复上次的窗口位置与尺寸
+  await windowManager.waitUntilReadyToShow(null, () async {
+    final bounds = await loadWindowBounds();
+    if (bounds != null) {
+      await windowManager.setBounds(bounds);
+    }
+  });
   windowManager.addListener(_CloseHandler());
   trayManager.addListener(_TrayHandler());
 
@@ -35,6 +42,8 @@ Future<void> setupCloseToTray() async {
 class _CloseHandler extends WindowListener {
   @override
   void onWindowClose() async {
+    final bounds = await windowManager.getBounds();
+    await saveWindowBounds(bounds);
     final prefs = await SharedPreferences.getInstance();
     final minimizeToTray = prefs.getBool(kCloseToTrayKey) ?? true;
     if (minimizeToTray) {

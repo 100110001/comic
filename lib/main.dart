@@ -148,19 +148,29 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
           ),
           const VerticalDivider(width: 1),
           Expanded(
-            child: IndexedStack(
-              index: _index,
-              children: [
-                const HomeScreen(),
-                const DiscoveryScreen(),
-                const _PageScaffold(title: '最近阅读', child: RecentReadingList()),
-                const _PageScaffold(title: '收藏', child: FavoritesList()),
-                const _PageScaffold(
-                  title: '收藏作者',
-                  child: FavoriteAuthorsList(),
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey('page-$_index'),
+              tween: Tween(begin: 0, end: 1),
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, child) => Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 6 * (1 - value)),
+                  child: child,
                 ),
-                const _PageScaffold(title: '设置', child: SettingsScreen()),
-              ],
+              ),
+              child: IndexedStack(
+                index: _index,
+                children: [
+                  const HomeScreen(),
+                  const DiscoveryScreen(),
+                  const _PageScaffold(child: RecentReadingList()),
+                  const _PageScaffold(child: FavoritesList()),
+                  const _PageScaffold(child: FavoriteAuthorsList()),
+                  const _PageScaffold(child: SettingsScreen()),
+                ],
+              ),
             ),
           ),
         ],
@@ -187,20 +197,14 @@ class _DesktopSidebar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final c = context.appColors;
+    return Container(
       width: 208,
+      color: c.navBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
-            child: Text(
-              '漫画库',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ),
+          const SizedBox(height: 12),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -233,7 +237,7 @@ class _DesktopSidebar extends StatelessWidget {
   }
 }
 
-class _SideNavItem extends StatelessWidget {
+class _SideNavItem extends StatefulWidget {
   final IconData icon;
   final IconData selectedIcon;
   final String label;
@@ -249,34 +253,64 @@ class _SideNavItem extends StatelessWidget {
   });
 
   @override
+  State<_SideNavItem> createState() => _SideNavItemState();
+}
+
+class _SideNavItemState extends State<_SideNavItem> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    return Material(
-      color: selected ? c.accent.withValues(alpha: 0.15) : Colors.transparent,
-      borderRadius: BorderRadius.circular(kRadiusButton),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(kRadiusButton),
-        hoverColor: selected ? Colors.transparent : c.surface2,
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(
-                selected ? selectedIcon : icon,
-                size: 20,
-                color: selected ? c.accent : c.text2,
+    final selected = widget.selected;
+    final bg = selected
+        ? c.accent.withValues(alpha: 0.15)
+        : _hovered
+        ? c.surface2
+        : Colors.transparent;
+    final fg = selected
+        ? c.accent
+        : _hovered
+        ? c.text1
+        : c.text2;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(kRadiusButton),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(kRadiusButton),
+            splashColor: c.accent.withValues(alpha: 0.18),
+            highlightColor: c.accent.withValues(alpha: 0.08),
+            onTap: widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    selected ? widget.selectedIcon : widget.icon,
+                    size: 20,
+                    color: fg,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              Text(
-                label,
-                style: TextStyle(
-                  color: selected ? c.accent : c.text2,
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -285,15 +319,11 @@ class _SideNavItem extends StatelessWidget {
 }
 
 class _PageScaffold extends StatelessWidget {
-  final String title;
   final Widget child;
-  const _PageScaffold({required this.title, required this.child});
+  const _PageScaffold({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: child,
-    );
+    return Scaffold(body: child);
   }
 }

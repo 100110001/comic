@@ -60,7 +60,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Material(
-      color: c.surface1,
+      color: c.navBg,
       child: Container(
         height: 40,
         decoration: BoxDecoration(
@@ -75,7 +75,20 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                   behavior: HitTestBehavior.opaque,
                   onDoubleTap: _toggleMaximize,
                   onPanStart: (_) => windowManager.startDragging(),
-                  child: const SizedBox.expand(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '漫画库',
+                        style: TextStyle(
+                          color: c.text1,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -92,7 +105,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   }
 }
 
-class _TitleBarButton extends StatelessWidget {
+class _TitleBarButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool danger;
@@ -104,18 +117,27 @@ class _TitleBarButton extends StatelessWidget {
   });
 
   @override
+  State<_TitleBarButton> createState() => _TitleBarButtonState();
+}
+
+class _TitleBarButtonState extends State<_TitleBarButton> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    return InkWell(
-      hoverColor: danger ? const Color(0xFFe81123) : c.surface2,
-      onTap: onTap,
-      child: SizedBox(
-        width: 46,
-        height: 40,
-        child: Icon(
-          icon,
-          size: 16,
-          color: danger ? const Color(0xFFe81123) : c.text2,
+    // 三个按钮平时颜色一致；关闭按钮 hover 红底时图标切白色。
+    final iconColor = widget.danger && _hovered ? Colors.white : c.text2;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: InkWell(
+        hoverColor: widget.danger ? const Color(0xFFe81123) : c.surface2,
+        onTap: widget.onTap,
+        child: SizedBox(
+          width: 46,
+          height: 40,
+          child: Icon(widget.icon, size: 16, color: iconColor),
         ),
       ),
     );
