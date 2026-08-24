@@ -14,6 +14,14 @@
 - 过渡期间新旧两张图同时在树里，依赖 U1 的 `_precacheAround` 让新页通常已在图片缓存中，避免淡入时闪加载圈。
 - 加载中与失败占位（`loadingBuilder`/`errorBuilder`）原样保留，符合 R6。
 
+## U4. 图片失败重试
+
+- 单图重试：失败态改为可点击的 `_ImageRetryBox`，重试前先 `imageCache.evict(NetworkImage(url))`，再靠 `ValueKey` 变化强制重建 `Image.network` 重新拉取。
+- 桌面当前页图片 key 为 `page-img-$page-$_imageRetryTick`；移动端每项 key 为 `lazy-$url-$_retryTick`。
+- 章节级加载失败与"真没有图"分开：`_buildChapterBody` 统一处理加载中/失败/空章/正常四态，桌面与移动端都提供"重试"按钮。
+- `clamp` 返回 `num`，作为列表下标前必须 `.toInt()`，否则 analyze 报类型错误。
+- `_ImageRetryBox` 做成 const 无状态组件，桌面与移动端共用。
+
 ## U1. 键盘翻页
 
 - 键盘处理用 `CallbackShortcuts` + `Focus` 包裹**整个 Scaffold**（不是只包主体），否则焦点落在 AppBar 按钮上时按键无法冒泡到快捷键。

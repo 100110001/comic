@@ -46,6 +46,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _initialJumping = false;
   int _jumpGeneration = 0;
   bool _loading = true;
+  bool _loadFailed = false;
+  int _imageRetryTick = 0;
   String _title = '';
   bool _switchingComic = false;
   final _scrollController = ScrollController();
@@ -243,6 +245,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
     setState(() {
       _loading = true;
+      _loadFailed = false;
       _images = [];
       _extents.clear();
       _pendingJumpPage = null;
@@ -268,8 +271,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       });
       _precacheAround(_currentPage);
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadFailed = true;
+        });
+      }
     }
+  }
+
+  /// 章节级重试：重新拉取当前章节的图片列表。
+  Future<void> _reloadChapter() async {
+    final chapterId = _currentChapter?.id ?? widget.chapterId;
+    await _loadChapter(chapterId);
   }
 
   /// 预加载当前页前后各 1–2 张图片，避免翻页/滚动切换时闪屏。
@@ -554,11 +568,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           ),
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : desktop
-          ? _buildPagedBody(context)
-          : _buildMobileBody(),
+      body: _buildChapterBody(desktop),
     );
     return PopScope(
       canPop: true,
@@ -581,6 +591,46 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ),
             )
           : scaffold,
+    );
+  }
+
+  /// 章节主体的统一状态分支：加载中 / 加载失败 / 空章 / 正常阅读。
+  Widget _buildChapterBody(bool desktop) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loadFailed) return _buildLoadError();
+    if (_images.isEmpty) return _buildEmptyChapter();
+    return desktop ? _buildPagedBody(context) : _buildMobileBody();
+  }
+
+  Widget _buildLoadError() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('章节加载失败', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 12),
+          FilledButton.tonal(
+            onPressed: _reloadChapter,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyChapter() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 12),
+          FilledButton.tonal(
+            onPressed: _reloadChapter,
+            child: const Text('重试'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -619,11 +669,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Widget _buildPagedBody(BuildContext context) {
-    if (_images.isEmpty) {
-      return const Center(
-        child: Text('本章暂无图片', style: TextStyle(color: Colors.grey)),
-      );
-    }
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
     return Listener(
       onPointerSignal: (event) {
@@ -651,17 +696,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 alignment: Alignment.center,
                 child: Image.network(
                   _images[page].url,
+                  key: ValueKey('page-img-$page-$_imageRetryTick'),
                   fit: BoxFit.contain,
                   loadingBuilder: (_, child, progress) {
                     if (progress == null) return child;
                     return const Center(child: CircularProgressIndicator());
                   },
-                  errorBuilder: (_, _, _) => const Center(
-                    child: Icon(
-                      Icons.broken_image,
-                      color: Colors.grey,
-                      size: 48,
-                    ),
+                  errorBuilder: (_, _, _) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _retryCurrentImage,
+                    child: const _ImageRetryBox(),
                   ),
                 ),
               ),
@@ -687,6 +731,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       ),
     );
   }
+
+  /// 单图重试：清理该 URL 缓存后强制重建当前页图片。
+  void _retryCurrentImage() {
+    if (_images.isEmpty) return;
+    PaintingBinding.instance.imageCache.evict(
+      NetworkImage(
+        _images[_currentPage.clamp(0, _images.length - 1).toInt()].url,
+      ),
+    );
+    setState(() => _imageRetryTick++);
+  }
 }
 
 class _LazyImage extends StatefulWidget {
@@ -700,6 +755,7 @@ class _LazyImage extends StatefulWidget {
 
 class _LazyImageState extends State<_LazyImage> {
   bool _visible = false;
+  int _retryTick = 0;
 
   @override
   void initState() {
@@ -721,6 +777,7 @@ class _LazyImageState extends State<_LazyImage> {
             ? _loadingBox()
             : Image.network(
                 widget.url,
+                key: ValueKey('lazy-${widget.url}-$_retryTick'),
                 width: double.infinity,
                 height: widget.height,
                 fit: BoxFit.fitWidth,
@@ -728,10 +785,19 @@ class _LazyImageState extends State<_LazyImage> {
                   if (progress == null) return child;
                   return _loadingBox(progress: progress);
                 },
-                errorBuilder: (_, _, _) => _errorBox(),
+                errorBuilder: (_, _, _) => GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _retry,
+                  child: const _ImageRetryBox(),
+                ),
               ),
       ),
     );
+  }
+
+  void _retry() {
+    PaintingBinding.instance.imageCache.evict(NetworkImage(widget.url));
+    setState(() => _retryTick++);
   }
 
   Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
@@ -745,11 +811,26 @@ class _LazyImageState extends State<_LazyImage> {
           : const CircularProgressIndicator(),
     ),
   );
+}
 
-  Widget _errorBox() => ColoredBox(
-    color: const Color(0xFF161b22),
-    child: const Center(
-      child: Icon(Icons.broken_image, color: Colors.grey, size: 48),
-    ),
-  );
+/// 单图失败占位：显示可点击的"重试"提示。
+class _ImageRetryBox extends StatelessWidget {
+  const _ImageRetryBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: const Color(0xFF161b22),
+      child: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.broken_image, color: Colors.grey, size: 48),
+            SizedBox(height: 6),
+            Text('点击重试', style: TextStyle(color: Colors.grey, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
 }
