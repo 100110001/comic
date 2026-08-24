@@ -133,7 +133,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 主卡与侧卡统一圆角/阴影/占位；序列提示与操作提示文字层级统一；搜索空/错误态用共用组件。
 - **Verification:** 拖拽切换与点击开读逻辑不变；搜索行为不变。
 
-### U8. 我的与列表
+### U8. ✅ 我的与列表
 
 - **Goal:** "我的"页 Tab 与各列表项视觉统一。
 - **Requirements:** R4, R6, R9

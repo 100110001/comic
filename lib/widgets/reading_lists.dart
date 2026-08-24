@@ -6,6 +6,7 @@ import '../models/reading_progress_entry.dart';
 import '../providers/comics_providers.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
+import '../theme.dart';
 import 'status_views.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
@@ -31,11 +32,7 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 76,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
               itemBuilder: (ctx, i) {
                 final e = items[i];
                 return _EntryTile(
@@ -79,11 +76,7 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 76,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 76),
               itemBuilder: (ctx, i) {
                 final comic = items[i];
                 return _EntryTile(
@@ -128,32 +121,22 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
           : ListView.separated(
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(
-                color: Color(0xFF21262d),
-                height: 1,
-                indent: 16,
-              ),
+              separatorBuilder: (_, _) => const Divider(height: 1, indent: 16),
               itemBuilder: (ctx, i) {
                 final item = items[i];
                 return ListTile(
-                  leading: const Icon(Icons.star, color: Color(0xFFf5c542)),
+                  leading: const Icon(Icons.star, color: kStar),
                   title: Text(
                     item.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    style: const TextStyle(color: kText1, fontSize: 14),
                   ),
                   subtitle: Text(
                     '${item.comicCount} 部作品',
-                    style: const TextStyle(
-                      color: Color(0xFF8b949e),
-                      fontSize: 12,
-                    ),
+                    style: const TextStyle(color: kText2, fontSize: 12),
                   ),
-                  trailing: const Icon(
-                    Icons.chevron_right,
-                    color: Color(0xFF8b949e),
-                  ),
+                  trailing: const Icon(Icons.chevron_right, color: kText2),
                   onTap: () => Navigator.push(
                     ctx,
                     MaterialPageRoute(
@@ -187,7 +170,7 @@ class _EntryTile extends StatelessWidget {
     return ListTile(
       onTap: onTap,
       leading: ClipRRect(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kRadiusThumb),
         child: SizedBox(
           width: 52,
           height: 68,
@@ -204,20 +187,20 @@ class _EntryTile extends StatelessWidget {
         title,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: kText1, fontSize: 14),
       ),
       subtitle: Text(
         author != null ? '$subtitle · $author' : subtitle,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Color(0xFF8b949e), fontSize: 12),
+        style: const TextStyle(color: kText2, fontSize: 12),
       ),
-      trailing: const Icon(Icons.chevron_right, color: Color(0xFF8b949e)),
+      trailing: const Icon(Icons.chevron_right, color: kText2),
     );
   }
 
   Widget _placeholder() => Container(
-    color: const Color(0xFF21262d),
-    child: const Icon(Icons.image_not_supported, color: Color(0xFF8b949e)),
+    color: kSurface2,
+    child: const Icon(Icons.image_not_supported, color: kText2),
   );
 }

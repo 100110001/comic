@@ -45,15 +45,10 @@ class _MineScreenState extends ConsumerState<MineScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0d1117),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF161b22),
-        title: const Text('我的', style: TextStyle(color: Colors.white)),
+        title: const Text('我的'),
         bottom: TabBar(
           controller: _controller,
-          indicatorColor: const Color(0xFF58a6ff),
-          labelColor: const Color(0xFF58a6ff),
-          unselectedLabelColor: const Color(0xFF8b949e),
           tabs: const [
             Tab(text: '最近阅读'),
             Tab(text: '收藏'),
