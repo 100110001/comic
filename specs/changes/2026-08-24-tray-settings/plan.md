@@ -25,7 +25,7 @@ origin: specs/changes/2026-08-24-tray-settings/define.md
 
 ## Implementation Units
 
-### U1. ✅ 托盘开关状态与持久化
+### U1. ✅ 托盘开关状态与持久化 (PR #13)
 
 - **Goal:** 新增 `closeToTray` 偏好状态并持久化。
 - **Requirements:** R1, R4
@@ -34,7 +34,7 @@ origin: specs/changes/2026-08-24-tray-settings/define.md
 - **Approach:** 新增 `CloseToTrayNotifier` 与 `loadCloseToTray()`，默认 true；`main()` 启动读取并注入 override。
 - **Verification:** 状态可读写，重启保持。
 
-### U2. ✅ 设置页开关
+### U2. ✅ 设置页开关 (PR #13)
 
 - **Goal:** 设置页"窗口"区显示托盘开关。
 - **Requirements:** R1, R3
@@ -43,7 +43,7 @@ origin: specs/changes/2026-08-24-tray-settings/define.md
 - **Approach:** 外观区下方新增"窗口"区，仅 Windows 显示 `SwitchListTile`，切换写入 provider。
 - **Verification:** Windows 下显示开关且可切换；其他平台不显示。
 
-### U3. ✅ 关闭窗口行为接入
+### U3. ✅ 关闭窗口行为接入 (PR #13)
 
 - **Goal:** 关闭窗口时按偏好决定退托盘或退出。
 - **Requirements:** R2
