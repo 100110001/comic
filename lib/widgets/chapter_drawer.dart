@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/chapter.dart';
+import '../theme.dart';
 
 class ChapterDrawer extends StatelessWidget {
   final List<Chapter> chapters;
@@ -15,7 +16,7 @@ class ChapterDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: const Color(0xFF161b22),
+      backgroundColor: kSurface1,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -25,20 +26,17 @@ class ChapterDrawer extends StatelessWidget {
               child: Text(
                 '目录',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: kText1,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
-            const Divider(color: Color(0xFF21262d), height: 1),
+            const Divider(height: 1),
             Expanded(
               child: chapters.isEmpty
                   ? const Center(
-                      child: Text(
-                        '暂无章节',
-                        style: TextStyle(color: Color(0xFF8b949e)),
-                      ),
+                      child: Text('暂无章节', style: TextStyle(color: kText2)),
                     )
                   : ListView.builder(
                       itemCount: chapters.length,
@@ -47,15 +45,13 @@ class ChapterDrawer extends StatelessWidget {
                         return ListTile(
                           dense: true,
                           selected: selected,
-                          selectedTileColor: const Color(0xFF1f2937),
+                          selectedTileColor: kSurface2,
                           title: Text(
                             chapters[i].title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: selected
-                                  ? const Color(0xFF58a6ff)
-                                  : Colors.white,
+                              color: selected ? kAccent : kText1,
                               fontSize: 13,
                             ),
                           ),

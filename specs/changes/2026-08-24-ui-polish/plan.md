@@ -142,7 +142,7 @@ origin: specs/changes/2026-08-24-ui-polish/define.md
 - **Approach:** 列表缩略图圆角 8 + 边框；标题/副标题走令牌；Tab 样式走主题；空态用共用组件。
 - **Verification:** 三个列表样式统一，刷新与跳转逻辑不变。
 
-### U9. 阅读器 chrome
+### U9. ✅ 阅读器 chrome
 
 - **Goal:** 阅读器工具栏、进度条、目录与状态页视觉精修，交互不变。
 - **Requirements:** R8, R9

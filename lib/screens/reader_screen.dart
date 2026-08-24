@@ -10,6 +10,7 @@ import '../models/image_item.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
+import '../theme.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
 import '../widgets/status_views.dart';
@@ -504,19 +505,26 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               ignoring: !_chromeVisible,
               child: AppBar(
                 backgroundColor: Colors.black,
-                iconTheme: const IconThemeData(color: Colors.white),
+                iconTheme: const IconThemeData(color: kText1),
                 title: Text(
                   _currentChapter?.title ?? _title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  style: const TextStyle(color: kText1, fontSize: 15),
+                ),
+                bottom: const PreferredSize(
+                  preferredSize: Size.fromHeight(1),
+                  child: SizedBox(
+                    height: 1,
+                    child: ColoredBox(color: kBorderStrong),
+                  ),
                 ),
                 actions: [
                   Builder(
                     builder: (buttonContext) => IconButton(
                       icon: const Icon(
                         Icons.format_list_bulleted,
-                        color: Colors.white,
+                        color: kText1,
                       ),
                       tooltip: '目录',
                       onPressed: () => _openDirectory(buttonContext),
@@ -780,7 +788,7 @@ class _LazyImageState extends State<_LazyImage> {
   }
 
   Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
-    color: const Color(0xFF161b22),
+    color: kSurface1,
     child: Center(
       child: progress != null && progress.expectedTotalBytes != null
           ? CircularProgressIndicator(
@@ -799,7 +807,7 @@ class _ImageRetryBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: const Color(0xFF161b22),
+      color: kSurface1,
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

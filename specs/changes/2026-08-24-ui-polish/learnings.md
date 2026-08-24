@@ -45,3 +45,10 @@
 
 - "我的"页 TabBar 颜色交给 `TabBarThemeData`（label accent、unselected kText2、accent 指示条），去掉显式颜色。
 - 列表缩略图圆角 4→8，标题/副标题/星标/箭头全部走令牌；分隔线颜色交给 Divider 主题。
+
+## U9. 阅读器 chrome
+
+- 进度条条底色与文字走令牌，垂直间距收窄（8/2），Slider 走全局细轨道主题（track 3、accent、圆拇指 6）。
+- 阅读器 AppBar 保持纯黑沉浸基调，加 1px 底部分隔线（随工具栏一起淡出）；标题/目录图标用 `kText1`。
+- 目录抽屉底色 `kSurface1`、选中行 `kSurface2`、选中文字 accent；`_ImageRetryBox` 与移动端加载框底色收敛为 `kSurface1`。
+- 阅读器交互（点击呼出、滚轮翻页、键盘、重试）未触碰，全部保持不变。

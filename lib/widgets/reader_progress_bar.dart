@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme.dart';
 
 class ReaderProgressBar extends StatelessWidget {
   final int currentPage; // 0 起始
@@ -16,21 +17,21 @@ class ReaderProgressBar extends StatelessWidget {
     final max = totalPages > 1 ? totalPages - 1 : 0;
     final label = Text(
       '第 ${currentPage + 1} / $totalPages 页',
-      style: const TextStyle(color: Colors.white, fontSize: 12),
+      style: const TextStyle(color: kText1, fontSize: 12),
     );
     if (max <= 0) {
       return Material(
-        color: const Color(0xFF161b22),
+        color: kSurface1,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(children: [label]),
         ),
       );
     }
     return Material(
-      color: const Color(0xFF161b22),
+      color: kSurface1,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Row(
           children: [
             label,
