@@ -53,7 +53,7 @@ class AppColors extends ThemeExtension<AppColors> {
     star: Color(0xFFf5c542),
     readerBg: Colors.black,
     readerBar: Color(0xFF161b22),
-    navBg: Color(0xFF1c2128),
+    navBg: Color(0xFF21262d),
   );
 
   static const light = AppColors(
@@ -248,7 +248,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
-      ),
+      ).copyWith(animationDuration: const Duration(milliseconds: 150)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -315,12 +315,25 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: c.accent),
+    iconButtonTheme: IconButtonThemeData(
+      style: IconButton.styleFrom(hoverColor: c.accent.withValues(alpha: 0.12)),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.windows: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.android: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+        TargetPlatform.linux: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     scrollbarTheme: ScrollbarThemeData(
       thickness: const WidgetStatePropertyAll(8),
       thumbColor: WidgetStatePropertyAll(c.text2.withValues(alpha: 0.3)),
       radius: const Radius.circular(4),
     ),
-    splashColor: c.accent.withValues(alpha: 0.06),
-    highlightColor: c.accent.withValues(alpha: 0.05),
+    hoverColor: c.accent.withValues(alpha: 0.08),
+    splashColor: c.accent.withValues(alpha: 0.12),
+    highlightColor: c.accent.withValues(alpha: 0.06),
   );
 }

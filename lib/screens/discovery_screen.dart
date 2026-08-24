@@ -5,6 +5,7 @@ import '../providers/comics_providers.dart';
 import '../providers/discovery_providers.dart';
 import '../theme.dart';
 import '../widgets/status_views.dart';
+import '../widgets/pressable.dart';
 import 'reader_screen.dart';
 
 /// 发现：随机阅读入口。一次展示一本漫画，拖拽（触摸滑动/鼠标按住拖动）
@@ -184,12 +185,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     }
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.small(
-        tooltip: '换一批',
-        backgroundColor: c.accent,
-        foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        onPressed: _refresh,
-        child: const Icon(Icons.refresh),
+      floatingActionButton: Pressable(
+        radius: BorderRadius.circular(28),
+        hoverColor: Colors.transparent,
+        child: FloatingActionButton.small(
+          tooltip: '换一批',
+          backgroundColor: c.accent,
+          foregroundColor: Theme.of(context).colorScheme.onPrimary,
+          onPressed: _refresh,
+          child: const Icon(Icons.refresh),
+        ),
       ),
       body: body,
     );
