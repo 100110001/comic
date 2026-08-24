@@ -15,6 +15,7 @@ scope: convention
 - 强调色 `#58a6ff`；主文字 `#e6edf3`；次要文字 `#8b949e`；收藏粉 `#f778ba`；星标黄 `#f5c542`。
 - 颜色令牌为**浅/深双套**（`AppColors` `ThemeExtension`），组件经 `context.appColors.*` 取色；浅色沿用 GitHub 浅色体系（背景 `#f6f8fa`、强调 `#0969da`、主文字 `#1f2328`）。圆角为单套常量。
 - 圆角：卡片 10、缩略图 8、按钮 8、浮层 14、小角 6。
+- 中文字体不打包：主题统一声明简体中文回退栈（微软雅黑 → 苹方 → Noto Sans CJK SC），避免系统回退到日文/繁体字形。
 - 令牌集中定义在 `lib/theme.dart`（`AppColors.dark`/`AppColors.light` 与 `kRadius*`），页面引用主题色而非裸色值。
 
 ## 组件规范

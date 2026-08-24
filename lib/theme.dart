@@ -126,6 +126,15 @@ extension AppColorsContext on BuildContext {
 /// 全 App 主题：按亮度构建浅/深两套外观。
 ThemeData buildAppTheme(Brightness brightness) {
   final c = brightness == Brightness.dark ? AppColors.dark : AppColors.light;
+  // 简体中文优先回退栈：Windows 用微软雅黑，Apple 用苹方，其余走思源黑体。
+  // 避免系统回退到日文字体或繁体正黑体导致字形"不像简体"。
+  const cjkFallback = <String>[
+    'Microsoft YaHei',
+    'PingFang SC',
+    'Noto Sans CJK SC',
+    'Source Han Sans SC',
+    'sans-serif',
+  ];
   final scheme = ColorScheme(
     brightness: brightness,
     primary: c.accent,
@@ -149,22 +158,46 @@ ThemeData buildAppTheme(Brightness brightness) {
       fontWeight: FontWeight.w600,
       color: c.text1,
       letterSpacing: 0.2,
+      fontFamilyFallback: cjkFallback,
     ),
     titleMedium: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
       color: c.text1,
+      fontFamilyFallback: cjkFallback,
     ),
-    bodyLarge: TextStyle(fontSize: 15, color: c.text1),
-    bodyMedium: TextStyle(fontSize: 14, color: c.text1),
-    bodySmall: TextStyle(fontSize: 12, color: c.text2),
+    bodyLarge: TextStyle(
+      fontSize: 15,
+      color: c.text1,
+      fontFamilyFallback: cjkFallback,
+    ),
+    bodyMedium: TextStyle(
+      fontSize: 14,
+      color: c.text1,
+      fontFamilyFallback: cjkFallback,
+    ),
+    bodySmall: TextStyle(
+      fontSize: 12,
+      color: c.text2,
+      fontFamilyFallback: cjkFallback,
+    ),
     labelLarge: TextStyle(
       fontSize: 14,
       fontWeight: FontWeight.w600,
       color: c.text1,
+      fontFamilyFallback: cjkFallback,
     ),
-    labelMedium: TextStyle(fontSize: 12, color: c.text1),
-    labelSmall: TextStyle(fontSize: 11, color: c.text2, letterSpacing: 0.2),
+    labelMedium: TextStyle(
+      fontSize: 12,
+      color: c.text1,
+      fontFamilyFallback: cjkFallback,
+    ),
+    labelSmall: TextStyle(
+      fontSize: 11,
+      color: c.text2,
+      letterSpacing: 0.2,
+      fontFamilyFallback: cjkFallback,
+    ),
   );
 
   return ThemeData(

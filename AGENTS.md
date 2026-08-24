@@ -31,3 +31,5 @@ No commit-message trailer is required in this repo.
   that single branch.
 - When the change is complete, open a PR targeting `master` (not `dev`). The
   user merges the PR themselves.
+- While a PR is open, keep working on that branch; don't switch back to
+  `master` until the PR is merged.
