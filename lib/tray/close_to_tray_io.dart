@@ -42,8 +42,12 @@ Future<void> setupCloseToTray() async {
 class _CloseHandler extends WindowListener {
   @override
   void onWindowClose() async {
-    final bounds = await windowManager.getBounds();
-    await saveWindowBounds(bounds);
+    // 最小化状态下窗口坐标是系统占位（如 -32000,-32000），保存会恢复出屏幕外窗口
+    final minimized = await windowManager.isMinimized();
+    if (!minimized) {
+      final bounds = await windowManager.getBounds();
+      await saveWindowBounds(bounds);
+    }
     final prefs = await SharedPreferences.getInstance();
     final minimizeToTray = prefs.getBool(kCloseToTrayKey) ?? true;
     if (minimizeToTray) {

@@ -69,7 +69,15 @@ Future<Rect?> loadWindowBounds() async {
   if (raw == null) return null;
   final parts = raw.split(',').map(double.tryParse).toList();
   if (parts.length != 4 || parts.any((p) => p == null)) return null;
-  return Rect.fromLTWH(parts[0]!, parts[1]!, parts[2]!, parts[3]!);
+  final rect = Rect.fromLTWH(parts[0]!, parts[1]!, parts[2]!, parts[3]!);
+  // 校验坐标合法性：尺寸过小或位置异常（如最小化占位 -32000）直接忽略
+  if (rect.width < 200 ||
+      rect.height < 150 ||
+      rect.left < -10000 ||
+      rect.top < -10000) {
+    return null;
+  }
+  return rect;
 }
 
 Future<void> saveWindowBounds(Rect bounds) async {
