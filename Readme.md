@@ -106,21 +106,15 @@ flutter doctor
 # 1. 升版本号并同步各文件（pubspec / installer.iss / releases/update.json / CHANGELOG），打 vX.Y.Z tag
 .\scripts\release.ps1 -Version 1.0.1 -Notes "本次更新内容"
 
-# 2. 构建
-flutter build windows --release
-flutter build apk --release
-ISCC installer.iss          # 生成 installer\comic-setup.exe
-
-# 3. 发布 Release（tag 已由脚本创建）
-gh release create v1.0.1 installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk --title v1.0.1 --notes "本次更新内容"
-
-# 4. 推送代码与 tag
+# 2. 推送代码与 tag —— CI（release.yml）会自动构建 Windows + Android 并上传到 v1.0.1 Release
 git push && git push origin v1.0.1
 ```
 
 注意事项：
 
-- 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 pubspec、installer、update.json、CHANGELOG 并打 tag（脚本读写统一为 UTF-8）。
-- 如果 `gh release create` 提示 tag 已存在，说明之前建过 Release，改用 `gh release upload v1.0.1 --clobber <文件>` 替换资产。
+- 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 pubspec、installer、update.json、CHANGELOG 并打 tag（脚本读写统一为 UTF-8，兼容 Windows PowerShell 5.1）。
+- 推送 tag 后等 CI 完成即可；需要手动构建/上传时：
+  `flutter build windows --release`、`flutter build apk --release`、`ISCC installer.iss`，
+  再 `gh release upload v1.0.1 --clobber installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk`。
 - `releases/update.json` 的 `latestVersion` 必须与发布的版本一致（脚本自动处理）。
 - 发布完成后，App 的"检查更新"即可检测到新版本。
