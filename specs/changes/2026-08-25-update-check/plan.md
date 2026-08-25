@@ -28,7 +28,7 @@ origin: specs/changes/2026-08-25-update-check/define.md
 
 ## Implementation Units
 
-### U1. ✅ 依赖与配置
+### U1. ✅ 依赖与配置 (PR #19)
 
 - **Goal:** 新增所需依赖与更新清单地址、Android 权限。
 - **Requirements:** R6
@@ -37,7 +37,7 @@ origin: specs/changes/2026-08-25-update-check/define.md
 - **Approach:** `pub add package_info_plus open_filex`；`config.dart` 增加 `kUpdateManifestUrl`；Manifest 加 `REQUEST_INSTALL_PACKAGES`。
 - **Verification:** analyze 通过，依赖解析成功。
 
-### U2. ✅ 更新服务与版本比较
+### U2. ✅ 更新服务与版本比较 (PR #19)
 
 - **Goal:** 拉取并解析更新清单、比较版本、下载文件。
 - **Requirements:** R3, R5
@@ -46,7 +46,7 @@ origin: specs/changes/2026-08-25-update-check/define.md
 - **Approach:** `UpdateInfo` 解析 `latestVersion/platforms/releaseNotes`；`fetchUpdateInfo` 带超时；`isNewer` 数字段比较；`downloadToTemp` 返回本地路径。
 - **Verification:** 单元级手动验证比较函数与解析。
 
-### U3. ✅ 设置页"关于"区
+### U3. ✅ 设置页"关于"区 (PR #19)
 
 - **Goal:** 显示当前版本、检查更新、下载并安装。
 - **Requirements:** R2, R3, R5
@@ -55,7 +55,7 @@ origin: specs/changes/2026-08-25-update-check/define.md
 - **Approach:** 转 `ConsumerStatefulWidget`；"关于"区显示版本 + 检查更新按钮；状态机 idle/checking/latest/available/error/downloading；可用时显示新版本与"下载并更新"。
 - **Verification:** 各状态切换正确，错误可重试。
 
-### U4. ✅ 平台安装
+### U4. ✅ 平台安装 (PR #19)
 
 - **Goal:** Windows 静默安装、Android 唤起安装器。
 - **Requirements:** R4
@@ -64,7 +64,7 @@ origin: specs/changes/2026-08-25-update-check/define.md
 - **Approach:** Windows `Process.start(path, [/VERYSILENT,/SUPPRESSMSGBOXES,/NORESTART])` 后退出 App；Android `OpenFilex.open(path, type: 'application/vnd.android.package-archive')`。
 - **Verification:** 平台分支正确，下载完成后触发安装。
 
-### U5. ✅ 发布脚本与 CHANGELOG
+### U5. ✅ 发布脚本与 CHANGELOG (PR #19)
 
 - **Goal:** 一键同步版本并维护更新清单。
 - **Requirements:** R1
