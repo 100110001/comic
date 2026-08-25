@@ -8,6 +8,7 @@ OutputDir=installer
 OutputBaseFilename=comic-setup
 Compression=lzma
 SolidCompression=yes
+CloseApplications=yes
 WizardStyle=modern
 
 [Languages]
