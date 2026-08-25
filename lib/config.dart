@@ -1,4 +1,8 @@
-const String baseUrl = 'http://192.168.124.4:8888';
+/// 后端地址：构建时用 --dart-define=API_BASE_URL=http://... 覆盖，默认本机。
+const String baseUrl = String.fromEnvironment(
+  'API_BASE_URL',
+  defaultValue: 'http://localhost:8888',
+);
 const Duration requestTimeout = Duration(seconds: 15);
 
 /// 更新清单地址（公开 releases 仓的 update.json）。
