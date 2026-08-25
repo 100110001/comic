@@ -1,12 +1,12 @@
-﻿{
-    "latestVersion":  "1.0.0",
-    "releaseNotes":  "首个正式版本",
-    "platforms":  {
-                      "windows":  {
-                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.0/comic-setup.exe"
-                                  },
-                      "android":  {
-                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.0/app-release.apk"
-                                  }
-                  }
+{
+  "latestVersion": "1.0.0",
+  "platforms": {
+    "windows": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.0/comic-setup.exe"
+    },
+    "android": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.0/app-release.apk"
+    }
+  },
+  "releaseNotes": ""
 }

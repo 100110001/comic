@@ -13,15 +13,29 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
   throw "版本号格式应为 X.Y.Z，当前: $Version"
 }
 
-# 1. 同步 pubspec.yaml（build 号 +1）
-$pubspec = Get-Content pubspec.yaml -Raw
+# 1. 同步 pubspec.yaml（build 号 +1，统一 UTF-8 读写避免乱码）
+$pubspec = [System.IO.File]::ReadAllText(
+  (Join-Path $RepoRoot "pubspec.yaml"),
+  [System.Text.Encoding]::UTF8
+)
 $pubspec = $pubspec -replace '(?m)^version: .*$', "version: $Version+1"
-Set-Content pubspec.yaml $pubspec -NoNewline
+[System.IO.File]::WriteAllText(
+  (Join-Path $RepoRoot "pubspec.yaml"),
+  $pubspec,
+  [System.Text.UTF8Encoding]::new($false)
+)
 
 # 2. 同步 installer.iss
-$iss = Get-Content installer.iss -Raw
+$iss = [System.IO.File]::ReadAllText(
+  (Join-Path $RepoRoot "installer.iss"),
+  [System.Text.Encoding]::UTF8
+)
 $iss = $iss -replace '(?m)^AppVersion=.*$', "AppVersion=$Version"
-Set-Content installer.iss $iss -NoNewline
+[System.IO.File]::WriteAllText(
+  (Join-Path $RepoRoot "installer.iss"),
+  $iss,
+  [System.Text.UTF8Encoding]::new($false)
+)
 
 # 3. 生成更新清单（随主仓库提交，raw 地址由 config.dart 指向）
 $update = @{
@@ -37,15 +51,29 @@ $update = @{
   releaseNotes  = $Notes
 } | ConvertTo-Json -Depth 4
 New-Item -ItemType Directory -Force -Path releases | Out-Null
-Set-Content releases/update.json $update -NoNewline -Encoding UTF8
+[System.IO.File]::WriteAllText(
+  (Join-Path $RepoRoot "releases\update.json"),
+  $update,
+  [System.Text.UTF8Encoding]::new($false)
+)
 
 # 4. CHANGELOG
-if (-not (Test-Path CHANGELOG.md)) {
-  Set-Content CHANGELOG.md "# 更新日志`n`n## [Unreleased]`n" -Encoding UTF8
+$changelogPath = Join-Path $RepoRoot "CHANGELOG.md"
+if (-not (Test-Path $changelogPath)) {
+  [System.IO.File]::WriteAllText(
+    $changelogPath,
+    "# 更新日志`n`n## [Unreleased]`n",
+    [System.Text.UTF8Encoding]::new($false)
+  )
 }
 $date = Get-Date -Format 'yyyy-MM-dd'
 $entry = if ($Notes) { "`n## [$Version] - $date`n`n$Notes`n" } else { "`n## [$Version] - $date`n" }
-Add-Content CHANGELOG.md $entry -Encoding UTF8
+$changelog = [System.IO.File]::ReadAllText($changelogPath, [System.Text.Encoding]::UTF8)
+[System.IO.File]::WriteAllText(
+  $changelogPath,
+  $changelog + $entry,
+  [System.Text.UTF8Encoding]::new($false)
+)
 
 # 5. 提交并打 tag
 git add pubspec.yaml installer.iss releases/update.json CHANGELOG.md
