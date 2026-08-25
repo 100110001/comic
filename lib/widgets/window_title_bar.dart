@@ -80,7 +80,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        '漫画库',
+                        'Comic',
                         style: TextStyle(
                           color: c.text1,
                           fontSize: 14,
