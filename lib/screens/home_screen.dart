@@ -244,7 +244,6 @@ class _FloatingContinueBar extends StatelessWidget {
     return Material(
       color: c.surface2,
       elevation: 4,
-      borderRadius: BorderRadius.circular(kRadiusFloat),
       clipBehavior: Clip.antiAlias,
       shadowColor: Colors.black.withValues(alpha: 0.4),
       shape: RoundedRectangleBorder(
