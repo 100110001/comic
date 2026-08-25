@@ -11,14 +11,18 @@
 
 ## Build and CI gate
 
-This repo has no CI. Before considering a `br-work` unit done, run:
+Before considering a `br-work` unit done, run:
 
 ```bash
 flutter analyze
 flutter test
-
-cd backend && npm run build
 ```
+
+The backend lives in this repo but is not checked during builds (user
+preference). CI runs on GitHub Actions (`.github/workflows/`): `flutter
+analyze` + `flutter test` on push/PR with Flutter pinned to **3.38.9**, and
+pushing a `v*` tag automatically builds Windows/Android and uploads a Release.
+Flutter dependencies are locked via the committed `pubspec.lock`.
 
 ## Commit conventions
 
