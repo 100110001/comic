@@ -654,6 +654,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final width = MediaQuery.of(context).size.width;
     return ListView.builder(
       controller: _scrollController,
+      // Flutter 3.41+ 弃用 cacheExtent（新 API scrollCacheExtent 需本地升级后使用）
+      // ignore: deprecated_member_use
       cacheExtent: 800,
       itemCount: _images.length,
       itemBuilder: (ctx, i) => _LazyImage(
