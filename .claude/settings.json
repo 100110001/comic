@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s -o /dev/null -w \"HTTP:%{http_code} size:%{size_download}\\\\n\" \"http://192.168.124.4:8888/static/%5B%E9%AB%98%E6%B4%A5%5D%E3%82%A8%E3%83%AA%E3%82%B6%E6%A7%98%E3%81%94%E7%94%A8%E5%BF%83%EF%BC%81%EF%BC%81/%E7%AC%AC1%E8%A9%B1/0001.jpg\")",
+      "Bash(curl -s -o /dev/null -w \"HTTP:%{http_code} size:%{size_download}\\\\n\" \"http://192.168.124.4:8888/static/[%E9%AB%98%E6%B4%A5]%E3%82%A8%E3%83%AA%E3%82%B6%E6%A7%98%E3%81%94%E7%94%A8%E5%BF%83%EF%BC%81%EF%BC%81/%E7%AC%AC1%E8%A9%B1/0001.jpg\")",
+      "Bash(node -e ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node -e \"console.log\\(decodeURIComponent\\('%5B%E9%AB%98%E6%B4%A5%5D%E3%82%A8%E3%83%AA%E3%82%B6%E6%A7%98%E3%81%94%E7%94%A8%E5%BF%83%EF%BC%81%EF%BC%81/%E7%AC%AC1%E8%A9%B1/0001.jpg'\\)\\)\")",
+      "Bash(powershell -NoProfile -Command 'Get-ChildItem -Path '\\\\''E:\\\\comic'\\\\'' -Directory | Where-Object { $_.Name -like '\\\\''*高津*'\\\\'' -or $_.Name -like '\\\\''*エリザ*'\\\\'' } | Select-Object -ExpandProperty Name')",
+      "Bash(git --no-pager log --oneline -5)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git --no-pager diff -- src/app.ts)",
+      "Bash(curl -s -D - -o /dev/null \"http://192.168.124.4:8888/static/%5B%E5%A4%8F%E7%9B%AE%E3%83%99%E3%83%B3%E3%82%B1%E3%82%A4%5D%5B%E6%9F%90%E4%B8%89%E4%BA%BA%E6%B1%89%E5%8C%96%E7%BB%84%5D%5B%E5%A4%8F%E7%9B%AE%E3%83%99%E3%83%B3%E3%82%B1%E3%82%A4%5D%20%E6%97%A5%E5%B8%B8%E7%9A%84%E3%81%AB%E3%81%8A%E6%AF%8D%E3%81%95%E3%82%93%E3%81%AB%E5%87%BA%E3%81%99%E7%94%9F%E6%B4%BB/%E7%AC%AC1%E8%A9%B1/0001.jpg\")",
+      "Bash(netstat -ano)",
+      "Bash(powershell -NoProfile -Command \"\\(Get-Process -Id 25468\\).StartTime; \\(Get-Process -Id 21460 -ErrorAction SilentlyContinue\\).StartTime\")",
+      "Bash(powershell -NoProfile -Command \"Get-Process -Id 21460 -ErrorAction SilentlyContinue; if \\(-not \\(Get-Process -Id 21460 -ErrorAction SilentlyContinue\\)\\) { Write-Output 'PID 21460 does not exist \\(nodemon watcher is gone\\)' }\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter \\\\\"ProcessId=25468\\\\\" -ErrorAction SilentlyContinue | Select-Object ProcessId,CreationDate\")",
+      "Bash(powershell -NoProfile -Command \"Get-CimInstance Win32_Process -Filter 'ProcessId=29424' | Select-Object ProcessId,ParentProcessId,CreationDate,CommandLine\")"
+    ]
+  }
+}

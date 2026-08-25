@@ -1,0 +1,42 @@
+{
+  "name": "comic-backend",
+  "version": "1.0.0",
+  "description": "Comic app backend API",
+  "main": "dist/server.js",
+  "scripts": {
+    "predev": "ts-node src/scripts/kill-port.ts",
+    "dev": "nodemon --exec ts-node src/server.ts",
+    "stop": "ts-node src/scripts/kill-port.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "setup": "ts-node src/db/init.ts && ts-node src/scripts/scan.ts && ts-node src/scripts/seed.ts",
+    "reorganize-chapters": "ts-node src/scripts/reorganize-chapters.ts",
+    "flatten-original": "ts-node src/scripts/flatten-original.ts",
+    "fix-chapter-order": "ts-node src/scripts/fix-chapter-order.ts",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "image-size": "^1.2.1",
+    "ioredis": "^5.11.0",
+    "knex": "^3.2.10",
+    "morgan": "^1.10.1",
+    "mysql2": "^3.22.4",
+    "prettier": "^3.8.3"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/morgan": "^1.9.10",
+    "@types/node": "^25.9.1",
+    "nodemon": "^3.1.14",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.8.3"
+  }
+}
