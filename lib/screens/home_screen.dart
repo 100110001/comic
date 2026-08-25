@@ -151,7 +151,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                   onSubmitted: _search,
                 ),
               )
-            : const Text('漫画库'),
+            : const Text('Comic'),
         actions: desktop
             ? null
             : [

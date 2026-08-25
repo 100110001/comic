@@ -172,7 +172,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '漫画库',
+                    'Comic',
                     style: TextStyle(
                       color: c.text1,
                       fontSize: 15,

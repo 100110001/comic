@@ -43,7 +43,7 @@ class ComicApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
-      title: '漫画库',
+      title: 'Comic',
       debugShowCheckedModeBanner: false,
       navigatorKey: _navigatorKey,
       theme: buildAppTheme(Brightness.light),

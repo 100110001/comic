@@ -55,7 +55,7 @@ dev_dependencies:
 # following page: https://dart.dev/tools/pub/pubspec
 
 msix_config:
-  display_name: 漫画库
+  display_name: Comic
   publisher_display_name: comic
   identity_name: com.example.comic
   publisher: CN=comic

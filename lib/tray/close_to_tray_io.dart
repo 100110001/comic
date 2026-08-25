@@ -28,7 +28,7 @@ Future<void> setupCloseToTray() async {
   await trayManager.setIcon(
     '$exeDir/data/flutter_assets/windows/runner/resources/app_icon.ico',
   );
-  await trayManager.setToolTip('漫画库');
+  await trayManager.setToolTip('Comic');
   await trayManager.setContextMenu(
     Menu(
       items: [
