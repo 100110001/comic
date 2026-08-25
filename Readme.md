@@ -26,6 +26,8 @@
 | `specs/` | 设计规范（spec 是设计的事实源） |
 | `installer.iss` | Windows 安装包（Inno Setup）配置 |
 
+> 版本锁定：Flutter 固定 **3.38.9**（CI 已锁定）；Flutter 依赖锁定见 `pubspec.lock`（已提交），后端依赖见 `backend/pnpm-lock.yaml`。
+
 ## 快速开始
 
 ### 1. 后端 `backend/`
@@ -61,6 +63,11 @@ TRUNCATE TABLE comics;
 ```bash
 # 安装依赖
 flutter pub get
+
+# 升级依赖（pub get 只按 lock 安装，不升级）
+flutter pub upgrade              # 全部升级到 pubspec 约束内最新
+flutter pub upgrade <包名>        # 只升级某个包
+flutter pub outdated             # 查看哪些包有新版
 
 # 运行
 flutter run -d chrome        # Web（开发）

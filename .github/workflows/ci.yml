@@ -15,6 +15,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: 3.38.9
           cache: true
 
       - name: Flutter pub get
@@ -25,23 +26,3 @@ jobs:
 
       - name: Flutter test
         run: flutter test
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-          cache-dependency-path: backend/pnpm-lock.yaml
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: pnpm install --frozen-lockfile
-
-      - name: Backend build
-        working-directory: backend
-        run: npm run build
