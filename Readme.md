@@ -1,8 +1,34 @@
 # Comic
 
-漫画阅读应用，Flutter 前端 + Node.js 后端。
+漫画阅读应用：Flutter 前端 + Node.js 后端，支持 Windows 桌面、Android 与 Web。
 
-## 后端 `backend/`
+## 功能特性
+
+- **书库浏览与搜索**：随机洗牌网格、关键字搜索（标题/作者）、收藏角标。
+- **发现**：随机阅读、拖拽切换、读完自动续下一本。
+- **阅读器**：桌面滚轮/键盘翻页、沉浸式工具栏、图片失败重试、阅读进度记录、自动续章。
+- **我的**：最近阅读、收藏、收藏作者。
+- **设置**：浅色/深色/跟随系统主题、关闭窗口最小化到托盘（Windows）、检查更新（App 内更新）。
+
+## 技术栈
+
+- Flutter（Riverpod 状态管理）
+- Node.js + Express + MySQL + Redis
+- Inno Setup（Windows 安装包）
+
+## 项目结构
+
+| 目录/文件 | 说明 |
+| --- | --- |
+| `lib/` | Flutter 前端代码 |
+| `backend/` | Node.js 后端 |
+| `scripts/` | 发版脚本（`release.ps1`） |
+| `specs/` | 设计规范（spec 是设计的事实源） |
+| `installer.iss` | Windows 安装包（Inno Setup）配置 |
+
+## 快速开始
+
+### 1. 后端 `backend/`
 
 ```bash
 # 安装依赖
@@ -22,7 +48,7 @@ npm run build
 npm run start
 ```
 
-### 数据库操作（重新导入前先清表）
+重新导入前先清表：
 
 ```sql
 TRUNCATE TABLE images;
@@ -30,9 +56,7 @@ TRUNCATE TABLE chapters;
 TRUNCATE TABLE comics;
 ```
 
----
-
-## 前端 `Flutter`
+### 2. 前端 `Flutter`
 
 ```bash
 # 安装依赖
@@ -52,19 +76,22 @@ dart format lib/
 
 # 构建安装包
 flutter build apk --release                  # Android APK
-flutter build windows --release              # 编译 Windows 可执行文件（产物在 build\windows\x64\runner\Release\）
-# 然后用 Inno Setup Compiler 打开 installer.iss，按 F9 编译 → 生成 installer\comic-setup.exe
+flutter build windows --release              # Windows 可执行文件（产物在 build\windows\x64\runner\Release\）
+# 然后用 Inno Setup Compiler 打开 installer.iss 按 F9 编译 → installer\comic-setup.exe
 flutter build web                            # Web 静态文件
 flutter pub run msix:create                  # Windows MSIX 安装包（需先 build windows）
 
-# 查看已连接设备
+# 查看已连接设备 / 检查环境
 flutter devices
-
-# 检查环境
 flutter doctor
 ```
 
----
+## 配置
+
+| 文件 | 说明 |
+| --- | --- |
+| `backend/.env` | 端口、数据库连接、漫画目录（本地环境变量，不提交） |
+| `lib/config.dart` | 后端 API 地址、更新清单地址 |
 
 ## 发版（检查更新）
 
@@ -96,13 +123,4 @@ git push && git push origin v1.0.1
 - 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 pubspec、installer、update.json、CHANGELOG 并打 tag（脚本读写统一为 UTF-8）。
 - 如果 `gh release create` 提示 tag 已存在，说明之前建过 Release，改用 `gh release upload v1.0.1 --clobber <文件>` 替换资产。
 - `releases/update.json` 的 `latestVersion` 必须与发布的版本一致（脚本自动处理）。
-- 发布完成后，仓库内 App 的"检查更新"即可检测到新版本。
-
----
-
-## 配置
-
-| 文件 | 说明 |
-|---|---|
-| `backend/.env` | 端口、数据库连接、漫画目录 |
-| `lib/config.dart` | 后端 API 地址 |
+- 发布完成后，App 的"检查更新"即可检测到新版本。
