@@ -8,6 +8,9 @@ import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reading_progress_provider.dart';
+import '../providers/search_history_provider.dart';
+import '../providers/server_provider.dart';
+import '../widgets/search_history_view.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
@@ -34,6 +37,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    ref.listenManual(serverSessionProvider, (_, _) {
+      _searchController.clear();
+      setState(() => _keyword = '');
+    });
     ref.listenManual(recentReadingWithLocalProvider, (_, next) {
       final entries = next.value;
       final entry = entries != null && entries.isNotEmpty
@@ -75,9 +82,29 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     _search(author);
   }
 
-  Future<void> _search(String keyword) async {
+  void _chooseKeyword(String keyword) {
+    if (!mounted) return;
+    _searchController.text = keyword;
+    _searchController.selection = TextSelection.collapsed(
+      offset: keyword.length,
+    );
+    _search(keyword);
+  }
+
+  Future<void> _search(String keyword, {bool remember = true}) async {
     _keyword = keyword.trim();
     setState(() {});
+    if (remember && _keyword.isNotEmpty) {
+      final source = ref.read(serverSessionProvider).url;
+      unawaited(
+        ref
+            .read(searchHistoryStoreProvider.notifier)
+            .remember(source, _keyword)
+            .catchError((Object error) {
+              if (mounted) _showRequestError(error, '搜索历史保存失败，搜索仍可继续');
+            }),
+      );
+    }
     try {
       await ref.read(searchProvider.notifier).search(_keyword);
     } catch (error) {
@@ -187,6 +214,14 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                     suffixIcon: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          tooltip: '搜索历史',
+                          icon: Icon(Icons.history, color: c.text2, size: 20),
+                          onPressed: () => showSearchHistory(
+                            context,
+                            onSelected: _chooseKeyword,
+                          ),
+                        ),
                         if (_keyword.isNotEmpty)
                           IconButton(
                             tooltip: '清空搜索',
@@ -287,7 +322,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           actionLabel: '重试',
                           onAction: _keyword.isEmpty
                               ? () => ref.invalidate(randomLibraryProvider)
-                              : () => _search(_keyword),
+                              : () => _search(_keyword, remember: false),
                         )
                       : ComicGrid(
                           controller: _scrollController,
