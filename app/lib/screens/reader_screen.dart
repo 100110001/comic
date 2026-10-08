@@ -11,6 +11,7 @@ import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
 import '../widgets/status_views.dart';
@@ -49,6 +50,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   int _jumpGeneration = 0;
   bool _loading = true;
   bool _loadFailed = false;
+  Object? _loadError;
   int _imageRetryTick = 0;
   String _title = '';
   bool _switchingComic = false;
@@ -249,6 +251,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     setState(() {
       _loading = true;
       _loadFailed = false;
+      _loadError = null;
       _images = [];
       _extents.clear();
       _pendingJumpPage = null;
@@ -273,11 +276,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _loading = false;
       });
       _precacheAround(_currentPage);
-    } catch (_) {
+    } catch (error) {
       if (mounted) {
         setState(() {
           _loading = false;
           _loadFailed = true;
+          _loadError = error;
         });
       }
     }
@@ -614,7 +618,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Widget _buildLoadError() {
     return StatusView(
       icon: Icons.cloud_off,
-      message: '章节加载失败',
+      message: userMessageFor(_loadError, fallback: '章节加载失败'),
       actionLabel: '重试',
       onAction: _reloadChapter,
     );

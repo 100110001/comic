@@ -4,6 +4,7 @@ import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
@@ -31,6 +32,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         comicId: widget.comicId,
         favorited: !detail.favorited,
       );
+    } catch (error) {
+      if (mounted) _showError(error, '收藏操作失败');
     } finally {
       if (mounted) setState(() => _favoriteBusy = false);
     }
@@ -49,9 +52,17 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
         favorited: !detail.authorFavorited,
         comicId: widget.comicId,
       );
+    } catch (error) {
+      if (mounted) _showError(error, '作者收藏操作失败');
     } finally {
       if (mounted) setState(() => _authorFavoriteBusy = false);
     }
+  }
+
+  void _showError(Object error, String fallback) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(userMessageFor(error, fallback: fallback))),
+    );
   }
 
   void _continueReading(({int chapterId, int pageNumber}) progress) {
@@ -106,7 +117,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
           : detailAsync.hasError
           ? StatusView(
               icon: Icons.cloud_off,
-              message: '加载失败',
+              message: userMessageFor(detailAsync.error, fallback: '加载失败'),
               actionLabel: '重试',
               onAction: () =>
                   ref.invalidate(comicDetailProvider(widget.comicId)),

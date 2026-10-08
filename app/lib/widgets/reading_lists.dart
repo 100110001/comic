@@ -7,6 +7,7 @@ import '../providers/comics_providers.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import 'status_views.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
@@ -27,6 +28,13 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
       onRefresh: () async => ref.invalidate(recentReadingProvider),
       child: loading
           ? const Center(child: CircularProgressIndicator())
+          : async.hasError && items.isEmpty
+          ? StatusView(
+              icon: Icons.cloud_off,
+              message: userMessageFor(async.error, fallback: '加载失败'),
+              actionLabel: '重试',
+              onAction: () => ref.invalidate(recentReadingProvider),
+            )
           : items.isEmpty
           ? const EmptyListView(message: '暂无最近阅读')
           : ListView.separated(
@@ -71,6 +79,13 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
       onRefresh: () async => ref.invalidate(favoritesProvider),
       child: loading
           ? const Center(child: CircularProgressIndicator())
+          : async.hasError && items.isEmpty
+          ? StatusView(
+              icon: Icons.cloud_off,
+              message: userMessageFor(async.error, fallback: '加载失败'),
+              actionLabel: '重试',
+              onAction: () => ref.invalidate(favoritesProvider),
+            )
           : items.isEmpty
           ? const EmptyListView(message: '暂无收藏')
           : ListView.separated(
@@ -116,6 +131,13 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
       onRefresh: () async => ref.invalidate(favoriteAuthorsProvider),
       child: loading
           ? const Center(child: CircularProgressIndicator())
+          : async.hasError && items.isEmpty
+          ? StatusView(
+              icon: Icons.cloud_off,
+              message: userMessageFor(async.error, fallback: '加载失败'),
+              actionLabel: '重试',
+              onAction: () => ref.invalidate(favoriteAuthorsProvider),
+            )
           : items.isEmpty
           ? const EmptyListView(message: '暂无收藏作者')
           : ListView.separated(

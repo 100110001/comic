@@ -3,11 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../models/update_info.dart';
+import '../providers/server_data.dart';
+import '../providers/server_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/update_service.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 
 enum _UpdateStatus { idle, checking, latest, available, error, downloading }
+
+enum _ServerTestStatus { idle, testing, success, error }
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -17,14 +22,51 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  late final TextEditingController _serverController;
+  _ServerTestStatus _serverTestStatus = _ServerTestStatus.idle;
+  String? _serverTestMessage;
+  String? _lastVerifiedUrl;
+  String? _serverSaveMessage;
+  bool _serverSaving = false;
+  int _serverTestSerial = 0;
   _UpdateStatus _status = _UpdateStatus.idle;
   UpdateInfo? _info;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    _serverController = TextEditingController(
+      text: ref.read(serverSessionProvider).url,
+    )..addListener(_onServerInputChanged);
+  }
+
+  @override
+  void dispose() {
+    _serverController
+      ..removeListener(_onServerInputChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  void _onServerInputChanged() {
+    _serverTestSerial++;
+    if (_serverTestStatus == _ServerTestStatus.idle &&
+        _serverSaveMessage == null) {
+      return;
+    }
+    setState(() {
+      _serverTestStatus = _ServerTestStatus.idle;
+      _serverTestMessage = null;
+      _serverSaveMessage = null;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final closeToTray = ref.watch(closeToTrayProvider);
+    final serverSession = ref.watch(serverSessionProvider);
     final c = context.appColors;
     // 桌面侧栏嵌入时无需标题；手机端推入时保留返回箭头。
     final canPop = Navigator.of(context).canPop();
@@ -33,6 +75,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          Text(
+            '服务器',
+            style: TextStyle(
+              color: c.text2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: c.surface2,
+              borderRadius: BorderRadius.circular(kRadiusCard),
+              border: Border.all(color: c.border),
+            ),
+            child: _buildServerSection(c, serverSession),
+          ),
+          const SizedBox(height: 24),
           Text(
             '外观',
             style: TextStyle(
@@ -159,6 +221,154 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildServerSection(AppColors c, ServerSession session) {
+    final testColor = _serverTestStatus == _ServerTestStatus.error
+        ? Theme.of(context).colorScheme.error
+        : _serverTestStatus == _ServerTestStatus.success
+        ? c.accent
+        : c.text2;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '漫画服务器地址',
+          style: TextStyle(
+            color: c.text1,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '当前生效：${session.url}',
+          style: TextStyle(color: c.text2, fontSize: 13),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _serverController,
+          keyboardType: TextInputType.url,
+          autocorrect: false,
+          enableSuggestions: false,
+          decoration: const InputDecoration(
+            labelText: '服务器地址',
+            hintText: 'http://192.168.1.100:8888',
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _serverTestStatus == _ServerTestStatus.testing
+                  ? null
+                  : _testServerConnection,
+              icon: _serverTestStatus == _ServerTestStatus.testing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_tethering, size: 18),
+              label: Text(
+                _serverTestStatus == _ServerTestStatus.testing
+                    ? '测试中…'
+                    : '测试连接',
+              ),
+            ),
+            FilledButton.icon(
+              onPressed: _serverSaving ? null : _saveServerAddress,
+              icon: _serverSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_outlined, size: 18),
+              label: Text(_serverSaving ? '保存中…' : '保存'),
+            ),
+          ],
+        ),
+        if (_serverTestMessage != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            _serverTestMessage!,
+            style: TextStyle(color: testColor, fontSize: 13),
+          ),
+        ],
+        if (_serverSaveMessage != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _serverSaveMessage!,
+            style: TextStyle(color: c.text2, fontSize: 13),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _testServerConnection() async {
+    final input = _serverController.text;
+    final serial = ++_serverTestSerial;
+    setState(() {
+      _serverTestStatus = _ServerTestStatus.testing;
+      _serverTestMessage = null;
+      _serverSaveMessage = null;
+    });
+    try {
+      final normalized = normalizeServerUrl(input);
+      await ref.read(serverConnectionTestProvider(input).future);
+      if (!mounted ||
+          serial != _serverTestSerial ||
+          _serverController.text != input) {
+        return;
+      }
+      setState(() {
+        _serverTestStatus = _ServerTestStatus.success;
+        _serverTestMessage = '连接成功';
+        _lastVerifiedUrl = normalized;
+      });
+    } catch (error) {
+      if (!mounted || serial != _serverTestSerial) return;
+      setState(() {
+        _serverTestStatus = _ServerTestStatus.error;
+        _serverTestMessage = userMessageFor(error, fallback: '连接测试失败');
+        _lastVerifiedUrl = null;
+      });
+    }
+  }
+
+  Future<void> _saveServerAddress() async {
+    setState(() {
+      _serverSaving = true;
+      _serverSaveMessage = null;
+    });
+    try {
+      final normalized = normalizeServerUrl(_serverController.text);
+      final changed = await saveServerUrl(ref, normalized);
+      if (!mounted) return;
+      _serverController.value = TextEditingValue(
+        text: normalized,
+        selection: TextSelection.collapsed(offset: normalized.length),
+      );
+      final verified = _lastVerifiedUrl == normalized;
+      setState(() {
+        _serverSaveMessage = changed
+            ? verified
+                  ? '服务器地址已保存并验证'
+                  : '服务器地址已保存，尚未验证连接'
+            : '服务器地址未变化';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _serverSaveMessage = userMessageFor(error, fallback: '服务器地址保存失败');
+      });
+    } finally {
+      if (mounted) setState(() => _serverSaving = false);
+    }
   }
 
   Widget _buildAboutSection(AppColors c) {
