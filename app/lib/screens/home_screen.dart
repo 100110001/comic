@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
@@ -376,7 +377,7 @@ class _FloatingContinueBar extends StatelessWidget {
                   width: 44,
                   height: 60,
                   child: comic.coverUrl != null
-                      ? Image.network(
+                      ? DisplayNetworkImage(
                           comic.coverUrl!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => _placeholder(context),

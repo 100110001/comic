@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
@@ -235,7 +236,7 @@ class _Header extends StatelessWidget {
         width: vertical ? 160 : 96,
         height: vertical ? 214 : 128,
         child: comic.coverUrl != null
-            ? Image.network(
+            ? DisplayNetworkImage(
                 comic.coverUrl!,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _placeholder(context),
