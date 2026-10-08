@@ -35,7 +35,7 @@ flowchart TB
 
 ## 实现单元
 
-### U1. 本地队列与同步
+### U1. ✅ 本地队列与同步（同分支 PR 待创建）
 
 - 文件：`app/lib/models/pending_reading_progress.dart`、`app/lib/services/progress_storage*.dart`、`app/lib/providers/reading_progress_provider.dart`、`app/pubspec.yaml`、`app/pubspec.lock`。
 - 方案：平台存储、逐条反序列化容错、写入队列、版本确认与客户端会话隔离；保留原 API。
@@ -67,3 +67,4 @@ flowchart TB
 - 更新 `specs/reader.spec.md`：有效位置本地落盘、定位抑制、生命周期及失败恢复。
 - 更新 `specs/data-layer.convention.md`：来源持久隔离、串行同步、版本确认与本地叠加查询。
 - 检查 `specs/app-shell.spec.md`：保留已合并的首页续读提示规则，不恢复旧常驻行为。
+
