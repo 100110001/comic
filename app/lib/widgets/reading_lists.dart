@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../models/favorite_author.dart';
@@ -237,7 +238,7 @@ class _EntryTile extends StatelessWidget {
             width: 52,
             height: 68,
             child: coverUrl != null
-                ? Image.network(
+                ? DisplayNetworkImage(
                     coverUrl!,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => _placeholder(context),

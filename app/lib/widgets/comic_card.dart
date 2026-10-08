@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'display_network_image.dart';
 import '../models/comic.dart';
 import '../theme.dart';
 
@@ -46,7 +47,7 @@ class _ComicCardState extends State<ComicCard> {
                     fit: StackFit.expand,
                     children: [
                       comic.coverUrl != null
-                          ? Image.network(
+                          ? DisplayNetworkImage(
                               comic.coverUrl!,
                               fit: BoxFit.cover,
                               width: double.infinity,

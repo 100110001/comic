@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
@@ -313,7 +314,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           height: coverWidth * 4 / 3,
           color: c.surface2,
           child: comic.coverUrl != null
-              ? Image.network(
+              ? DisplayNetworkImage(
                   comic.coverUrl!,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => _placeholder(),
@@ -335,7 +336,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           height: height,
           color: c.surface2,
           child: comic.coverUrl != null
-              ? Image.network(
+              ? DisplayNetworkImage(
                   comic.coverUrl!,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => _placeholder(),
