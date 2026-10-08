@@ -9,6 +9,7 @@ import 'package:comic/screens/settings_screen.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/theme.dart';
 import 'package:comic/widgets/comic_grid.dart';
+import 'package:comic/widgets/comic_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,9 +21,16 @@ class _PreviewLibrary extends RandomLibraryNotifier {
   Future<RandomLibraryState> build() async => const RandomLibraryState(
     seed: 1,
     pageOffset: 1,
-    total: 1,
+    total: 6,
     pageSize: 12,
-    comics: [Comic(id: 1, title: '测试漫画')],
+    comics: [
+      Comic(id: 1, title: '测试漫画'),
+      Comic(id: 2, title: '第二本'),
+      Comic(id: 3, title: '第三本'),
+      Comic(id: 4, title: '第四本'),
+      Comic(id: 5, title: '第五本'),
+      Comic(id: 6, title: '第六本'),
+    ],
   );
 }
 
@@ -64,6 +72,18 @@ void main() {
     expect(find.text('换一批').hitTestable(), findsOneWidget);
     expect(find.text('继续阅读').hitTestable(), findsOneWidget);
     expect(comicGridColumns(320), 2);
+    final scrollable = tester.state<ScrollableState>(
+      find.byType(Scrollable).first,
+    );
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final bar = find
+        .ancestor(of: find.text('继续阅读'), matching: find.byType(Material))
+        .first;
+    expect(
+      tester.getBottomRight(find.byType(ComicCard).last).dy,
+      lessThanOrEqualTo(tester.getTopLeft(bar).dy),
+    );
   });
 
   testWidgets('手机设置的主题选项在放大字体时自动换行', (tester) async {
@@ -94,7 +114,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('跟随系统'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(
+      find.text('跟随系统'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(tester.takeException(), isNull);
     expect(find.byType(ChoiceChip), findsNWidgets(3));
   });

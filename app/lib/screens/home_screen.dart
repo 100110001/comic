@@ -108,6 +108,12 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final recentEntry = (recent != null && recent.isNotEmpty)
         ? recent.first
         : null;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final continueBottomPadding = recentEntry == null
+        ? 0.0
+        : (textScaler.scale(12) * 3 + textScaler.scale(15) * 1.5 + 46)
+              .clamp(112.0, double.infinity)
+              .toDouble();
 
     final comics = _keyword.isEmpty
         ? (random?.comics ?? const <Comic>[])
@@ -258,7 +264,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           controller: _scrollController,
                           comics: comics,
                           loading: loading,
-                          bottomPadding: recentEntry != null ? 112 : 0,
+                          bottomPadding: continueBottomPadding,
                           emptyMessage: _keyword.isEmpty
                               ? '书库里还没有漫画'
                               : '没有找到相关漫画',
