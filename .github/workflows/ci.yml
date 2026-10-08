@@ -24,8 +24,40 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      - name: Dart format check
+        run: dart format --output=none --set-exit-if-changed lib/ test/
+
       - name: Flutter analyze
         run: flutter analyze
 
       - name: Flutter test
         run: flutter test
+
+  backend-check:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.11.1
+          cache: pnpm
+          cache-dependency-path: backend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prettier format check
+        run: pnpm run format:check
+
+      - name: ESLint
+        run: pnpm run lint

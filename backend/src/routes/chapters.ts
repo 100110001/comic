@@ -24,7 +24,16 @@ function toUrl(filePath: string): string {
   }
 }
 
-async function fillDimensions(images: any[]) {
+interface ChapterImage {
+  id: number;
+  filename: string;
+  path: string;
+  page_number: number;
+  width: number | null;
+  height: number | null;
+}
+
+async function fillDimensions(images: ChapterImage[]) {
   const missing = images.filter((img) => img.width == null);
   if (missing.length === 0) return;
 
@@ -37,7 +46,9 @@ async function fillDimensions(images: any[]) {
         await db("images")
           .where({ id: img.id })
           .update({ width: img.width, height: img.height });
-      } catch {}
+      } catch {
+        // 图片无法读取时保留缺失尺寸，允许客户端继续尝试显示。
+      }
     }),
   );
 }
@@ -58,14 +69,14 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
     const chapter = await db("chapters").where({ id }).first();
     if (!chapter) return fail(res, "Chapter not found", 1, 404);
 
-    const images = await db("images")
+    const images = await db<ChapterImage>("images")
       .where({ chapter_id: id })
       .select("id", "filename", "path", "page_number", "width", "height")
       .orderBy("page_number");
 
     await fillDimensions(images);
 
-    const data = images.map((img: any) => ({
+    const data = images.map((img) => ({
       id: img.id,
       filename: img.filename,
       pageNumber: img.page_number,
@@ -76,7 +87,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
 
     await cacheSet(cacheKey, data, cached.generation);
     ok(res, data);
-  } catch (err) {
+  } catch {
     fail(res, "Failed to fetch images", 1, 500);
   }
 });

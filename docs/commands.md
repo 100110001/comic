@@ -40,7 +40,8 @@ Claude Code 会话后再输入 `/` 查看命令列表。
 | 命令 | 用途 |
 | --- | --- |
 | `flutter pub get` | 按锁定文件恢复依赖 |
-| `flutter analyze` | 静态分析，变更完成门禁 |
+| `dart format --output=none --set-exit-if-changed lib/ test/` | 只检查格式，格式不符时失败；CI 门禁 |
+| `flutter analyze` | 静态分析与 `flutter_lints` 校验，CI 门禁 |
 | `flutter test` | 执行测试，变更完成门禁 |
 | `flutter run -d windows` | 运行 Windows 应用 |
 | `flutter run -d chrome` | 运行 Web 开发版本 |
@@ -58,9 +59,31 @@ Claude Code 会话后再输入 `/` 查看命令列表。
 
 运行中的 Flutter 终端可按 `r` 热重载、`R` 热重启。
 
+若终端停留在仓库根目录，可以使用以下 PowerShell 写法。Flutter 和 Dart 命令
+仍在 `app/` 内执行，避免遗漏 `app/` 前缀：
+
+```powershell
+Push-Location app
+dart format lib/ test/
+Pop-Location
+```
+
+只校验、不修改文件：
+
+```powershell
+Push-Location app
+dart format --output=none --set-exit-if-changed lib/ test/
+flutter analyze
+flutter test
+Pop-Location
+```
+
+任一校验返回非零退出码时应先修复问题，再提交。
+
 ## 后端终端命令
 
-以下命令均从 `backend/` 执行。后端按项目偏好不纳入 Flutter 构建门禁。
+以下命令均从 `backend/` 执行。CI 使用 Node.js **24.11.1** 和 pnpm **10.24.0**，
+通过 `pnpm install --frozen-lockfile` 恢复依赖，独立检查后端格式与 lint。
 
 | 命令 | 用途及实际影响 |
 | --- | --- |
@@ -72,6 +95,9 @@ Claude Code 会话后再输入 `/` 查看命令列表。
 | `npm run setup` | 初始化数据库、扫描并增量导入漫画、可选清理项目 Redis 缓存；保留已有 ID |
 | `npm run clear-cache` | 清理本项目 Redis 缓存；Redis 不可用时失败 |
 | `npm run format` | 使用 Prettier 格式化 `src/**/*.ts` |
+| `npm run format:check` | 只检查格式，格式不符时失败；CI 门禁 |
+| `npm run lint` | ESLint 与 TypeScript 推荐规则检查；错误或警告均使校验失败，CI 门禁 |
+| `npm run lint:fix` | 自动修复可修复的 lint 问题；剩余问题仍返回失败 |
 | `npm run reorganize-chapters` | 将无子目录漫画的根目录图片移动到 `第1話/`，改变实际文件路径 |
 | `npm run flatten-original` | 批量将漫画 `original/` 的内容上移，删除腾空的 `original/`；同名目标跳过 |
 | `npm run flatten-original -- "<目录>"` | 对指定漫画目录或库目录执行上移 |
@@ -80,6 +106,10 @@ Claude Code 会话后再输入 `/` 查看命令列表。
 目录整理命令直接移动磁盘文件；执行前确认 `backend/.env` 中的漫画目录及数据备份，
 整理后运行 `npm run setup` 同步数据库。端口清理命令作用于配置端口上的监听进程，
 并不限于本项目启动的服务。
+
+后端格式与 lint 检查不启动服务，不需要 MySQL、Redis 或漫画目录。格式或 lint
+失败时，在 `backend/` 执行 `npm run format`、`npm run lint:fix`，再重新检查；
+不能自动修复的问题需按输出手动修正。
 
 ## PowerShell 手动发版
 
@@ -90,10 +120,15 @@ Claude Code 会话后再输入 `/` 查看命令列表。
 git fetch origin master
 git switch -c codex/release-1.0.6 origin/master
 Push-Location app
+dart format --output=none --set-exit-if-changed lib/ test/
 flutter analyze
 flutter test
 Pop-Location
-# 两项检查通过后再继续
+Push-Location backend
+npm run format:check
+npm run lint
+Pop-Location
+# 全部检查通过后再继续
 .\scripts\release.ps1 -Version 1.0.6 -Notes "本次更新内容"
 git push -u origin codex/release-1.0.6
 gh pr create --base master --title "发布 v1.0.6" --body "更新版本号及发布说明"

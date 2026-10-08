@@ -70,7 +70,9 @@ function main() {
     const remaining = fs.readdirSync(originalPath);
     if (remaining.length === 0) {
       fs.rmdirSync(originalPath);
-      console.log(`✔ ${comicName} → 上移 ${entries.length} 项, 已删除 original`);
+      console.log(
+        `✔ ${comicName} → 上移 ${entries.length} 项, 已删除 original`,
+      );
       processed++;
     } else {
       console.log(

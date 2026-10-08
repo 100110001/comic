@@ -19,7 +19,9 @@ function killPort(port: number) {
 
   for (const pid of pids) {
     if (pid === String(process.pid)) continue;
-    console.log(`[kill-port] 端口 ${port} 被旧进程 (pid ${pid}) 占用，正在结束`);
+    console.log(
+      `[kill-port] 端口 ${port} 被旧进程 (pid ${pid}) 占用，正在结束`,
+    );
     try {
       execSync(`taskkill /PID ${pid} /F`);
     } catch (err) {

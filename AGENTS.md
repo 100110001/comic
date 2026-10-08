@@ -21,15 +21,24 @@
 在认为一个 `br-work` 单元完成前，从 `app/` 运行：
 
 ```bash
+dart format --output=none --set-exit-if-changed lib/ test/
 flutter analyze
 flutter test
 ```
 
-后端位于本仓库中，但按用户偏好不纳入构建检查。GitHub Actions 位于
-`.github/workflows/`：push/PR 使用固定的 Flutter **3.38.9** 运行
-`flutter analyze` 与 `flutter test`；推送 `v*` 标签后自动构建 Windows 和
-Android，并上传 GitHub Release。Flutter 依赖由已提交的 `app/pubspec.lock`
-锁定。
+并从 `backend/` 运行：
+
+```bash
+npm run format:check
+npm run lint
+```
+
+GitHub Actions 位于 `.github/workflows/`：push/PR 使用固定的 Flutter **3.38.9**
+运行格式检查、`flutter analyze`（包含 `flutter_lints`）与 `flutter test`；后端
+独立使用 Node.js **24.11.1**、pnpm **10.24.0** 运行格式与 ESLint 校验，不启动
+服务或连接业务数据库。推送 `v*` 标签后自动构建 Windows 和 Android，并上传
+GitHub Release。依赖分别由已提交的 `app/pubspec.lock` 与
+`backend/pnpm-lock.yaml` 锁定。
 
 ## 提交约定
 

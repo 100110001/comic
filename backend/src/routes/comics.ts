@@ -52,7 +52,7 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
     const total = await totalQuery
       .countDistinct({ total: "comics.id" })
       .first()
-      .then((r) => Number((r as any).total));
+      .then((r) => Number(r!.total));
     const ordered = random
       ? hasSeed
         ? query.orderByRaw("RAND(?)", [seed])
@@ -63,7 +63,7 @@ comicsRouter.get("/", async (req: Request, res: Response) => {
       .offset((pageOffset - 1) * pageSize);
 
     ok(res, rows, { pageOffset, pageSize, total });
-  } catch (err) {
+  } catch {
     fail(res, "Failed to fetch comics", 1, 500);
   }
 });
@@ -77,8 +77,8 @@ comicsRouter.get("/random", async (req: Request, res: Response) => {
     );
     res.setHeader("Cache-Control", "no-store");
     const rows = await comicQuery().orderByRaw("RAND()").limit(size);
-    ok(res, rows, { pageSize: size, total: (rows as any[]).length });
-  } catch (err) {
+    ok(res, rows, { pageSize: size, total: rows.length });
+  } catch {
     fail(res, "Failed to fetch random comics", 1, 500);
   }
 });
@@ -117,7 +117,7 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
         : null,
       chapters,
     });
-  } catch (err) {
+  } catch {
     fail(res, "Failed to fetch comic", 1, 500);
   }
 });
@@ -160,7 +160,10 @@ comicsRouter.post("/:id/favorite", async (req: Request, res: Response) => {
     const comic = await db("comics").where({ id }).first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 
-    await db("favorites").insert({ comic_id: id }).onConflict("comic_id").ignore();
+    await db("favorites")
+      .insert({ comic_id: id })
+      .onConflict("comic_id")
+      .ignore();
     ok(res, { comicId: id, favorited: true });
   } catch (err) {
     console.error("[favorite comic]", err);
