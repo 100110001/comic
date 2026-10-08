@@ -6,6 +6,7 @@ import 'package:comic/providers/reader_providers.dart';
 import 'package:comic/screens/home_screen.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/theme.dart';
+import 'package:comic/widgets/comic_grid.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,7 +23,7 @@ class _EmptyLibrary extends RandomLibraryNotifier {
 }
 
 void main() {
-  testWidgets('续读条超过3秒仍可点击并传递原章节与页码', (tester) async {
+  testWidgets('续读提示显示期间可点击并传递原章节与页码', (tester) async {
     const entry = ReadingProgressEntry(
       comic: Comic(id: 1, title: '续读测试漫画'),
       chapterId: 10,
@@ -60,6 +61,56 @@ void main() {
     expect(reader.comicId, 1);
     expect(reader.chapterId, 10);
     expect(reader.initialPage, 5);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('续读提示5秒收起，同一位置刷新不重复，新位置重新提示', (tester) async {
+    var page = 5;
+    final container = ProviderContainer(
+      overrides: [
+        randomLibraryProvider.overrideWith(_EmptyLibrary.new),
+        recentReadingProvider.overrideWith(
+          (ref) async => [
+            ReadingProgressEntry(
+              comic: const Comic(id: 1, title: '续读测试漫画'),
+              chapterId: 10,
+              chapterTitle: '第一话',
+              pageNumber: page,
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const HomeScreen(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('继续阅读'), findsOneWidget);
+    expect(
+      tester.widget<ComicGrid>(find.byType(ComicGrid)).bottomPadding,
+      greaterThan(0),
+    );
+    await tester.pump(const Duration(seconds: 5));
+    expect(find.text('继续阅读'), findsNothing);
+    expect(tester.widget<ComicGrid>(find.byType(ComicGrid)).bottomPadding, 0);
+    container.invalidate(recentReadingProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('继续阅读'), findsNothing);
+    page = 6;
+    container.invalidate(recentReadingProvider);
+    await tester.pumpAndSettle();
+    expect(find.text('继续阅读'), findsOneWidget);
+    expect(find.text('第一话 · 第7页'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 5));
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('页大小按实际内容宽度计算并随布局变化更新', (tester) async {

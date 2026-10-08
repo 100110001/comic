@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
@@ -23,10 +25,33 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   String _keyword = '';
+  Timer? _continueTimer;
+  (int, int, int)? _continuePosition;
+  bool _continueVisible = false;
 
   @override
   void initState() {
     super.initState();
+    ref.listenManual(recentReadingProvider, (_, next) {
+      final entries = next.value;
+      final entry = entries != null && entries.isNotEmpty
+          ? entries.first
+          : null;
+      final position = entry == null
+          ? null
+          : (entry.comic.id, entry.chapterId, entry.pageNumber);
+      if (position == _continuePosition) return;
+      _continueTimer?.cancel();
+      setState(() {
+        _continuePosition = position;
+        _continueVisible = position != null;
+      });
+      if (_continueVisible) {
+        _continueTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) setState(() => _continueVisible = false);
+        });
+      }
+    }, fireImmediately: true);
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
@@ -37,6 +62,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _continueTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -109,7 +135,8 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
         ? recent.first
         : null;
     final textScaler = MediaQuery.textScalerOf(context);
-    final continueBottomPadding = recentEntry == null
+    final showContinue = _continueVisible && recentEntry != null;
+    final continueBottomPadding = !showContinue
         ? 0.0
         : (textScaler.scale(12) * 3 + textScaler.scale(15) * 1.5 + 46)
               .clamp(112.0, double.infinity)
@@ -281,7 +308,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-            if (recentEntry != null)
+            if (showContinue)
               Positioned(
                 left: 16,
                 right: 16,
@@ -291,7 +318,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                     constraints: const BoxConstraints(maxWidth: 520),
                     child: _FloatingContinueBar(
                       entry: recentEntry,
-                      onReturn: () => ref.invalidate(recentReadingProvider),
+                      onReturn: () {
+                        if (mounted) ref.invalidate(recentReadingProvider);
+                      },
                     ),
                   ),
                 ),
