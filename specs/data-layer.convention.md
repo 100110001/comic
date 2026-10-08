@@ -11,7 +11,7 @@ scope: convention
 
 ## Rules
 
-- 所有 API 数据访问集中在 `lib/providers/`；页面与组件通过 `ref.watch` / `ref.read` 消费 provider，不直接调用 ApiService。
+- 所有 API 数据访问集中在 `app/lib/providers/`；页面与组件通过 `ref.watch` / `ref.read` 消费 provider，不直接调用 ApiService。
 - 简单查询（收藏、收藏作者、最近阅读、漫画详情、章节图片）使用 FutureProvider 系列，会话内缓存。
 - 有状态的查询（首页随机分页、搜索分页）使用 AsyncNotifier 持有分页状态。
 - 变更（收藏、作者收藏、阅读进度）通过 mutation 助手完成：成功后按失效矩阵刷新相关查询。

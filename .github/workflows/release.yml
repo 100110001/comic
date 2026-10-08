@@ -7,6 +7,9 @@ on:
 jobs:
   build-and-upload:
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: app
     permissions:
       contents: write
     steps:
