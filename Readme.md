@@ -28,6 +28,9 @@
 
 > 版本锁定：Flutter 固定 **3.38.9**（CI 已锁定）；Flutter 依赖锁定见 `app/pubspec.lock`（已提交），后端依赖见 `backend/pnpm-lock.yaml`。
 
+Claude Code 聊天命令、Flutter 和后端终端命令、手动发版流程统一见
+[项目命令速查](docs/commands.md)。
+
 ## 快速开始
 
 ### 1. 后端 `backend/`
@@ -116,22 +119,9 @@ flutter doctor
 `https://raw.githubusercontent.com/100110001/comic/master/releases/update.json`。
 发现新版本后，Windows 静默安装、Android 唤起系统安装器。
 
-每次发版按以下流程操作：
+在 Claude Code 中使用 `/release X.Y.Z 更新说明` 准备发版 PR；自行合并到 `master`
+后，使用 `/release publish X.Y.Z` 推送标签，触发 CI 自动构建并上传安装包。
+完整用法和 PowerShell 手动流程见 [项目命令速查](docs/commands.md)。
 
-```powershell
-# 1. 升版本号并同步各文件（app/pubspec / app/installer.iss / releases/update.json / CHANGELOG），打 vX.Y.Z tag
-.\scripts\release.ps1 -Version 1.0.1 -Notes "本次更新内容"
-
-# 2. 推送代码与 tag —— CI（release.yml）会自动构建 Windows + Android 并上传到 v1.0.1 Release
-git push && git push origin v1.0.1
-```
-
-注意事项：
-
-- 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 `app/pubspec.yaml`、`app/installer.iss`、`releases/update.json`、`CHANGELOG.md` 并打 tag（脚本读写统一为 UTF-8，兼容 Windows PowerShell 5.1）。
-- 推送 tag 后等 CI 完成即可；需要手动构建/上传时：
-  先进入 `app/` 执行 `flutter build windows --release`、`flutter build apk --release`、
-  `ISCC installer.iss`，回到仓库根后执行
-  `gh release upload v1.0.1 --clobber app/installer/comic-setup.exe app/build/app/outputs/flutter-apk/app-release.apk`。
-- `releases/update.json` 的 `latestVersion` 必须与发布的版本一致（脚本自动处理）。
-- 发布完成后，App 的"检查更新"即可检测到新版本。
+`scripts/release.ps1` 统一同步应用版本、安装器版本、更新清单和更新日志。
+发布完成后，App 的“检查更新”即可检测到新版本。
