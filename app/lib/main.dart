@@ -252,22 +252,28 @@ class _DesktopSidebar extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Comic',
-                      style: TextStyle(
-                        color: c.text1,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Comic',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.text1,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    Text(
-                      '你的漫画书库',
-                      style: TextStyle(color: c.text2, fontSize: 11),
-                    ),
-                  ],
+                      Text(
+                        '你的漫画书库',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: c.text2, fontSize: 11),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

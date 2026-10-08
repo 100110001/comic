@@ -9,7 +9,10 @@ class ComicCard extends StatefulWidget {
 
   /// 与网格共享文字区高度，预留两行标题和一行作者。
   static double textAreaHeight(TextScaler scaler) =>
-      24 + scaler.scale(14) * 1.4 * 2 + 6 + scaler.scale(12) * 1.4;
+      32 +
+      (scaler.scale(14) * 1.4).ceilToDouble() * 2 +
+      6 +
+      (scaler.scale(12) * 1.4).ceilToDouble();
 
   @override
   State<ComicCard> createState() => _ComicCardState();
@@ -69,38 +72,39 @@ class _ComicCardState extends State<ComicCard> {
                           ),
                         ),
                       Positioned(
-                        right: 4,
-                        bottom: 4,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2.5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(
-                                  kRadiusSmall,
-                                ),
-                              ),
-                              child: Text(
-                                '${comic.chapterCount}话 · ${comic.imageCount}P',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                ),
+                        left: 8,
+                        right: 8,
+                        bottom: 8,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(kRadiusSmall),
+                            ),
+                            child: Text(
+                              '${comic.chapterCount}话 · ${comic.imageCount}P',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
                 SizedBox(
-                  height: textAreaHeight(MediaQuery.textScalerOf(context)),
+                  height: ComicCard.textAreaHeight(
+                    MediaQuery.textScalerOf(context),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Column(

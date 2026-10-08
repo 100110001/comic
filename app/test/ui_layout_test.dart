@@ -1,0 +1,216 @@
+import 'package:comic/models/chapter.dart';
+import 'package:comic/models/comic.dart';
+import 'package:comic/models/reading_progress_entry.dart';
+import 'package:comic/providers/comics_providers.dart';
+import 'package:comic/providers/reader_providers.dart';
+import 'package:comic/screens/detail_screen.dart';
+import 'package:comic/screens/home_screen.dart';
+import 'package:comic/screens/settings_screen.dart';
+import 'package:comic/screens/reader_screen.dart';
+import 'package:comic/theme.dart';
+import 'package:comic/widgets/comic_grid.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _PreviewLibrary extends RandomLibraryNotifier {
+  @override
+  Future<RandomLibraryState> build() async => const RandomLibraryState(
+    seed: 1,
+    pageOffset: 1,
+    total: 1,
+    pageSize: 12,
+    comics: [Comic(id: 1, title: '测试漫画')],
+  );
+}
+
+void main() {
+  testWidgets('320px 手机首页放大字体后仍能使用刷新和续读', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          randomLibraryProvider.overrideWith(_PreviewLibrary.new),
+          recentReadingProvider.overrideWith(
+            (ref) async => const [
+              ReadingProgressEntry(
+                comic: Comic(id: 1, title: '测试漫画'),
+                chapterId: 10,
+                chapterTitle: '第一话名字很长也需要正确截断',
+                pageNumber: 2,
+              ),
+            ],
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const MediaQuery(
+            data: MediaQueryData(
+              size: Size(320, 568),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: HomeScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('换一批').hitTestable(), findsOneWidget);
+    expect(find.text('继续阅读').hitTestable(), findsOneWidget);
+    expect(comicGridColumns(320), 2);
+  });
+
+  testWidgets('手机设置的主题选项在放大字体时自动换行', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'Comic',
+      packageName: 'comic',
+      version: '1.0.3',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const MediaQuery(
+            data: MediaQueryData(
+              size: Size(320, 700),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: SettingsScreen(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.text('跟随系统'), 300, scrollable: find.byType(Scrollable).first);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(ChoiceChip), findsNWidgets(3));
+  });
+
+  testWidgets('小屏和放大字体下两行标题与作者不溢出', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final width in [320.0, 390.0, 600.0, 950.0]) {
+      tester.view.physicalSize = Size(width, 800);
+      for (final scale in [1.0, 1.3, 2.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: buildAppTheme(Brightness.light),
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(width, 800),
+                textScaler: TextScaler.linear(scale),
+              ),
+              child: const Scaffold(
+                body: ComicGrid(
+                  comics: [
+                    Comic(
+                      id: 1,
+                      title: '这是一个需要显示两行而且可能被截断的漫画标题',
+                      author: '很长很长的作者名称',
+                    ),
+                    Comic(id: 2, title: '没有作者的漫画'),
+                    Comic(id: 3, title: '收藏漫画', favorited: true),
+                  ],
+                  loading: false,
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: '宽度 $width，字体 $scale');
+      }
+    }
+  });
+
+  testWidgets('窄屏详情可滚动到末章且首次阅读进入首章节', (tester) async {
+    tester.view.physicalSize = const Size(320, 568);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final chapters = List.generate(
+      100,
+      (i) => Chapter(id: i + 10, title: '第${i + 1}话', sortOrder: i),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          comicDetailProvider.overrideWith(
+            (ref, id) async => ComicDetail(
+              comic: const Comic(
+                id: 1,
+                title: '很长的漫画标题也不应该让章节目录消失',
+                author: '测试作者',
+              ),
+              chapters: chapters,
+              favorited: false,
+              authorFavorited: false,
+            ),
+          ),
+          chapterImagesProvider.overrideWith((ref, id) async => []),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.dark),
+          home: const DetailScreen(comicId: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(find.text('第100话'), 500, maxScrolls: 30);
+    expect(find.text('第100话').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(find.text('开始阅读'), -500, maxScrolls: 30);
+    tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position
+        .jumpTo(0);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开始阅读'));
+    await tester.pumpAndSettle();
+    final reader = tester.widget<ReaderScreen>(find.byType(ReaderScreen));
+    expect(reader.chapterId, 10);
+    expect(reader.initialPage, 0);
+  });
+
+  testWidgets('空章节详情禁用首次阅读按钮', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          comicDetailProvider.overrideWith(
+            (ref, id) async => const ComicDetail(
+              comic: Comic(id: 1, title: '暂无章节的漫画'),
+              chapters: [],
+              favorited: false,
+              authorFavorited: false,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const DetailScreen(comicId: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final button = tester.widget<FilledButton>(
+      find.byWidgetPredicate((widget) => widget is FilledButton),
+    );
+    expect(button.onPressed, isNull);
+    expect(tester.takeException(), isNull);
+  });
+}

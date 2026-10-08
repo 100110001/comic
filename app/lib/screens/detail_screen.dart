@@ -152,6 +152,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       comicId: widget.comicId,
                                       chapterId: first.id,
                                       title: first.title,
+                                      initialPage: 0,
                                     ),
                                   ),
                                 );

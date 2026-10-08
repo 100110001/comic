@@ -4,9 +4,10 @@ import 'comic_card.dart';
 import 'status_views.dart';
 
 /// 按可用宽度返回漫画网格的列数：
-/// <600 → 3 列；600–899 → 4 列；900–1199 → 5 列；
+/// <480 → 2 列；480–599 → 3 列；600–899 → 4 列；900–1199 → 5 列；
 /// 1200–1599 → 6 列；≥1600 → 7 列。
 int comicGridColumns(double width) {
+  if (width < 480) return 2;
   if (width < 600) return 3;
   if (width < 900) return 4;
   if (width < 1200) return 5;

@@ -141,33 +141,38 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       style: TextStyle(color: c.text2, fontSize: 13),
                     ),
                     const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: SegmentedButton<ThemeMode>(
-                        expandedInsets: EdgeInsets.zero,
-                        showSelectedIcon: false,
-                        segments: const [
-                          ButtonSegment(
-                            value: ThemeMode.light,
-                            icon: Icon(Icons.light_mode_outlined),
-                            label: Text('浅色'),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final mode in ThemeMode.values)
+                          ChoiceChip(
+                            avatar: Icon(
+                              switch (mode) {
+                                ThemeMode.light => Icons.light_mode_outlined,
+                                ThemeMode.dark => Icons.dark_mode_outlined,
+                                ThemeMode.system =>
+                                  Icons.brightness_auto_outlined,
+                              },
+                              size: 18,
+                              color: themeMode == mode ? c.accent : c.text2,
+                            ),
+                            label: Text(switch (mode) {
+                              ThemeMode.light => '浅色',
+                              ThemeMode.dark => '深色',
+                              ThemeMode.system => '跟随系统',
+                            }),
+                            selected: themeMode == mode,
+                            showCheckmark: false,
+                            selectedColor: c.accent.withValues(alpha: 0.12),
+                            labelStyle: TextStyle(
+                              color: themeMode == mode ? c.accent : c.text1,
+                            ),
+                            onSelected: (_) => ref
+                                .read(themeModeProvider.notifier)
+                                .setMode(mode),
                           ),
-                          ButtonSegment(
-                            value: ThemeMode.dark,
-                            icon: Icon(Icons.dark_mode_outlined),
-                            label: Text('深色'),
-                          ),
-                          ButtonSegment(
-                            value: ThemeMode.system,
-                            icon: Icon(Icons.brightness_auto_outlined),
-                            label: Text('跟随系统'),
-                          ),
-                        ],
-                        selected: {themeMode},
-                        onSelectionChanged: (selection) => ref
-                            .read(themeModeProvider.notifier)
-                            .setMode(selection.first),
-                      ),
+                      ],
                     ),
                   ],
                 ),

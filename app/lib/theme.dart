@@ -225,6 +225,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         color: c.text1,
         fontSize: 20,
         fontWeight: FontWeight.w600,
+        fontFamilyFallback: cjkFallback,
       ),
       centerTitle: false,
     ),
