@@ -52,13 +52,18 @@ npm run build
 npm run start
 ```
 
-重新导入前先清表：
+`setup` 是可重复执行的增量导入：已有漫画、章节和图片会复用原有 ID，收藏与
+阅读进度不会因正常重新扫描而丢失，不需要也不应在重新导入前清空核心表。导入
+成功后会自动失效本项目的 Redis 图片列表缓存；Redis 不可用时会提示并跳过缓存
+清理，不影响数据库导入结果。
 
-```sql
-TRUNCATE TABLE images;
-TRUNCATE TABLE chapters;
-TRUNCATE TABLE comics;
+需要单独清理本项目缓存时运行：
+
+```bash
+npm run clear-cache
 ```
+
+手动命令在 Redis 不可用时返回失败，方便脚本和运维发现缓存并未清理。
 
 ### 2. Flutter 应用 `app/`
 

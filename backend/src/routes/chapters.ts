@@ -1,5 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
+import fs from "fs";
 import { imageSize } from "image-size";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
@@ -11,10 +12,16 @@ export const chaptersRouter = Router();
 const COMIC_ROOT = config.comicRoot;
 
 function toUrl(filePath: string): string {
-  return (
+  const url =
     "/static/" +
-    filePath.replace(COMIC_ROOT, "").replace(/\\/g, "/").replace(/^\//, "")
-  );
+    filePath.replace(COMIC_ROOT, "").replace(/\\/g, "/").replace(/^\//, "");
+
+  try {
+    const stat = fs.statSync(filePath);
+    return `${url}?v=${stat.size}-${Math.trunc(stat.mtimeMs)}`;
+  } catch {
+    return url;
+  }
 }
 
 async function fillDimensions(images: any[]) {
@@ -42,9 +49,9 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
 
     const cacheKey = `chapter:${id}:images`;
     const cached = await cacheGet<unknown[]>(cacheKey);
-    if (cached) {
+    if (cached.value) {
       console.log(`[cache hit] ${cacheKey}`);
-      return ok(res, cached);
+      return ok(res, cached.value);
     }
     console.log(`[cache miss] ${cacheKey}`);
 
@@ -67,7 +74,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
       height: img.height,
     }));
 
-    await cacheSet(cacheKey, data);
+    await cacheSet(cacheKey, data, cached.generation);
     ok(res, data);
   } catch (err) {
     fail(res, "Failed to fetch images", 1, 500);

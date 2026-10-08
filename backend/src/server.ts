@@ -1,7 +1,7 @@
 import { config, validateConfig } from "./config";
 import app from "./app";
 import { db } from "./db/knex";
-import { redis } from "./db/redis";
+import { invalidateProjectCache, redis } from "./db/redis";
 
 process.on("uncaughtException", (err) =>
   console.error("[uncaughtException]", err),
@@ -24,8 +24,8 @@ async function start() {
   try {
     await redis.connect();
     console.log("Redis connected");
-    await redis.flushdb();
-    console.log("Redis cache cleared");
+    await invalidateProjectCache();
+    console.log("Project cache invalidated");
   } catch {
     console.warn("Redis unavailable — caching disabled");
   }

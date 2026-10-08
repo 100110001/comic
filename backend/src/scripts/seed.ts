@@ -48,7 +48,12 @@ async function seed() {
     const coverPath = comic.chapters[0]?.images[0]?.path ?? null;
 
     // comic：按 title+author 匹配，命中复用 id，未命中插入
-    const comicId = await upsertComic(conn, comic.title, comic.author, coverPath);
+    const comicId = await upsertComic(
+      conn,
+      comic.title,
+      comic.author,
+      coverPath,
+    );
     if (comicId.new) newComicCount++;
 
     // chapter：按 comic_id+title 匹配，未命中插入；全部处理完后整体覆写 sort_order
@@ -84,8 +89,8 @@ async function seed() {
           newImageCount++;
         }
         await conn.execute(
-          "UPDATE images SET page_number = ? WHERE chapter_id = ? AND filename = ?",
-          [pi, chapterId, img.filename],
+          "UPDATE images SET path = ?, page_number = ?, width = NULL, height = NULL WHERE chapter_id = ? AND filename = ?",
+          [img.path, pi, chapterId, img.filename],
         );
       }
     }
