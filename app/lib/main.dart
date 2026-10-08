@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'providers/comics_providers.dart';
+import 'providers/server_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
@@ -19,6 +20,7 @@ Future<void> main() async {
   await setupCloseToTray();
   final themeMode = await loadThemeMode();
   final closeToTray = await loadCloseToTray();
+  final serverUrl = await loadServerUrl();
   runApp(
     ProviderScope(
       overrides: [
@@ -27,6 +29,9 @@ Future<void> main() async {
         ),
         closeToTrayProvider.overrideWith(
           () => CloseToTrayNotifier(initial: closeToTray),
+        ),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: serverUrl),
         ),
       ],
       child: const ComicApp(),

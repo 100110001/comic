@@ -7,11 +7,16 @@ scope: convention
 
 ## Responsibilities
 
-定义服务端状态的数据访问约定：所有 API 数据通过 provider 获取与变更，页面与组件不直接调用 ApiService；提供会话内缓存、失效同步与统一的 loading/error 语义。
+定义服务端状态的数据访问约定：所有 API 数据通过 provider 获取与变更，页面与组件不直接调用 `ApiClient`；提供会话内缓存、失效同步、数据源隔离与统一的 loading/error 语义。
 
 ## Rules
 
-- 所有 API 数据访问集中在 `app/lib/providers/`；页面与组件通过 `ref.watch` / `ref.read` 消费 provider，不直接调用 ApiService。
+- 所有 API 数据访问集中在 `app/lib/providers/`；页面与组件通过 `ref.watch` / `ref.read` 消费 provider，不直接调用 `ApiClient`。
+- 当前漫画服务器由“地址 + 单调代际”组成不可变会话；`ApiClient` 从该会话派生，每个实例只访问其创建时绑定的地址。
+- 服务器地址变化时，必须销毁收藏、收藏作者、最近阅读、漫画详情、章节图片、首页随机分页、搜索分页和发现序列等全部服务端状态。数据源切换是“有缓存时失败不打断当前展示”规则的例外，旧服务器内容不得继续显示。
+- 有状态查询与 mutation 在请求开始时捕获客户端及会话代际；异步完成后，仅在代际仍匹配时写入状态或触发失效，防止旧服务器的晚到结果污染新会话。
+- 服务端模型在反序列化时记录响应所属服务器地址；封面和章节图片等资源 URL 必须基于该地址生成，不得依据当前全局设置动态改写旧模型。
+- 漫画 API 统一使用 15 秒超时，并集中校验 HTTP 状态、JSON 格式、业务 envelope 与响应结构。连接、超时、安全连接、服务器拒绝、服务器内部错误和无效响应应转换为稳定的中文用户错误。
 - 简单查询（收藏、收藏作者、最近阅读、漫画详情、章节图片）使用 FutureProvider 系列，会话内缓存。
 - 有状态的查询（首页随机分页、搜索分页）使用 AsyncNotifier 持有分页状态。
 - 变更（收藏、作者收藏、阅读进度）通过 mutation 助手完成：成功后按失效矩阵刷新相关查询。
@@ -27,3 +32,4 @@ scope: convention
 
 - flutter_riverpod 使用 3.3.x（3.4.x 要求 Dart ≥3.12，本项目为 Dart 3.10.8）。
 - mutation 助手参数类型为 `WidgetRef`（Riverpod 3 中 `WidgetRef` 不实现 `Ref`）。
+- 候选服务器的健康检查也通过 provider 暴露，必须严格验证成功 HTTP、标准业务 envelope 与 `data.status == "ok"`，且不得改变当前会话。

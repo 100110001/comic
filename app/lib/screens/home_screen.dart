@@ -7,6 +7,7 @@ import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
 import '../widgets/status_views.dart';
 import 'detail_screen.dart';
@@ -68,17 +69,31 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     _keyword = keyword.trim();
     setState(() {});
     if (_keyword.isNotEmpty) {
-      await ref.read(searchProvider.notifier).search(_keyword);
+      try {
+        await ref.read(searchProvider.notifier).search(_keyword);
+      } catch (error) {
+        if (mounted) _showRequestError(error, '搜索失败');
+      }
     }
   }
 
   Future<void> _refresh() async {
-    if (_keyword.isEmpty) {
-      await ref.read(randomLibraryProvider.notifier).reshuffle();
-    } else {
-      await ref.read(searchProvider.notifier).search(_keyword);
+    try {
+      if (_keyword.isEmpty) {
+        await ref.read(randomLibraryProvider.notifier).reshuffle();
+      } else {
+        await ref.read(searchProvider.notifier).search(_keyword);
+      }
+      ref.invalidate(recentReadingProvider);
+    } catch (error) {
+      if (mounted) _showRequestError(error, '刷新失败');
     }
-    ref.invalidate(recentReadingProvider);
+  }
+
+  void _showRequestError(Object error, String fallback) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(userMessageFor(error, fallback: fallback))),
+    );
   }
 
   @override
@@ -112,6 +127,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final hasError = _keyword.isEmpty
         ? randomAsync.hasError
         : searchAsync.hasError;
+    final currentError = _keyword.isEmpty
+        ? randomAsync.error
+        : searchAsync.error;
     final loading = _keyword.isEmpty
         ? randomAsync.isLoading ||
               (random != null && random.comics.length < random.total)
@@ -179,7 +197,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                   child: hasError && comics.isEmpty
                       ? StatusView(
                           icon: Icons.cloud_off,
-                          message: '加载失败',
+                          message: userMessageFor(
+                            currentError,
+                            fallback: '加载失败',
+                          ),
                           actionLabel: '重试',
                           onAction: _keyword.isEmpty
                               ? () => ref.invalidate(randomLibraryProvider)

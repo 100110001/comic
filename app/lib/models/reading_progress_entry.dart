@@ -1,3 +1,4 @@
+import '../config.dart';
 import 'comic.dart';
 
 class ReadingProgressEntry {
@@ -13,11 +14,13 @@ class ReadingProgressEntry {
     required this.pageNumber,
   });
 
-  factory ReadingProgressEntry.fromJson(Map<String, dynamic> j) =>
-      ReadingProgressEntry(
-        comic: Comic.fromJson(j),
-        chapterId: j['chapter_id'],
-        chapterTitle: j['chapter_title'] ?? '',
-        pageNumber: j['page_number'] ?? 0,
-      );
+  factory ReadingProgressEntry.fromJson(
+    Map<String, dynamic> j, {
+    String serverUrl = defaultServerUrl,
+  }) => ReadingProgressEntry(
+    comic: Comic.fromJson(j, serverUrl: serverUrl),
+    chapterId: j['chapter_id'],
+    chapterTitle: j['chapter_title'] ?? '',
+    pageNumber: j['page_number'] ?? 0,
+  );
 }

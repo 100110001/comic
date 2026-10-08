@@ -4,6 +4,7 @@ import '../models/comic.dart';
 import '../providers/comics_providers.dart';
 import '../providers/discovery_providers.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
 import '../widgets/pressable.dart';
 import 'reader_screen.dart';
@@ -36,12 +37,12 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       await action();
       if (!mounted) return;
       setState(() => _dragX = 0);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() => _dragX = 0);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('切换失败，请重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: '切换失败，请重试'))),
+      );
     }
   }
 
@@ -62,11 +63,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   Future<void> _refresh() async {
     try {
       await ref.read(discoveryProvider.notifier).refresh();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('换一批失败，请重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: '换一批失败，请重试'))),
+      );
     }
   }
 
@@ -94,11 +95,11 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('加载失败，请重试')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: '加载失败，请重试'))),
+      );
     }
   }
 
@@ -115,7 +116,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     } else if (async.hasError && comic == null) {
       body = StatusView(
         icon: Icons.cloud_off,
-        message: '加载失败',
+        message: userMessageFor(async.error, fallback: '加载失败'),
         actionLabel: '重试',
         onAction: () => ref.invalidate(discoveryProvider),
       );

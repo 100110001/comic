@@ -8,6 +8,7 @@ class Comic {
   final int chapterCount;
   final int imageCount;
   final bool favorited;
+  final String serverUrl;
 
   const Comic({
     required this.id,
@@ -17,9 +18,13 @@ class Comic {
     this.chapterCount = 0,
     this.imageCount = 0,
     this.favorited = false,
+    this.serverUrl = defaultServerUrl,
   });
 
-  factory Comic.fromJson(Map<String, dynamic> j) => Comic(
+  factory Comic.fromJson(
+    Map<String, dynamic> j, {
+    String serverUrl = defaultServerUrl,
+  }) => Comic(
     id: j['id'],
     title: j['title'],
     author: j['author'],
@@ -27,6 +32,7 @@ class Comic {
     chapterCount: int.tryParse(j['chapter_count']?.toString() ?? '0') ?? 0,
     imageCount: int.tryParse(j['image_count']?.toString() ?? '0') ?? 0,
     favorited: j['favorited'] == true || j['favorited'] == 1,
+    serverUrl: serverUrl,
   );
 
   Comic withFavorited(bool value) => Comic(
@@ -37,6 +43,7 @@ class Comic {
     chapterCount: chapterCount,
     imageCount: imageCount,
     favorited: value,
+    serverUrl: serverUrl,
   );
 
   String? get coverUrl {
@@ -44,6 +51,6 @@ class Comic {
     final rel = coverPath!
         .replaceAll('\\', '/')
         .replaceFirst(RegExp(r'^.*?/comic/'), '');
-    return '$baseUrl/static/$rel';
+    return Uri.parse('$serverUrl/').resolve('static/$rel').toString();
   }
 }

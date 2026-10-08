@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
 import '../theme.dart';
+import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
 import '../widgets/status_views.dart';
 import 'detail_screen.dart';
@@ -43,7 +44,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _search(String keyword) async {
-    await ref.read(searchProvider.notifier).search(keyword.trim());
+    try {
+      await ref.read(searchProvider.notifier).search(keyword.trim());
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: '搜索失败，请重试'))),
+      );
+    }
   }
 
   @override
@@ -79,7 +87,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               child: hasError && comics.isEmpty
                   ? StatusView(
                       icon: Icons.cloud_off,
-                      message: '搜索失败',
+                      message: userMessageFor(
+                        searchAsync.error,
+                        fallback: '搜索失败',
+                      ),
                       actionLabel: '重试',
                       onAction: () => ref.invalidate(searchProvider),
                     )
