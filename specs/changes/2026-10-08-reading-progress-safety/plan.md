@@ -35,20 +35,20 @@ flowchart TB
 
 ## 实现单元
 
-### U1. ✅ 本地队列与同步（同分支 PR 待创建）
+### U1. ✅ 本地队列与同步（PR #42）
 
 - 文件：`app/lib/models/pending_reading_progress.dart`、`app/lib/services/progress_storage*.dart`、`app/lib/providers/reading_progress_provider.dart`、`app/pubspec.yaml`、`app/pubspec.lock`。
 - 方案：平台存储、逐条反序列化容错、写入队列、版本确认与客户端会话隔离；保留原 API。
 - 验证：失败重启恢复、版本竞争、来源切换、写入失败、原生临时文件替换与同会话同步互斥。
 
-### U2. ✅ 阅读位置与生命周期（同分支 PR 待创建）
+### U2. ✅ 阅读位置与生命周期（PR #42）
 
 - 依赖：U1。
 - 文件：`app/lib/screens/reader_screen.dart`、`app/lib/main.dart`、`app/lib/tray/close_to_tray*.dart`、`app/lib/providers/reader_providers.dart`。
 - 方案：所有有效页码变化落盘；初始跳转抑制临时页码；退出和后台先写本地，捕获服务继续补传；章节请求代际防止晚到图片产生错误断点；原生关闭回调先完成本地写入。
 - 验证：移动初始定位、连续换书、退出后仍补传、后台触发与翻页不发网络请求。
 
-### U3. ✅ 续读与失败反馈（同分支 PR 待创建）
+### U3. ✅ 续读与失败反馈（PR #42）
 
 - 依赖：U2。
 - 文件：`app/lib/screens/home_screen.dart`、`app/lib/screens/detail_screen.dart`、`app/lib/widgets/reading_lists.dart`、相关 `app/test/`。
@@ -67,6 +67,7 @@ flowchart TB
 - 更新 `specs/reader.spec.md`：有效位置本地落盘、定位抑制、生命周期及失败恢复。
 - 更新 `specs/data-layer.convention.md`：来源持久隔离、串行同步、版本确认与本地叠加查询。
 - 检查 `specs/app-shell.spec.md`：保留已合并的首页续读提示规则，不恢复旧常驻行为。
+
 
 
 
