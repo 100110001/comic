@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../providers/search_history_provider.dart';
+import '../providers/server_provider.dart';
+import '../widgets/search_history_view.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
@@ -17,19 +21,23 @@ class SearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SearchScreenState extends ConsumerState<SearchScreen> {
+  bool _showHistory = true;
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    final initial = widget.initialKeyword;
-    if (initial != null && initial.isNotEmpty) {
-      _controller.text = initial;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _search(initial);
-      });
-    }
+    ref.listenManual(serverSessionProvider, (_, _) {
+      _controller.clear();
+      setState(() => _showHistory = true);
+    });
+    final initial = widget.initialKeyword?.trim() ?? '';
+    _showHistory = initial.isEmpty;
+    _controller.text = initial;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _search(initial, remember: initial.isNotEmpty);
+    });
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
@@ -45,9 +53,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     super.dispose();
   }
 
-  Future<void> _search(String keyword) async {
+  void _chooseKeyword(String keyword) {
+    if (!mounted) return;
+    _controller.text = keyword;
+    _controller.selection = TextSelection.collapsed(offset: keyword.length);
+    _search(keyword);
+  }
+
+  Future<void> _search(String keyword, {bool remember = true}) async {
+    final word = keyword.trim();
+    setState(() => _showHistory = word.isEmpty);
+    if (remember && word.isNotEmpty) {
+      final source = ref.read(serverSessionProvider).url;
+      unawaited(
+        ref
+            .read(searchHistoryStoreProvider.notifier)
+            .remember(source, word)
+            .catchError((Object error) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      userMessageFor(error, fallback: '搜索历史保存失败，搜索仍可继续'),
+                    ),
+                  ),
+                );
+              }
+            }),
+      );
+    }
     try {
-      await ref.read(searchProvider.notifier).search(keyword.trim());
+      await ref.read(searchProvider.notifier).search(word);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,6 +120,22 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        actions: [
+          IconButton(
+            tooltip: '清空搜索',
+            icon: const Icon(Icons.close),
+            onPressed: () {
+              _controller.clear();
+              _search('', remember: false);
+            },
+          ),
+          IconButton(
+            tooltip: '搜索历史',
+            icon: const Icon(Icons.history),
+            onPressed: () =>
+                showSearchHistory(context, onSelected: _chooseKeyword),
+          ),
+        ],
         title: TextField(
           controller: _controller,
           autofocus: true,
@@ -98,10 +150,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           onSubmitted: _search,
         ),
       ),
-      body: keyword.isEmpty
-          ? const StatusView(icon: Icons.search, message: '输入关键字搜索漫画或作者')
+      body: _showHistory
+          ? SearchHistoryView(onSelected: _chooseKeyword)
           : RefreshIndicator(
-              onRefresh: () => _search(keyword),
+              onRefresh: () => _search(keyword, remember: false),
               child: hasError && comics.isEmpty
                   ? StatusView(
                       icon: Icons.cloud_off,
@@ -110,7 +162,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         fallback: '搜索失败',
                       ),
                       actionLabel: '重试',
-                      onAction: () => _search(keyword),
+                      onAction: () => _search(keyword, remember: false),
                     )
                   : loading
                   ? const Center(child: CircularProgressIndicator())
