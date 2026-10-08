@@ -17,12 +17,12 @@ type: feat
 
 ## 实现单元
 
-### U1. ✅ 持久历史与来源选择（同分支 PR 待创建）
+### U1. ✅ 持久历史与来源选择（PR #44）
 
 文件：新增 app/lib/providers/search_history_provider.dart 与 app/test/search_history_test.dart。
 验证：去重和 20 条上限、恢复与损坏容错、来源切换、初始化并发、提交/清空顺序和写入失败恢复。
 
-### U2. ✅ 搜索入口与共享历史组件（同分支 PR 待创建）
+### U2. ✅ 搜索入口与共享历史组件（PR #44）
 
 依赖 U1。文件：新增 app/lib/widgets/search_history_view.dart，修改 search_screen.dart、home_screen.dart 及既有页面测试。
 验证：手机/桌面回填并查询、删除/清空、刷新重试不重排、失败仍保留、来源切换输入清理、窄屏大字体与长关键字可操作。
