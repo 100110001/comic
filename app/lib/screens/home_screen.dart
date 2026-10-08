@@ -6,6 +6,7 @@ import '../models/comic.dart';
 import '../models/reading_progress_entry.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
+import '../providers/reading_progress_provider.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
@@ -32,7 +33,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    ref.listenManual(recentReadingProvider, (_, next) {
+    ref.listenManual(recentReadingWithLocalProvider, (_, next) {
       final entries = next.value;
       final entry = entries != null && entries.isNotEmpty
           ? entries.first
@@ -126,7 +127,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     final randomAsync = ref.watch(randomLibraryProvider);
     final searchAsync = ref.watch(searchProvider);
-    final recentAsync = ref.watch(recentReadingProvider);
+    final recentAsync = ref.watch(recentReadingWithLocalProvider);
 
     final random = randomAsync.value;
     final search = searchAsync.value;

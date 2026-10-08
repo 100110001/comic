@@ -4,6 +4,7 @@ import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
 import '../providers/comics_providers.dart';
+import '../providers/reading_progress_provider.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme.dart';
@@ -20,7 +21,7 @@ class RecentReadingList extends ConsumerStatefulWidget {
 class _RecentReadingListState extends ConsumerState<RecentReadingList> {
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(recentReadingProvider);
+    final async = ref.watch(recentReadingWithLocalProvider);
     final items = async.value ?? const <ReadingProgressEntry>[];
     final loading = async.isLoading && items.isEmpty;
 

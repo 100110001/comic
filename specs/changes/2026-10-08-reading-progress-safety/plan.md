@@ -48,7 +48,7 @@ flowchart TB
 - 方案：所有有效页码变化落盘；初始跳转抑制临时页码；退出和后台先写本地，捕获服务继续补传；章节请求代际防止晚到图片产生错误断点；原生关闭回调先完成本地写入。
 - 验证：移动初始定位、连续换书、退出后仍补传、后台触发与翻页不发网络请求。
 
-### U3. 续读与失败反馈
+### U3. ✅ 续读与失败反馈（同分支 PR 待创建）
 
 - 依赖：U2。
 - 文件：`app/lib/screens/home_screen.dart`、`app/lib/screens/detail_screen.dart`、`app/lib/widgets/reading_lists.dart`、相关 `app/test/`。
@@ -67,5 +67,6 @@ flowchart TB
 - 更新 `specs/reader.spec.md`：有效位置本地落盘、定位抑制、生命周期及失败恢复。
 - 更新 `specs/data-layer.convention.md`：来源持久隔离、串行同步、版本确认与本地叠加查询。
 - 检查 `specs/app-shell.spec.md`：保留已合并的首页续读提示规则，不恢复旧常驻行为。
+
 
 

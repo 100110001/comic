@@ -80,6 +80,7 @@ class ReadingProgressQueue extends AsyncNotifier<List<PendingReadingProgress>> {
   }
 
   Future<void> record(ReadingProgressEntry entry) => _enqueue(() async {
+    if (state.hasError) ref.invalidateSelf();
     await future;
     if (!ref.mounted) return;
     final entries = state.requireValue;
@@ -140,7 +141,7 @@ class ReadingProgressQueue extends AsyncNotifier<List<PendingReadingProgress>> {
         );
       } catch (_) {
         // 失败保留队列，下一次生命周期触发或手动重试再补传。
-        return;
+        continue;
       }
       if (!_isCurrent(client)) return;
       await _enqueue(() async {
@@ -181,6 +182,11 @@ final recentReadingWithLocalProvider =
               .where((p) => p.serverUrl == url)
               .toList()
             ..sort((a, b) => b.revision.compareTo(a.revision));
+      final remoteState = ref.watch(recentReadingProvider);
+      // 待同步断点无需等网络超时才可用于续读。
+      if (local.isNotEmpty && !remoteState.hasValue) {
+        return local.map((p) => p.entry).toList();
+      }
       final remote = ref.watch(recentReadingProvider.future);
       try {
         final entries = await remote;

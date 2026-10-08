@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:comic/models/comic.dart';
 import 'package:comic/models/reading_progress_entry.dart';
 import 'package:comic/providers/reading_progress_provider.dart';
+import 'package:comic/providers/comics_providers.dart';
+import 'package:comic/providers/progress_lifecycle_provider.dart';
 import 'package:comic/providers/server_provider.dart';
 import 'package:comic/services/api_client.dart';
 import 'package:comic/services/progress_storage_io.dart';
@@ -24,6 +27,7 @@ class ProgressClient extends ApiClient {
   ProgressClient({super.baseUrl = origin, super.generation = 0});
   final pages = <int>[];
   bool fail = false;
+  final failPages = <int>{};
   Completer<void>? blocked;
   @override
   Future<void> updateProgress({
@@ -33,7 +37,7 @@ class ProgressClient extends ApiClient {
   }) async {
     pages.add(pageNumber);
     await blocked?.future;
-    if (fail) throw StateError('断网');
+    if (fail || failPages.contains(pageNumber)) throw StateError('断网');
   }
 }
 
@@ -155,6 +159,157 @@ void main() {
     expect(
       await FileProgressStorage(directory: () async => directory).read(),
       '第二版',
+    );
+  });
+
+  test('本机位置覆盖远端且翻页不重新 GET，确认后恢复远端权威', () async {
+    var requests = 0;
+    final c = ProviderContainer(
+      overrides: [
+        progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: origin),
+        ),
+        recentReadingProvider.overrideWith((ref) async {
+          requests++;
+          return [position(9)];
+        }),
+      ],
+    );
+    addTearDown(c.dispose);
+    final sub = c.listen(recentReadingWithLocalProvider, (_, _) {});
+    addTearDown(sub.close);
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      9,
+    );
+    final queue = c.read(readingProgressQueueProvider.notifier);
+    await queue.record(position(1));
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      1,
+    );
+    await queue.record(position(2));
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      2,
+    );
+    expect(requests, 1);
+    final client = ProgressClient();
+    addTearDown(client.close);
+    await queue.sync(client);
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      9,
+    );
+  });
+
+  test('远端未响应时本机待传记录已可续读', () async {
+    final remote = Completer<List<ReadingProgressEntry>>();
+    final c = ProviderContainer(
+      overrides: [
+        progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: origin),
+        ),
+        recentReadingProvider.overrideWith((ref) => remote.future),
+      ],
+    );
+    addTearDown(c.dispose);
+    await c.read(readingProgressQueueProvider.notifier).record(position(4));
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      4,
+    );
+    remote.completeError(StateError('断网'));
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      4,
+    );
+  });
+
+  testWidgets('启动时补传重启恢复的断点', (tester) async {
+    final storage = MemoryProgressStorage();
+    final previous = container(storage);
+    await previous
+        .read(readingProgressQueueProvider.notifier)
+        .record(position(6));
+    previous.dispose();
+    final client = ProgressClient();
+    addTearDown(client.close);
+    final c = ProviderContainer(
+      overrides: [
+        progressStorageProvider.overrideWithValue(storage),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: origin),
+        ),
+        apiClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(c.dispose);
+    c.read(progressLifecycleProvider);
+    await tester.pumpAndSettle();
+    expect(client.pages, [6]);
+    expect(c.read(readingProgressQueueProvider).requireValue, isEmpty);
+  });
+
+  test('启动时读取失败恢复后可以重新保存', () async {
+    final storage = MemoryProgressStorage()..failRead = true;
+    final c = container(storage);
+    addTearDown(c.dispose);
+    await expectLater(
+      c.read(readingProgressQueueProvider.future),
+      throwsStateError,
+    );
+    storage.failRead = false;
+    await c.read(readingProgressQueueProvider.notifier).record(position(4));
+    expect(
+      c.read(readingProgressQueueProvider).requireValue.single.entry.pageNumber,
+      4,
+    );
+  });
+
+  test('单本补传失败不妨碍其他漫画确认', () async {
+    final c = container(MemoryProgressStorage());
+    addTearDown(c.dispose);
+    final queue = c.read(readingProgressQueueProvider.notifier);
+    await queue.record(position(1));
+    await queue.record(
+      const ReadingProgressEntry(
+        comic: Comic(id: 2, title: '第二本', serverUrl: origin),
+        chapterId: 20,
+        chapterTitle: '第二章',
+        pageNumber: 2,
+      ),
+    );
+    final client = ProgressClient()..failPages.add(1);
+    addTearDown(client.close);
+    await queue.sync(client);
+    expect(client.pages, [1, 2]);
+    expect(
+      c.read(readingProgressQueueProvider).requireValue.single.entry.comic.id,
+      1,
+    );
+  });
+
+  test('损坏的单条断点不丢弃其他已保存位置', () async {
+    final storage = MemoryProgressStorage();
+    final previous = container(storage);
+    await previous
+        .read(readingProgressQueueProvider.notifier)
+        .record(position(8));
+    previous.dispose();
+    final saved = jsonDecode(storage.contents!) as Map<String, dynamic>;
+    (saved['entries'] as List).add({'comic': '损坏数据'});
+    storage.contents = jsonEncode(saved);
+    final c = container(storage);
+    addTearDown(c.dispose);
+    expect(
+      (await c.read(
+        readingProgressQueueProvider.future,
+      )).single.entry.pageNumber,
+      8,
     );
   });
 }

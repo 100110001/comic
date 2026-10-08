@@ -3,6 +3,8 @@ import 'package:comic/models/comic.dart';
 import 'package:comic/models/reading_progress_entry.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
+import 'package:comic/providers/reading_progress_provider.dart';
+import 'helpers/progress_storage.dart';
 import 'package:comic/screens/detail_screen.dart';
 import 'package:comic/screens/home_screen.dart';
 import 'package:comic/screens/settings_screen.dart';
@@ -43,6 +45,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           randomLibraryProvider.overrideWith(_PreviewLibrary.new),
           recentReadingProvider.overrideWith(
             (ref) async => const [
@@ -173,6 +176,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           comicDetailProvider.overrideWith(
             (ref, id) async => ComicDetail(
               comic: const Comic(
@@ -215,6 +219,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           comicDetailProvider.overrideWith(
             (ref, id) async => const ComicDetail(
               comic: Comic(id: 1, title: '暂无章节的漫画'),
@@ -237,4 +242,53 @@ void main() {
     expect(button.onPressed, isNull);
     expect(tester.takeException(), isNull);
   });
+
+  for (final validChapter in [true, false]) {
+    testWidgets('详情续读${validChapter ? '优先本机位置' : '失效本机章节回退远端'}', (
+      tester,
+    ) async {
+      final c = ProviderContainer(
+        overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          comicDetailProvider.overrideWith(
+            (ref, id) async => const ComicDetail(
+              comic: Comic(id: 1, title: '测试漫画'),
+              chapters: [Chapter(id: 10, title: '第一话', sortOrder: 0)],
+              favorited: false,
+              authorFavorited: false,
+              progress: (chapterId: 10, pageNumber: 3),
+            ),
+          ),
+          chapterImagesProvider.overrideWith((ref, id) async => []),
+        ],
+      );
+      addTearDown(c.dispose);
+      await c
+          .read(readingProgressQueueProvider.notifier)
+          .record(
+            ReadingProgressEntry(
+              comic: const Comic(id: 1, title: '测试漫画'),
+              chapterId: validChapter ? 10 : 999,
+              chapterTitle: '第一话',
+              pageNumber: 7,
+            ),
+          );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: c,
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.dark),
+            home: const DetailScreen(comicId: 1),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('上次读到第 ${validChapter ? 8 : 4} 页'), findsOneWidget);
+      await tester.tap(find.text('继续阅读'));
+      await tester.pumpAndSettle();
+      final reader = tester.widget<ReaderScreen>(find.byType(ReaderScreen));
+      expect(reader.chapterId, 10);
+      expect(reader.initialPage, validChapter ? 7 : 3);
+    });
+  }
 }

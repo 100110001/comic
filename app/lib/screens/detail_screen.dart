@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../providers/reading_progress_provider.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
@@ -91,6 +92,14 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   Widget build(BuildContext context) {
     final detailAsync = ref.watch(comicDetailProvider(widget.comicId));
     final detail = detailAsync.value;
+    final pending = ref.watch(localReadingProgressProvider(widget.comicId));
+    final local = pending?.position;
+    final progress =
+        local != null &&
+            detail?.chapters.any((chapter) => chapter.id == local.chapterId) ==
+                true
+        ? local
+        : detail?.progress;
     final c = context.appColors;
 
     return Scaffold(
@@ -139,8 +148,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       builder: (_) => SearchScreen(initialKeyword: author),
                     ),
                   ),
-                  progress: detail.progress,
-                  onContinue: detail.progress == null
+                  progress: progress,
+                  onContinue: progress == null
                       ? detail.chapters.isEmpty
                             ? null
                             : () {
@@ -157,12 +166,12 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                   ),
                                 );
                               }
-                      : () => _continueReading(detail.progress!),
+                      : () => _continueReading(progress),
                 );
                 final chapterList = _ChapterList(
                   comicId: widget.comicId,
                   chapters: detail.chapters,
-                  currentChapterId: detail.progress?.chapterId,
+                  currentChapterId: progress?.chapterId,
                 );
                 if (constraints.maxWidth >= 720) {
                   return Row(
@@ -183,7 +192,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     _ChapterList(
                       comicId: widget.comicId,
                       chapters: detail.chapters,
-                      currentChapterId: detail.progress?.chapterId,
+                      currentChapterId: progress?.chapterId,
                       asSliver: true,
                     ),
                   ],

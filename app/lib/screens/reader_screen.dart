@@ -372,7 +372,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 目标页在图片真实加载完成前可能超出 maxScrollExtent，
   /// 多帧重试直到目标可到达或达到尝试上限。
   void _performInitialJump(int target, int generation) {
-    if (generation != _jumpGeneration || target >= _extents.length) {
+    if (generation != _jumpGeneration) return;
+    if (target >= _extents.length) {
       _initialJumping = false;
       return;
     }

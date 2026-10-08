@@ -3,6 +3,8 @@ import 'package:comic/models/comic.dart';
 import 'package:comic/models/reading_progress_entry.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
+import 'package:comic/providers/reading_progress_provider.dart';
+import 'helpers/progress_storage.dart';
 import 'package:comic/screens/home_screen.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/theme.dart';
@@ -33,6 +35,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           randomLibraryProvider.overrideWith(_EmptyLibrary.new),
           recentReadingProvider.overrideWith((ref) async => [entry]),
           comicDetailProvider.overrideWith(
@@ -68,6 +71,7 @@ void main() {
     var page = 5;
     final container = ProviderContainer(
       overrides: [
+        progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
         randomLibraryProvider.overrideWith(_EmptyLibrary.new),
         recentReadingProvider.overrideWith(
           (ref) async => [
@@ -122,6 +126,7 @@ void main() {
     addTearDown(width.dispose);
     final container = ProviderContainer(
       overrides: [
+        progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
         randomLibraryProvider.overrideWith(_EmptyLibrary.new),
         recentReadingProvider.overrideWith((ref) async => []),
       ],
