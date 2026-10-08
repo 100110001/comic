@@ -319,6 +319,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     });
     try {
       final normalized = normalizeServerUrl(input);
+      ref.invalidate(serverConnectionTestProvider(input));
       await ref.read(serverConnectionTestProvider(input).future);
       if (!mounted ||
           serial != _serverTestSerial ||

@@ -78,9 +78,18 @@ class ServerSessionNotifier extends Notifier<ServerSession> {
   }
 }
 
+typedef ApiClientFactory =
+    ApiClient Function({required String baseUrl, required int generation});
+
+final apiClientFactoryProvider = Provider<ApiClientFactory>(
+  (ref) =>
+      ({required baseUrl, required generation}) =>
+          ApiClient(baseUrl: baseUrl, generation: generation),
+);
+
 final apiClientProvider = Provider<ApiClient>((ref) {
   final session = ref.watch(serverSessionProvider);
-  final client = ApiClient(
+  final client = ref.read(apiClientFactoryProvider)(
     baseUrl: session.url,
     generation: session.generation,
   );
@@ -90,8 +99,18 @@ final apiClientProvider = Provider<ApiClient>((ref) {
 
 final serverConnectionTestProvider = FutureProvider.autoDispose
     .family<void, String>((ref, input) async {
+      // 设置页通过一次性 read 触发测试；请求完成前必须阻止 autoDispose
+      // 关闭底层 HTTP client。
+      final keepAlive = ref.keepAlive();
       final url = normalizeServerUrl(input);
-      final client = ApiClient(baseUrl: url, generation: -1);
+      final client = ref.read(apiClientFactoryProvider)(
+        baseUrl: url,
+        generation: -1,
+      );
       ref.onDispose(client.close);
-      await client.testConnection();
+      try {
+        await client.testConnection();
+      } finally {
+        keepAlive.close();
+      }
     });
