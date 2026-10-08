@@ -17,7 +17,7 @@ type: feat
 
 ## 实现单元
 
-### U1. 持久历史与来源选择
+### U1. ✅ 持久历史与来源选择（同分支 PR 待创建）
 
 文件：新增 app/lib/providers/search_history_provider.dart 与 app/test/search_history_test.dart。
 验证：去重和 20 条上限、恢复与损坏容错、来源切换、初始化并发、提交/清空顺序和写入失败恢复。
@@ -34,3 +34,4 @@ type: feat
 - 更新 specs/comics-browsing.spec.md：历史语义、隔离和重搜入口。
 - 更新 specs/app-shell.spec.md：桌面搜索历史入口。
 - 更新 specs/data-layer.convention.md：本地历史与服务端查询独立，串行持久化与来源选择。
+
