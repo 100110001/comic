@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'providers/comics_providers.dart';
+import 'providers/progress_lifecycle_provider.dart';
 import 'providers/server_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/discovery_screen.dart';
@@ -46,6 +47,7 @@ class ComicApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(progressLifecycleProvider);
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'Comic',

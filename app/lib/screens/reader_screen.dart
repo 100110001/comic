@@ -7,6 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../models/image_item.dart';
+import '../models/reading_progress_entry.dart';
+import '../providers/reading_progress_provider.dart';
+import '../providers/server_provider.dart';
+import '../services/api_client.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
@@ -39,7 +43,13 @@ class ReaderScreen extends ConsumerStatefulWidget {
   ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen>
+    with WidgetsBindingObserver {
+  late ReadingProgressQueue _progressQueue;
+  late ApiClient _progressClient;
+  late Future<void> Function() _checkpointCallback;
+  Comic? _comic;
+  bool _saveErrorVisible = false;
   late int _comicId;
   late int _chapterId;
   List<Chapter> _chapters = [];
@@ -71,6 +81,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _progressQueue = ref.read(readingProgressQueueProvider.notifier);
+    _progressClient = ref.read(apiClientProvider);
+    _checkpointCallback = _checkpoint;
+    _progressQueue.checkpointActiveReader = _checkpointCallback;
+    WidgetsBinding.instance.addObserver(this);
     _comicId = widget.comicId;
     _chapterId = widget.chapterId;
     _title = widget.title;
@@ -81,9 +96,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (identical(_progressQueue.checkpointActiveReader, _checkpointCallback)) {
+      _progressQueue.checkpointActiveReader = null;
+    }
     _hideTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      unawaited(_saveProgress());
+    }
   }
 
   /// 桌面沉浸：点击阅读区或按键等有意交互恢复工具栏并重置隐藏计时；
@@ -118,6 +146,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       if (!mounted) return;
       final idx = detail.chapters.indexWhere((c) => c.id == widget.chapterId);
       setState(() {
+        _comic = detail.comic;
         _chapters = detail.chapters;
         _chapterIndex = idx < 0 ? 0 : idx;
       });
@@ -133,6 +162,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _goToChapter(int index, {int? initialPage}) async {
     if (index < 0 || index >= _chapters.length) return;
+    _recordPosition();
     setState(() => _chapterIndex = index);
     await _loadChapter(_chapters[index].id, initialPage: initialPage);
   }
@@ -148,8 +178,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   void _nextPage() {
     if (_images.isEmpty) return;
     if (_currentPage < _images.length - 1) {
-      setState(() => _currentPage++);
-      _precacheAround(_currentPage);
+      _goToPage(_currentPage + 1);
     } else {
       _autoContinue();
     }
@@ -158,8 +187,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   void _prevPage() {
     if (_images.isEmpty) return;
     if (_currentPage > 0) {
-      setState(() => _currentPage--);
-      _precacheAround(_currentPage);
+      _goToPage(_currentPage - 1);
     } else {
       _prevChapter();
     }
@@ -171,6 +199,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final target = page.clamp(0, _images.length - 1).toInt();
     setState(() => _currentPage = target);
     _precacheAround(target);
+    _recordPosition();
   }
 
   /// 桌面形态的键盘翻页绑定；边界行为复用现有翻页语义。
@@ -243,9 +272,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       return;
     }
     setState(() {
+      _comic = detail!.comic;
       _comicId = comic.id;
       _title = comic.title;
-      _chapters = detail!.chapters;
+      _chapters = detail.chapters;
       _chapterIndex = 0;
     });
     await _loadChapter(_chapters[0].id);
@@ -265,12 +295,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _initialJumping = false;
       _jumpGeneration++;
     });
+    final generation = _jumpGeneration;
     try {
       final images = await ref.read(chapterImagesProvider(chapterId).future);
-      if (!mounted) return;
+      if (!mounted || generation != _jumpGeneration) return;
       setState(() {
         _images = images;
-        _currentPage = initialPage != null && initialPage < images.length
+        _currentPage =
+            initialPage != null &&
+                initialPage >= 0 &&
+                initialPage < images.length
             ? initialPage
             : 0;
         _pendingJumpPage =
@@ -282,8 +316,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _loading = false;
       });
       _precacheAround(_currentPage);
+      _recordPosition();
     } catch (error) {
-      if (mounted) {
+      if (mounted && generation == _jumpGeneration) {
         setState(() {
           _loading = false;
           _loadFailed = true;
@@ -337,7 +372,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// 目标页在图片真实加载完成前可能超出 maxScrollExtent，
   /// 多帧重试直到目标可到达或达到尝试上限。
   void _performInitialJump(int target, int generation) {
-    if (generation != _jumpGeneration || target >= _extents.length) {
+    if (generation != _jumpGeneration) return;
+    if (target >= _extents.length) {
       _initialJumping = false;
       return;
     }
@@ -362,7 +398,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   void _onScroll() {
-    if (_extents.isEmpty || !_scrollController.hasClients) return;
+    if (_initialJumping || _extents.isEmpty || !_scrollController.hasClients) {
+      return;
+    }
     final offset = _scrollController.offset;
     var page = 0;
     for (var i = 1; i < _extents.length; i++) {
@@ -375,6 +413,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (page != _currentPage) {
       setState(() => _currentPage = page);
       _precacheAround(page);
+      _recordPosition();
     }
     // 滚动接近本章底部时自动续章
     if (_hasNext &&
@@ -434,6 +473,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       final targetId = _chapterId;
       final idx = detail.chapters.indexWhere((c) => c.id == targetId);
       setState(() {
+        _comic = detail.comic;
         _chapters = detail.chapters;
         _chapterIndex = idx < 0 ? 0 : idx;
       });
@@ -466,17 +506,52 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
-  Future<void> _saveProgress() async {
-    if (_images.isEmpty) return;
+  Future<void> _checkpoint() async {
+    if (_images.isEmpty || _loading || _loadFailed) return;
+    final metadata = _comic;
+    final entry = ReadingProgressEntry(
+      comic: Comic(
+        id: _comicId,
+        title: metadata?.title ?? _title,
+        author: metadata?.author,
+        coverPath: metadata?.coverPath,
+        chapterCount: metadata?.chapterCount ?? 0,
+        imageCount: metadata?.imageCount ?? _images.length,
+        serverUrl: _progressClient.baseUrl,
+      ),
+      chapterId: _chapterId,
+      chapterTitle: _currentChapter?.title ?? _title,
+      pageNumber: _currentPage,
+    );
     try {
-      await updateReadingProgress(
-        ref,
-        comicId: _comicId,
-        chapterId: _chapterId,
-        pageNumber: _currentPage,
-      );
+      await _progressQueue.record(entry);
     } catch (_) {
-      // 进度保存失败不阻塞阅读
+      if (mounted && !_saveErrorVisible) {
+        _saveErrorVisible = true;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(
+              SnackBar(
+                content: const Text('阅读进度无法保存在本机，请重试'),
+                action: SnackBarAction(label: '重试', onPressed: _recordPosition),
+              ),
+            )
+            .closed
+            .then((_) => _saveErrorVisible = false);
+      }
+      rethrow;
+    }
+  }
+
+  void _recordPosition() {
+    unawaited(_checkpoint().catchError((_) {}));
+  }
+
+  Future<void> _saveProgress() async {
+    try {
+      await _checkpoint();
+      unawaited(_progressQueue.sync(_progressClient).catchError((_) {}));
+    } catch (_) {
+      // 本地写入失败已反馈，后续有效位置变化或手动重试再次保存。
     }
   }
 
@@ -486,6 +561,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       _buildExtents(MediaQuery.of(context).size.width);
     }
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
     final Widget scaffold = Scaffold(
       backgroundColor: c.readerBg,
@@ -532,6 +608,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   ),
                 ),
                 actions: [
+                  if (pending != null)
+                    IconButton(
+                      icon: Icon(Icons.cloud_upload_outlined, color: c.text1),
+                      tooltip: '进度已存本机，点击同步',
+                      onPressed: _saveProgress,
+                    ),
                   Builder(
                     builder: (buttonContext) => IconButton(
                       icon: Icon(Icons.format_list_bulleted, color: c.text1),
@@ -719,8 +801,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 currentPage: page,
                 totalPages: _images.length,
                 onSeek: (p) {
-                  setState(() => _currentPage = p);
-                  _precacheAround(p);
+                  _goToPage(p);
                   _onActivity();
                 },
               ),
