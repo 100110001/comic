@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:comic/models/chapter.dart';
 import 'package:comic/models/comic.dart';
 import 'package:comic/models/image_item.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
+import 'package:comic/providers/server_provider.dart';
 import 'package:comic/screens/reader_screen.dart';
+import 'package:comic/services/api_client.dart';
 import 'package:comic/theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -87,6 +89,105 @@ void main() {
 
     expect(find.text('第 2 / 10 页'), findsOneWidget);
   });
+
+  testWidgets(
+    '发现连续换书与返回保存当前漫画的章节和页码',
+    (tester) async {
+      final client = _ProgressClient();
+      addTearDown(client.close);
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var comicId = 1;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            apiClientProvider.overrideWithValue(client),
+            comicDetailProvider.overrideWith(
+              (ref, id) async => ComicDetail(
+                comic: Comic(id: id, title: '漫画$id'),
+                chapters: [Chapter(id: id * 10, title: '章节$id', sortOrder: 0)],
+                favorited: false,
+                authorFavorited: false,
+              ),
+            ),
+            chapterImagesProvider.overrideWith(
+              (ref, id) async => [
+                for (var page = 0; page < 3; page++)
+                  ImageItem(
+                    id: id * 10 + page,
+                    filename: '$page.png',
+                    pageNumber: page,
+                    url: 'http://example.com/$id/$page.png',
+                    width: 800,
+                    height: 1200,
+                  ),
+              ],
+            ),
+          ],
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.dark),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReaderScreen(
+                        comicId: 1,
+                        chapterId: 10,
+                        title: '漫画1',
+                        onNextComic: () async =>
+                            Comic(id: ++comicId, title: '漫画$comicId'),
+                      ),
+                    ),
+                  ),
+                  child: const Text('开始阅读'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('开始阅读'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('下一本'));
+      await tester.pumpAndSettle();
+      // 在第二本翻到第 2 页，再切第三本。
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('下一本'));
+      await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(client.positions, [
+        (comicId: 1, chapterId: 10, pageNumber: 0),
+        (comicId: 2, chapterId: 20, pageNumber: 1),
+        (comicId: 3, chapterId: 30, pageNumber: 0),
+      ]);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+}
+
+class _ProgressClient extends ApiClient {
+  _ProgressClient() : super(baseUrl: 'http://example.com', generation: 0);
+
+  final positions = <({int comicId, int chapterId, int pageNumber})>[];
+
+  @override
+  Future<void> updateProgress({
+    required int comicId,
+    required int chapterId,
+    required int pageNumber,
+  }) async {
+    positions.add((
+      comicId: comicId,
+      chapterId: chapterId,
+      pageNumber: pageNumber,
+    ));
+  }
 }
 
 /// 测试用假网络层：所有请求返回 1x1 透明 PNG，避免真实网络报 400。
