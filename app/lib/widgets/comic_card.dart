@@ -7,6 +7,10 @@ class ComicCard extends StatefulWidget {
   final VoidCallback? onTap;
   const ComicCard({super.key, required this.comic, this.onTap});
 
+  /// 与网格共享文字区高度，预留两行标题和一行作者。
+  static double textAreaHeight(TextScaler scaler) =>
+      24 + scaler.scale(14) * 1.4 * 2 + 6 + scaler.scale(12) * 1.4;
+
   @override
   State<ComicCard> createState() => _ComicCardState();
 }
@@ -47,29 +51,29 @@ class _ComicCardState extends State<ComicCard> {
                               errorBuilder: (_, _, _) => _placeholder(context),
                             )
                           : _placeholder(context),
+                      if (comic.favorited)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.65),
+                              borderRadius: BorderRadius.circular(kRadiusThumb),
+                            ),
+                            child: Icon(
+                              Icons.favorite,
+                              color: c.favorite,
+                              size: 16,
+                            ),
+                          ),
+                        ),
                       Positioned(
                         right: 4,
                         bottom: 4,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (comic.favorited) ...[
-                              Container(
-                                padding: const EdgeInsets.all(2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.55),
-                                  borderRadius: BorderRadius.circular(
-                                    kRadiusSmall,
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.favorite,
-                                  color: c.favorite,
-                                  size: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 5),
-                            ],
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -83,7 +87,10 @@ class _ComicCardState extends State<ComicCard> {
                               ),
                               child: Text(
                                 '${comic.chapterCount}话 · ${comic.imageCount}P',
-                                style: TextStyle(color: c.text1, fontSize: 10),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
                               ),
                             ),
                           ],
@@ -92,34 +99,38 @@ class _ComicCardState extends State<ComicCard> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        comic.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: c.text1,
-                          fontSize: 13,
-                          height: 1.25,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      if (comic.author != null)
+                SizedBox(
+                  height: textAreaHeight(MediaQuery.textScalerOf(context)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          comic.author!,
+                          comic.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: c.text1,
+                            fontSize: 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const Spacer(),
+                        const SizedBox(height: 6),
+                        Text(
+                          comic.author ?? '未知作者',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: c.text2,
-                            fontSize: 11,
-                            height: 1.25,
+                            fontSize: 12,
+                            height: 1.4,
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -134,7 +145,7 @@ class _ComicCardState extends State<ComicCard> {
     final c = context.appColors;
     return Container(
       color: c.surface2,
-      child: Icon(Icons.image_not_supported, color: c.text2),
+      child: Icon(Icons.auto_stories_outlined, color: c.text2, size: 32),
     );
   }
 }

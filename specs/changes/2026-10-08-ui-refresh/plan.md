@@ -39,6 +39,8 @@ origin: specs/changes/2026-10-08-ui-refresh/define.md
 
 ### U1. 统一常用页面的视觉层次与操作
 
+**状态：** 已实现，PR #40；待完成门禁和实际渲染验证。
+
 - **目标：** 完成 R1–R9 及 F1–F3 的界面优化。
 - **依赖：** 无。
 - **文件：** `app/lib/theme.dart`、`app/lib/main.dart`、`app/lib/screens/home_screen.dart`、`app/lib/screens/detail_screen.dart`、`app/lib/screens/settings_screen.dart`、`app/lib/widgets/comic_card.dart`、`app/lib/widgets/comic_grid.dart`、`app/lib/widgets/reading_lists.dart`、`app/lib/widgets/status_views.dart`，必要时更新现有 UI 测试。

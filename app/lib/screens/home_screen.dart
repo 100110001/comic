@@ -129,6 +129,8 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: desktop ? 80 : 64,
+        titleSpacing: desktop ? 28 : 16,
         title: desktop
             ? Container(
                 constraints: const BoxConstraints(maxWidth: 420),
@@ -147,20 +149,34 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                     prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
-                    suffixIcon: _keyword.isNotEmpty
-                        ? IconButton(
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_keyword.isNotEmpty)
+                          IconButton(
+                            tooltip: '清空搜索',
                             icon: Icon(Icons.close, color: c.text2, size: 18),
                             onPressed: () {
                               _searchController.clear();
                               _search('');
                             },
-                          )
-                        : null,
+                          ),
+                        IconButton(
+                          tooltip: '搜索',
+                          icon: Icon(
+                            Icons.arrow_forward,
+                            color: c.accent,
+                            size: 20,
+                          ),
+                          onPressed: () => _search(_searchController.text),
+                        ),
+                      ],
+                    ),
                   ),
                   onSubmitted: _search,
                 ),
               )
-            : const Text('Comic'),
+            : const Text('漫画书库'),
         actions: desktop
             ? null
             : [
@@ -173,10 +189,6 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ],
-        bottom: PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: SizedBox(height: 1, child: ColoredBox(color: c.borderStrong)),
-        ),
       ),
       body: RefreshIndicator(
         onRefresh: _refresh,
@@ -184,6 +196,51 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
           children: [
             Column(
               children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    desktop ? 28 : 16,
+                    4,
+                    desktop ? 28 : 16,
+                    16,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _keyword.isEmpty ? '随便看看' : '搜索结果',
+                              style: Theme.of(context).textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _keyword.isEmpty
+                                  ? random == null
+                                        ? '发现下一本想读的漫画'
+                                        : '${random.total} 部漫画 · 发现下一本想读的故事'
+                                  : '“$_keyword” · ${search?.total ?? 0} 部漫画',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(color: c.text2, fontSize: 12),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        onPressed: loading ? null : _refresh,
+                        icon: Icon(
+                          _keyword.isEmpty
+                              ? Icons.shuffle_rounded
+                              : Icons.refresh,
+                          size: 18,
+                        ),
+                        label: Text(_keyword.isEmpty ? '换一批' : '刷新结果'),
+                      ),
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: hasError && comics.isEmpty
                       ? StatusView(
@@ -201,7 +258,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           controller: _scrollController,
                           comics: comics,
                           loading: loading,
-                          bottomPadding: recentEntry != null ? 96 : 0,
+                          bottomPadding: recentEntry != null ? 112 : 0,
+                          emptyMessage: _keyword.isEmpty
+                              ? '书库里还没有漫画'
+                              : '没有找到相关漫画',
                           onColumnsChanged: (columns) => ref
                               .read(randomLibraryProvider.notifier)
                               .setPageSize(columns * 6),
@@ -220,9 +280,14 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: _FloatingContinueBar(
-                  entry: recentEntry,
-                  onReturn: () => ref.invalidate(recentReadingProvider),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: _FloatingContinueBar(
+                      entry: recentEntry,
+                      onReturn: () => ref.invalidate(recentReadingProvider),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -242,10 +307,10 @@ class _FloatingContinueBar extends StatelessWidget {
     final comic = entry.comic;
     final c = context.appColors;
     return Material(
-      color: c.surface2,
-      elevation: 4,
+      color: c.surface1,
+      elevation: 12,
       clipBehavior: Clip.antiAlias,
-      shadowColor: Colors.black.withValues(alpha: 0.4),
+      shadowColor: Colors.black.withValues(alpha: 0.18),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusFloat),
         side: BorderSide(color: c.border),
@@ -266,7 +331,7 @@ class _FloatingContinueBar extends StatelessWidget {
           onReturn();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+          padding: const EdgeInsets.fromLTRB(12, 12, 16, 12),
           child: Row(
             children: [
               ClipRRect(
@@ -306,12 +371,15 @@ class _FloatingContinueBar extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '${entry.chapterTitle} · 第${entry.pageNumber + 1}页',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: c.text2, fontSize: 12),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.play_circle_fill, color: c.accent, size: 32),
+              const SizedBox(width: 12),
+              Icon(Icons.play_circle_fill, color: c.accent, size: 36),
             ],
           ),
         ),
