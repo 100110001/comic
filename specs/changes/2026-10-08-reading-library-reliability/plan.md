@@ -29,11 +29,15 @@ origin: specs/changes/2026-10-08-reading-library-reliability/define.md
 
 ### U1. 阅读器当前漫画身份
 
+完成：当前漫画与实际加载章节身份已统一，发现连续换书与返回保存回归通过。
+
 - 文件：`app/lib/screens/reader_screen.dart`、`app/test/reader_screen_test.dart`。
 - 方案：切换成功后更新当前漫画身份；初始化、目录重试与保存统一使用当前身份，保存捕获章节与页码。
 - 验证：发现连续换书后请求中的漫画与章节归属一致；原有手机定位测试通过。
 
 ### U2. 查询顺序与动态分页
+
+完成：查询代际、分页互斥、动态页大小与失败恢复回归通过。
 
 - 依赖：U1。
 - 文件：`app/lib/providers/comics_providers.dart`、`app/test/comics_providers_test.dart`。
@@ -43,8 +47,10 @@ origin: specs/changes/2026-10-08-reading-library-reliability/define.md
 
 ### U3. 首页与搜索加载反馈
 
+完成：续读条常驻、实际宽度校准、初始搜索与失败重试回归通过。
+
 - 依赖：U2。
-- 文件：`app/lib/screens/home_screen.dart`、`app/lib/screens/search_screen.dart`、`app/test/home_screen_test.dart`。
+- 文件：`app/lib/screens/home_screen.dart`、`app/lib/screens/search_screen.dart`、`app/lib/widgets/comic_grid.dart`、`app/test/home_screen_test.dart`、`app/test/search_screen_test.dart`。
 - 方案：网格布局使用实际约束更新页大小，滚动加载捕获错误；搜索显示当前查询与重试；移除续读条隐藏计时。
 - 验证：续读条超过 3 秒仍显示；加载指示仅在真实请求期间显示；重新搜索和清空关键字行为一致。
 
