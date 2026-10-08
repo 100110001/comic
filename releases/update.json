@@ -1,12 +1,12 @@
 {
-  "platforms": {
-    "windows": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.4/comic-setup.exe"
-    },
-    "android": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.4/app-release.apk"
-    }
-  },
-  "releaseNotes": "优化首页、书库、详情与设置界面，改善手机小屏和大字体适配；更换人物应用图标并移除白底，适配 Windows 透明图标与 Android 自适应图标；首页继续阅读提示显示 5 秒后自动收起。",
-  "latestVersion": "1.0.4"
+    "latestVersion":  "1.0.5",
+    "releaseNotes":  "修复阅读问题，优化使用体验",
+    "platforms":  {
+                      "windows":  {
+                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.5/comic-setup.exe"
+                                  },
+                      "android":  {
+                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.5/app-release.apk"
+                                  }
+                  }
 }
