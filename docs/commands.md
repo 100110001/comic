@@ -110,6 +110,7 @@ Pop-Location
 后端格式与 lint 检查不启动服务，不需要 MySQL、Redis 或漫画目录。格式或 lint
 失败时，在 `backend/` 执行 `npm run format`、`npm run lint:fix`，再重新检查；
 不能自动修复的问题需按输出手动修正。
+`.gitattributes` 将 TypeScript 文件的检出换行固定为 LF，与 Prettier 保持一致。
 
 ## PowerShell 手动发版
 
