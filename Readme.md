@@ -20,19 +20,21 @@
 
 | 目录/文件 | 说明 |
 | --- | --- |
-| `lib/` | Flutter 前端代码 |
+| `app/` | 完整 Flutter 应用（源码、测试、平台工程和 Windows 安装器） |
 | `backend/` | Node.js 后端 |
 | `scripts/` | 发版脚本（`release.ps1`） |
 | `specs/` | 设计规范（spec 是设计的事实源） |
-| `installer.iss` | Windows 安装包（Inno Setup）配置 |
+| `releases/` | 应用更新清单 |
 
-> 版本锁定：Flutter 固定 **3.38.9**（CI 已锁定）；Flutter 依赖锁定见 `pubspec.lock`（已提交），后端依赖见 `backend/pnpm-lock.yaml`。
+> 版本锁定：Flutter 固定 **3.38.9**（CI 已锁定）；Flutter 依赖锁定见 `app/pubspec.lock`（已提交），后端依赖见 `backend/pnpm-lock.yaml`。
 
 ## 快速开始
 
 ### 1. 后端 `backend/`
 
 ```bash
+cd backend
+
 # 安装依赖
 pnpm install
 
@@ -58,9 +60,11 @@ TRUNCATE TABLE chapters;
 TRUNCATE TABLE comics;
 ```
 
-### 2. 前端 `Flutter`
+### 2. Flutter 应用 `app/`
 
 ```bash
+cd app
+
 # 安装依赖
 flutter pub get
 
@@ -98,19 +102,19 @@ flutter doctor
 | 文件 | 说明 |
 | --- | --- |
 | `backend/.env` | 端口、数据库连接、漫画目录（本地环境变量，不提交） |
-| `lib/config.dart` | 后端 API 地址、更新清单地址 |
+| `app/lib/config.dart` | 后端 API 地址、更新清单地址 |
 
 ## 发版（检查更新）
 
 仓库为公开仓库，App 设置页"关于"区的"检查更新"会读取
-`lib/config.dart` 里配置的清单地址：
+`app/lib/config.dart` 里配置的清单地址：
 `https://raw.githubusercontent.com/100110001/comic/master/releases/update.json`。
 发现新版本后，Windows 静默安装、Android 唤起系统安装器。
 
 每次发版按以下流程操作：
 
 ```powershell
-# 1. 升版本号并同步各文件（pubspec / installer.iss / releases/update.json / CHANGELOG），打 vX.Y.Z tag
+# 1. 升版本号并同步各文件（app/pubspec / app/installer.iss / releases/update.json / CHANGELOG），打 vX.Y.Z tag
 .\scripts\release.ps1 -Version 1.0.1 -Notes "本次更新内容"
 
 # 2. 推送代码与 tag —— CI（release.yml）会自动构建 Windows + Android 并上传到 v1.0.1 Release
@@ -119,9 +123,10 @@ git push && git push origin v1.0.1
 
 注意事项：
 
-- 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 pubspec、installer、update.json、CHANGELOG 并打 tag（脚本读写统一为 UTF-8，兼容 Windows PowerShell 5.1）。
+- 版本号格式必须为 `X.Y.Z`；`release.ps1` 会自动同步 `app/pubspec.yaml`、`app/installer.iss`、`releases/update.json`、`CHANGELOG.md` 并打 tag（脚本读写统一为 UTF-8，兼容 Windows PowerShell 5.1）。
 - 推送 tag 后等 CI 完成即可；需要手动构建/上传时：
-  `flutter build windows --release`、`flutter build apk --release`、`ISCC installer.iss`，
-  再 `gh release upload v1.0.1 --clobber installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk`。
+  先进入 `app/` 执行 `flutter build windows --release`、`flutter build apk --release`、
+  `ISCC installer.iss`，回到仓库根后执行
+  `gh release upload v1.0.1 --clobber app/installer/comic-setup.exe app/build/app/outputs/flutter-apk/app-release.apk`。
 - `releases/update.json` 的 `latestVersion` 必须与发布的版本一致（脚本自动处理）。
 - 发布完成后，App 的"检查更新"即可检测到新版本。

@@ -9,20 +9,21 @@ build/
 *.class
 
 # Android
-android/.gradle/
-android/local.properties
-android/captures/
-android/gradlew
-android/gradlew.bat
-android/gradle/wrapper/
+app/android/.gradle/
+app/android/.kotlin/
+app/android/local.properties
+app/android/captures/
+app/android/gradlew
+app/android/gradlew.bat
+app/android/gradle/wrapper/
 **/android/**/GeneratedPluginRegistrant.java
 **/android/**/GeneratedPluginRegistrant.kt
 
 # iOS
-ios/Flutter/flutter_export_environment.sh
-ios/Flutter/Generated.xcconfig
-ios/.symlinks/
-ios/Pods/
+app/ios/Flutter/flutter_export_environment.sh
+app/ios/Flutter/Generated.xcconfig
+app/ios/.symlinks/
+app/ios/Pods/
 **/ios/**/*.mode1v3
 **/ios/**/*.mode2v3
 **/ios/**/*.moved-aside
@@ -42,7 +43,7 @@ ios/Pods/
 **/ios/Runner/GeneratedPluginRegistrant.*
 
 # Web
-lib/generated_plugin_registrant.dart
+app/lib/generated_plugin_registrant.dart
 
 # IDE
 .idea/

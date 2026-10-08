@@ -19,6 +19,6 @@ scope: feature
 
 ## Notes
 
-- 浅色/深色双套颜色令牌由 `lib/theme.dart` 的 `AppColors`（`ThemeExtension`）提供，组件经 `context.appColors` 取色；`MaterialApp` 同时注册浅/深主题并按 `themeMode` 切换。
+- 浅色/深色双套颜色令牌由 `app/lib/theme.dart` 的 `AppColors`（`ThemeExtension`）提供，组件经 `context.appColors` 取色；`MaterialApp` 同时注册浅/深主题并按 `themeMode` 切换。
 - 阅读器背景与工具栏跟随主题：深色为黑底、浅色为浅底浅工具栏，阅读交互不受影响。
-- 版本单一事实源为 `pubspec.yaml`；发布用 `scripts/release.ps1` 同步 installer 版本、生成 `releases/update.json`（公开 releases 仓）并打 tag；更新清单地址在 `lib/config.dart` 集中配置。
+- 版本单一事实源为 `app/pubspec.yaml`；发布用 `scripts/release.ps1` 同步 `app/installer.iss` 版本、生成 `releases/update.json`（公开 releases 仓）并打 tag；更新清单地址在 `app/lib/config.dart` 集中配置。
