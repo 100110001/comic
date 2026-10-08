@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 // ---- 圆角令牌（浅/深共用） ----
 const kRadiusSmall = 6.0;
 const kRadiusThumb = 8.0;
-const kRadiusButton = 8.0;
-const kRadiusCard = 10.0;
-const kRadiusFloat = 14.0;
+const kRadiusButton = 12.0;
+const kRadiusCard = 14.0;
+const kRadiusFloat = 18.0;
 
 /// 双套颜色令牌：组件通过 `context.appColors.*` 取色。
 @immutable
@@ -57,11 +57,11 @@ class AppColors extends ThemeExtension<AppColors> {
   );
 
   static const light = AppColors(
-    bg: Color(0xFFffffff),
+    bg: Color(0xFFf3f5f9),
     surface1: Color(0xFFffffff),
     surface2: Color(0xFFffffff),
-    border: Color(0xFFd0d7de),
-    borderStrong: Color(0xFFd8dee4),
+    border: Color(0xFFe0e5ed),
+    borderStrong: Color(0xFFe8ecf2),
     accent: Color(0xFF0969da),
     text1: Color(0xFF1f2328),
     text2: Color(0xFF57606a),
@@ -69,7 +69,7 @@ class AppColors extends ThemeExtension<AppColors> {
     star: Color(0xFF9a6700),
     readerBg: Color(0xFFf6f8fa),
     readerBar: Color(0xFFffffff),
-    navBg: Color(0xFFf6f8fa),
+    navBg: Color(0xFFedf1f7),
   );
 
   @override
@@ -161,7 +161,7 @@ ThemeData buildAppTheme(Brightness brightness) {
   );
   final textTheme = TextTheme(
     titleLarge: TextStyle(
-      fontSize: 20,
+      fontSize: 24,
       fontWeight: FontWeight.w600,
       color: c.text1,
       letterSpacing: 0.2,
@@ -215,7 +215,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     textTheme: textTheme,
     extensions: [c],
     appBarTheme: AppBarTheme(
-      backgroundColor: c.surface1,
+      backgroundColor: c.bg,
       foregroundColor: c.text1,
       elevation: 0,
       scrolledUnderElevation: 0,
@@ -223,8 +223,9 @@ ThemeData buildAppTheme(Brightness brightness) {
       iconTheme: IconThemeData(color: c.text1),
       titleTextStyle: TextStyle(
         color: c.text1,
-        fontSize: 16,
+        fontSize: 20,
         fontWeight: FontWeight.w600,
+        fontFamilyFallback: cjkFallback,
       ),
       centerTitle: false,
     ),
@@ -237,24 +238,61 @@ ThemeData buildAppTheme(Brightness brightness) {
         side: BorderSide(color: c.border),
       ),
     ),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.surface1,
+      indicatorColor: c.accent.withValues(alpha: 0.14),
+      elevation: 0,
+      height: 72,
+      labelTextStyle: WidgetStateProperty.resolveWith(
+        (states) => TextStyle(
+          fontSize: 12,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w600
+              : FontWeight.w400,
+          color: states.contains(WidgetState.selected) ? c.accent : c.text2,
+          fontFamilyFallback: cjkFallback,
+        ),
+      ),
+      iconTheme: WidgetStateProperty.resolveWith(
+        (states) => IconThemeData(
+          color: states.contains(WidgetState.selected) ? c.accent : c.text2,
+        ),
+      ),
+    ),
+    listTileTheme: ListTileThemeData(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusButton),
+      ),
+    ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: c.accent,
         foregroundColor: brightness == Brightness.dark
             ? Colors.black
             : Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
       ).copyWith(animationDuration: const Duration(milliseconds: 150)),
     ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: c.text1,
+        side: BorderSide(color: c.border),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusButton),
+        ),
+      ),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: c.surface1,
+      fillColor: c.surface2,
       hintStyle: TextStyle(color: c.text2),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
         borderSide: BorderSide(color: c.border),

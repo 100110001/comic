@@ -71,154 +71,174 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     // 桌面侧栏嵌入时无需标题；手机端推入时保留返回箭头。
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
-      appBar: canPop ? AppBar() : null,
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Text(
-            '服务器',
-            style: TextStyle(
-              color: c.text2,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: c.surface2,
-              borderRadius: BorderRadius.circular(kRadiusCard),
-              border: Border.all(color: c.border),
-            ),
-            child: _buildServerSection(c, serverSession),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '外观',
-            style: TextStyle(
-              color: c.text2,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: c.surface2,
-              borderRadius: BorderRadius.circular(kRadiusCard),
-              border: Border.all(color: c.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      appBar: canPop ? AppBar(title: const Text('设置')) : null,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 800),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              if (!canPop) ...[
+                Text('设置', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
                 Text(
-                  '主题模式',
-                  style: TextStyle(
-                    color: c.text1,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '控制 App 整体配色：浅色、深色，或跟随系统自动切换',
+                  '按你的习惯，调整阅读体验',
                   style: TextStyle(color: c.text2, fontSize: 13),
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<ThemeMode>(
-                    expandedInsets: EdgeInsets.zero,
-                    showSelectedIcon: false,
-                    segments: const [
-                      ButtonSegment(
-                        value: ThemeMode.light,
-                        icon: Icon(Icons.light_mode_outlined),
-                        label: Text('浅色'),
+                const SizedBox(height: 28),
+              ],
+              Text(
+                '服务器',
+                style: TextStyle(
+                  color: c.text2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: c.surface2,
+                  borderRadius: BorderRadius.circular(kRadiusCard),
+                  border: Border.all(color: c.border),
+                ),
+                child: _buildServerSection(c, serverSession),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                '外观',
+                style: TextStyle(
+                  color: c.text2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: c.surface2,
+                  borderRadius: BorderRadius.circular(kRadiusCard),
+                  border: Border.all(color: c.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '主题模式',
+                      style: TextStyle(
+                        color: c.text1,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
                       ),
-                      ButtonSegment(
-                        value: ThemeMode.dark,
-                        icon: Icon(Icons.dark_mode_outlined),
-                        label: Text('深色'),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '控制 App 整体配色：浅色、深色，或跟随系统自动切换',
+                      style: TextStyle(color: c.text2, fontSize: 13),
+                    ),
+                    const SizedBox(height: 16),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final mode in ThemeMode.values)
+                          ChoiceChip(
+                            avatar: Icon(
+                              switch (mode) {
+                                ThemeMode.light => Icons.light_mode_outlined,
+                                ThemeMode.dark => Icons.dark_mode_outlined,
+                                ThemeMode.system =>
+                                  Icons.brightness_auto_outlined,
+                              },
+                              size: 18,
+                              color: themeMode == mode ? c.accent : c.text2,
+                            ),
+                            label: Text(switch (mode) {
+                              ThemeMode.light => '浅色',
+                              ThemeMode.dark => '深色',
+                              ThemeMode.system => '跟随系统',
+                            }),
+                            selected: themeMode == mode,
+                            showCheckmark: false,
+                            selectedColor: c.accent.withValues(alpha: 0.12),
+                            labelStyle: TextStyle(
+                              color: themeMode == mode ? c.accent : c.text1,
+                            ),
+                            onSelected: (_) => ref
+                                .read(themeModeProvider.notifier)
+                                .setMode(mode),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (defaultTargetPlatform == TargetPlatform.windows) ...[
+                const SizedBox(height: 24),
+                Text(
+                  '窗口',
+                  style: TextStyle(
+                    color: c.text2,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: c.surface2,
+                    borderRadius: BorderRadius.circular(kRadiusCard),
+                    border: Border.all(color: c.border),
+                  ),
+                  child: SwitchListTile(
+                    value: closeToTray,
+                    onChanged: (value) => ref
+                        .read(closeToTrayProvider.notifier)
+                        .setEnabled(value),
+                    title: Text(
+                      '关闭窗口时最小化到系统托盘',
+                      style: TextStyle(
+                        color: c.text1,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
                       ),
-                      ButtonSegment(
-                        value: ThemeMode.system,
-                        icon: Icon(Icons.brightness_auto_outlined),
-                        label: Text('跟随系统'),
-                      ),
-                    ],
-                    selected: {themeMode},
-                    onSelectionChanged: (selection) => ref
-                        .read(themeModeProvider.notifier)
-                        .setMode(selection.first),
+                    ),
+                    subtitle: Text(
+                      '开启：点右上角 X 退到系统托盘继续运行；关闭：点右上角 X 直接退出',
+                      style: TextStyle(color: c.text2, fontSize: 13),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                   ),
                 ),
               ],
-            ),
-          ),
-          if (defaultTargetPlatform == TargetPlatform.windows) ...[
-            const SizedBox(height: 24),
-            Text(
-              '窗口',
-              style: TextStyle(
-                color: c.text2,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.4,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: c.surface2,
-                borderRadius: BorderRadius.circular(kRadiusCard),
-                border: Border.all(color: c.border),
-              ),
-              child: SwitchListTile(
-                value: closeToTray,
-                onChanged: (value) =>
-                    ref.read(closeToTrayProvider.notifier).setEnabled(value),
-                title: Text(
-                  '关闭窗口时最小化到系统托盘',
-                  style: TextStyle(
-                    color: c.text1,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
+              const SizedBox(height: 24),
+              Text(
+                '关于',
+                style: TextStyle(
+                  color: c.text2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.4,
                 ),
-                subtitle: Text(
-                  '开启：点右上角 X 退到系统托盘继续运行；关闭：点右上角 X 直接退出',
-                  style: TextStyle(color: c.text2, fontSize: 13),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
               ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Text(
-            '关于',
-            style: TextStyle(
-              color: c.text2,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.4,
-            ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: c.surface2,
+                  borderRadius: BorderRadius.circular(kRadiusCard),
+                  border: Border.all(color: c.border),
+                ),
+                child: _buildAboutSection(c),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: c.surface2,
-              borderRadius: BorderRadius.circular(kRadiusCard),
-              border: Border.all(color: c.border),
-            ),
-            child: _buildAboutSection(c),
-          ),
-        ],
+        ),
       ),
     );
   }

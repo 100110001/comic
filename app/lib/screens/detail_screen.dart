@@ -125,6 +125,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
           : LayoutBuilder(
               builder: (ctx, constraints) {
                 final header = _Header(
+                  vertical: constraints.maxWidth >= 720,
                   comic: detail!.comic,
                   favorited: detail.favorited,
                   authorFavorited: detail.authorFavorited,
@@ -140,7 +141,22 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   ),
                   progress: detail.progress,
                   onContinue: detail.progress == null
-                      ? null
+                      ? detail.chapters.isEmpty
+                            ? null
+                            : () {
+                                final first = detail.chapters.first;
+                                Navigator.push(
+                                  ctx,
+                                  MaterialPageRoute(
+                                    builder: (_) => ReaderScreen(
+                                      comicId: widget.comicId,
+                                      chapterId: first.id,
+                                      title: first.title,
+                                      initialPage: 0,
+                                    ),
+                                  ),
+                                );
+                              }
                       : () => _continueReading(detail.progress!),
                 );
                 final chapterList = _ChapterList(
@@ -153,7 +169,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
-                        width: 330,
+                        width: 360,
                         child: SingleChildScrollView(child: header),
                       ),
                       const VerticalDivider(width: 1),
@@ -161,11 +177,15 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     ],
                   );
                 }
-                return Column(
-                  children: [
-                    header,
-                    const Divider(height: 1),
-                    Expanded(child: chapterList),
+                return CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(child: header),
+                    _ChapterList(
+                      comicId: widget.comicId,
+                      chapters: detail.chapters,
+                      currentChapterId: detail.progress?.chapterId,
+                      asSliver: true,
+                    ),
                   ],
                 );
               },
@@ -175,6 +195,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 }
 
 class _Header extends StatelessWidget {
+  final bool vertical;
   final Comic comic;
   final bool favorited;
   final bool authorFavorited;
@@ -185,6 +206,7 @@ class _Header extends StatelessWidget {
   final VoidCallback? onContinue;
 
   const _Header({
+    required this.vertical,
     required this.comic,
     required this.favorited,
     required this.authorFavorited,
@@ -198,91 +220,114 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.appColors;
+    final cover = ClipRRect(
+      borderRadius: BorderRadius.circular(kRadiusCard),
+      child: SizedBox(
+        width: vertical ? 160 : 96,
+        height: vertical ? 214 : 128,
+        child: comic.coverUrl != null
+            ? Image.network(
+                comic.coverUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => _placeholder(context),
+              )
+            : _placeholder(context),
+      ),
+    );
+    final metadata = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(comic.title, style: Theme.of(context).textTheme.titleLarge),
+        if (comic.author != null) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Flexible(
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    alignment: Alignment.centerLeft,
+                  ),
+                  onPressed: () => onAuthorTap?.call(comic.author!),
+                  child: Text(
+                    comic.author!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
+                icon: Icon(
+                  authorFavorited ? Icons.star : Icons.star_border,
+                  color: authorFavorited ? c.star : c.text2,
+                  size: 20,
+                ),
+                onPressed: onToggleAuthorFavorite,
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 8),
+        Text(
+          '${comic.chapterCount} 话 · ${comic.imageCount} 页',
+          style: TextStyle(color: c.text2, fontSize: 13),
+        ),
+      ],
+    );
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: c.surface2,
-        borderRadius: BorderRadius.circular(kRadiusCard),
+        color: c.surface1,
+        borderRadius: BorderRadius.circular(kRadiusFloat),
         border: Border.all(color: c.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(kRadiusThumb),
-            child: comic.coverUrl != null
-                ? Image.network(
-                    comic.coverUrl!,
-                    width: 100,
-                    height: 140,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _placeholder(context),
-                  )
-                : _placeholder(context),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+          if (vertical) ...[
+            Center(child: cover),
+            const SizedBox(height: 24),
+            metadata,
+          ] else
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  comic.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                if (comic.author != null) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Flexible(
-                        child: GestureDetector(
-                          onTap: () => onAuthorTap?.call(comic.author!),
-                          child: Text(
-                            comic.author!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: c.accent,
-                              fontSize: 13,
-                              decoration: TextDecoration.underline,
-                              decorationColor: c.accent,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (onToggleAuthorFavorite != null) ...[
-                        const SizedBox(width: 4),
-                        IconButton(
-                          visualDensity: VisualDensity.compact,
-                          tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
-                          icon: Icon(
-                            authorFavorited ? Icons.star : Icons.star_border,
-                            color: authorFavorited ? c.star : c.text2,
-                            size: 18,
-                          ),
-                          onPressed: onToggleAuthorFavorite,
-                        ),
-                      ],
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 8),
-                Text(
-                  '${comic.chapterCount}话 · ${comic.imageCount}P',
-                  style: TextStyle(color: c.accent, fontSize: 12),
-                ),
-                if (progress != null) ...[
-                  const SizedBox(height: 12),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    label: const Text('继续阅读'),
-                    onPressed: onContinue,
-                  ),
-                ],
+                cover,
+                const SizedBox(width: 16),
+                Expanded(child: metadata),
               ],
             ),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            icon: const Icon(Icons.play_arrow_rounded, size: 22),
+            label: Text(
+              progress != null
+                  ? '继续阅读'
+                  : onContinue != null
+                  ? '开始阅读'
+                  : '暂无章节',
+            ),
+            onPressed: onContinue,
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '上次读到第 ${progress!.pageNumber + 1} 页',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.text2, fontSize: 12),
+            ),
+          ],
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            icon: Icon(
+              favorited ? Icons.favorite : Icons.favorite_border,
+              color: favorited ? c.favorite : c.text2,
+              size: 18,
+            ),
+            label: Text(favorited ? '已收藏' : '收藏漫画'),
+            onPressed: onToggleFavorite,
           ),
         ],
       ),
@@ -304,50 +349,97 @@ class _ChapterList extends StatelessWidget {
   final int comicId;
   final List<Chapter> chapters;
   final int? currentChapterId;
+  final bool asSliver;
   const _ChapterList({
     required this.comicId,
     required this.chapters,
     this.currentChapterId,
+    this.asSliver = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final c = context.appColors;
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: chapters.length,
-      separatorBuilder: (_, _) => Divider(height: 1, indent: 16),
-      itemBuilder: (ctx, i) {
-        final ch = chapters[i];
-        final isCurrent = ch.id == currentChapterId;
-        return ListTile(
-          selected: isCurrent,
-          selectedTileColor: c.accent.withValues(alpha: 0.12),
-          title: Text(
-            ch.title,
-            style: TextStyle(
-              color: isCurrent ? c.accent : c.text1,
-              fontSize: 14,
-              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
-            ),
-          ),
-          trailing: Icon(
-            isCurrent ? Icons.menu_book : Icons.chevron_right,
-            color: isCurrent ? c.accent : c.text2,
-            size: isCurrent ? 16 : 24,
-          ),
-          onTap: () => Navigator.push(
-            ctx,
-            MaterialPageRoute(
-              builder: (_) => ReaderScreen(
-                comicId: comicId,
-                chapterId: ch.id,
-                title: ch.title,
+    final sliver = SliverPadding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      sliver: SliverList.builder(
+        itemCount: chapters.length + 1,
+        itemBuilder: (ctx, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 20),
+              child: Row(
+                children: [
+                  Text('章节目录', style: Theme.of(ctx).textTheme.titleMedium),
+                  const SizedBox(width: 10),
+                  Text(
+                    '${chapters.length} 话',
+                    style: TextStyle(color: c.text2, fontSize: 12),
+                  ),
+                ],
+              ),
+            );
+          }
+          final ch = chapters[i - 1];
+          final isCurrent = ch.id == currentChapterId;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: isCurrent ? c.accent.withValues(alpha: 0.10) : c.surface1,
+              borderRadius: BorderRadius.circular(kRadiusButton),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                leading: Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: c.bg,
+                    borderRadius: BorderRadius.circular(kRadiusThumb),
+                  ),
+                  child: Text(
+                    '$i',
+                    style: TextStyle(
+                      color: isCurrent ? c.accent : c.text2,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  ch.title,
+                  style: TextStyle(
+                    color: isCurrent ? c.accent : c.text1,
+                    fontSize: 14,
+                    fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+                subtitle: isCurrent
+                    ? Text(
+                        '上次读到这里',
+                        style: TextStyle(color: c.accent, fontSize: 12),
+                      )
+                    : null,
+                trailing: Icon(
+                  isCurrent ? Icons.menu_book : Icons.chevron_right,
+                  color: isCurrent ? c.accent : c.text2,
+                  size: 20,
+                ),
+                onTap: () => Navigator.push(
+                  ctx,
+                  MaterialPageRoute(
+                    builder: (_) => ReaderScreen(
+                      comicId: comicId,
+                      chapterId: ch.id,
+                      title: ch.title,
+                    ),
+                  ),
+                ),
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
+    return asSliver ? sliver : CustomScrollView(slivers: [sliver]);
   }
 }

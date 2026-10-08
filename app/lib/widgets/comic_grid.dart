@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../models/comic.dart';
 import 'comic_card.dart';
+import 'status_views.dart';
 
 /// 按可用宽度返回漫画网格的列数：
-/// <600 → 3 列；600–899 → 4 列；900–1199 → 5 列；
+/// <480 → 2 列；480–599 → 3 列；600–899 → 4 列；900–1199 → 5 列；
 /// 1200–1599 → 6 列；≥1600 → 7 列。
 int comicGridColumns(double width) {
+  if (width < 480) return 2;
   if (width < 600) return 3;
   if (width < 900) return 4;
   if (width < 1200) return 5;
@@ -22,6 +24,7 @@ class ComicGrid extends StatelessWidget {
   final ScrollController? controller;
   final void Function(Comic comic)? onTap;
   final ValueChanged<int>? onColumnsChanged;
+  final String emptyMessage;
   const ComicGrid({
     super.key,
     required this.comics,
@@ -30,6 +33,7 @@ class ComicGrid extends StatelessWidget {
     this.controller,
     this.onTap,
     this.onColumnsChanged,
+    this.emptyMessage = '书库里还没有漫画',
   });
 
   static const double _maxGridWidth = 1920;
@@ -47,31 +51,57 @@ class ComicGrid extends StatelessWidget {
                 if (ctx.mounted) onColumnsChanged!(columns);
               });
             }
-            // 卡片高度 = 封面（3:4，占卡宽×4/3）+ 固定文字区（约 48px），
-            // 按实际卡宽动态计算高宽比，避免卡片底部留白或文字溢出。
+            final spacing = constraints.maxWidth < 600 ? 10.0 : 20.0;
+            final padding = constraints.maxWidth < 600 ? 16.0 : 28.0;
+            // 与卡片共享文字高度，系统放大字体后仍容纳两行标题和作者。
             final cardWidth =
-                (constraints.maxWidth - 32 - 12 * (columns - 1)) / columns;
-            final childAspectRatio = cardWidth / (cardWidth * 4 / 3 + 50);
-            return GridView.builder(
-              controller: controller,
-              padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomPadding),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: columns,
-                childAspectRatio: childAspectRatio,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-              ),
-              itemCount: comics.length + (loading ? 1 : 0),
-              itemBuilder: (ctx, i) {
-                if (i == comics.length) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final comic = comics[i];
-                return ComicCard(
-                  comic: comic,
-                  onTap: onTap == null ? null : () => onTap!(comic),
-                );
-              },
+                (constraints.maxWidth - padding * 2 - spacing * (columns - 1)) /
+                columns;
+            final textHeight = ComicCard.textAreaHeight(
+              MediaQuery.textScalerOf(ctx),
+            );
+            final childAspectRatio =
+                cardWidth / (cardWidth * 4 / 3 + textHeight);
+            return Stack(
+              children: [
+                GridView.builder(
+                  controller: controller,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    padding,
+                    8,
+                    padding,
+                    24 + bottomPadding,
+                  ),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: columns,
+                    childAspectRatio: childAspectRatio,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
+                  ),
+                  itemCount:
+                      comics.length + (loading && comics.isNotEmpty ? 1 : 0),
+                  itemBuilder: (ctx, i) {
+                    if (i == comics.length) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    final comic = comics[i];
+                    return ComicCard(
+                      comic: comic,
+                      onTap: onTap == null ? null : () => onTap!(comic),
+                    );
+                  },
+                ),
+                if (comics.isEmpty)
+                  IgnorePointer(
+                    child: loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : StatusView(
+                            icon: Icons.auto_stories_outlined,
+                            message: emptyMessage,
+                          ),
+                  ),
+              ],
             );
           },
         ),

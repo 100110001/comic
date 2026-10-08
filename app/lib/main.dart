@@ -105,13 +105,25 @@ class _MobileShellState extends State<MobileShell> {
         index: _index,
         children: const [HomeScreen(), DiscoveryScreen(), MineScreen()],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _index,
-        onTap: (i) => setState(() => _index = i),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '发现'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我的'),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _index,
+        onDestinationSelected: (i) => setState(() => _index = i),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.menu_book_outlined),
+            selectedIcon: Icon(Icons.menu_book),
+            label: '首页',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore),
+            label: '发现',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: '我的',
+          ),
         ],
       ),
     );
@@ -172,10 +184,22 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 children: [
                   const HomeScreen(),
                   const DiscoveryScreen(),
-                  const _PageScaffold(child: RecentReadingList()),
-                  const _PageScaffold(child: FavoritesList()),
-                  const _PageScaffold(child: FavoriteAuthorsList()),
-                  const _PageScaffold(child: SettingsScreen()),
+                  const _PageScaffold(
+                    title: '最近阅读',
+                    subtitle: '回到你上次看到的故事',
+                    child: RecentReadingList(),
+                  ),
+                  const _PageScaffold(
+                    title: '我的收藏',
+                    subtitle: '喜欢的漫画，随时回来阅读',
+                    child: FavoritesList(),
+                  ),
+                  const _PageScaffold(
+                    title: '收藏作者',
+                    subtitle: '发现喜欢的作者的更多作品',
+                    child: FavoriteAuthorsList(),
+                  ),
+                  const SettingsScreen(),
                 ],
               ),
             ),
@@ -206,17 +230,73 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Container(
-      width: 208,
+      width: 216,
       color: c.navBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: c.accent,
+                    borderRadius: BorderRadius.circular(kRadiusButton),
+                  ),
+                  child: Icon(
+                    Icons.auto_stories_rounded,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Comic',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: c.text1,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        '你的漫画书库',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: c.text2, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
-                for (var i = 0; i < _mainNavItems.length; i++)
+                for (var i = 0; i < _mainNavItems.length; i++) ...[
+                  if (i == 0 || i == 2)
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(12, i == 0 ? 0 : 28, 12, 10),
+                      child: Text(
+                        i == 0 ? '浏览' : '我的书库',
+                        style: TextStyle(
+                          color: c.text2,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
                   _SideNavItem(
                     icon: _mainNavItems[i].icon,
                     selectedIcon: _mainNavItems[i].selectedIcon,
@@ -224,6 +304,7 @@ class _DesktopSidebar extends StatelessWidget {
                     selected: selectedIndex == i,
                     onTap: () => onSelect(i),
                   ),
+                ],
               ],
             ),
           ),
@@ -268,38 +349,42 @@ class _SideNavItemState extends State<_SideNavItem> {
   Widget build(BuildContext context) {
     final c = context.appColors;
     final selected = widget.selected;
-    final fg = selected ? c.accent : c.text2;
-    return Pressable(
-      onTap: widget.onTap,
-      hoverColor: selected ? Colors.transparent : c.border,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: selected
-              ? c.accent.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(kRadiusButton),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(
-                selected ? widget.selectedIcon : widget.icon,
-                size: 20,
-                color: fg,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                widget.label,
-                style: TextStyle(
+    final fg = selected ? c.accent : c.text1;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: Pressable(
+        onTap: widget.onTap,
+        hoverColor: selected ? Colors.transparent : c.border,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOut,
+          decoration: BoxDecoration(
+            color: selected
+                ? c.accent.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(kRadiusButton),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              children: [
+                Icon(
+                  selected ? widget.selectedIcon : widget.icon,
+                  size: 20,
                   color: fg,
-                  fontSize: 14,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                 ),
-              ),
-            ],
+                const SizedBox(width: 10),
+                Text(
+                  widget.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 14,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -308,11 +393,35 @@ class _SideNavItemState extends State<_SideNavItem> {
 }
 
 class _PageScaffold extends StatelessWidget {
+  final String title;
+  final String subtitle;
   final Widget child;
-  const _PageScaffold({required this.child});
+  const _PageScaffold({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(body: child);
+    return Scaffold(
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 6),
+                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+              ],
+            ),
+          ),
+          Expanded(child: child),
+        ],
+      ),
+    );
   }
 }
