@@ -4,6 +4,11 @@ import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/settings_provider.dart';
 
+Future<void> Function()? _beforeWindowClose;
+void setBeforeWindowClose(Future<void> Function()? callback) {
+  _beforeWindowClose = callback;
+}
+
 /// Windows 桌面：关闭窗口时最小化到系统托盘。
 Future<void> setupCloseToTray() async {
   if (!Platform.isWindows) return;
@@ -42,6 +47,12 @@ Future<void> setupCloseToTray() async {
 class _CloseHandler extends WindowListener {
   @override
   void onWindowClose() async {
+    try {
+      await _beforeWindowClose?.call();
+    } catch (_) {
+      // 本机断点写入失败时保留窗口，阅读器提供重试提示。
+      return;
+    }
     // 最小化状态下窗口坐标是系统占位（如 -32000,-32000），保存会恢复出屏幕外窗口
     final minimized = await windowManager.isMinimized();
     if (!minimized) {
@@ -79,6 +90,11 @@ class _TrayHandler extends TrayListener {
         await windowManager.focus();
         break;
       case 'quit':
+        try {
+          await _beforeWindowClose?.call();
+        } catch (_) {
+          return;
+        }
         await trayManager.destroy();
         await windowManager.destroy();
     }

@@ -6,6 +6,8 @@ import 'package:comic/models/comic.dart';
 import 'package:comic/models/image_item.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
+import 'package:comic/providers/reading_progress_provider.dart';
+import 'helpers/progress_storage.dart';
 import 'package:comic/providers/server_provider.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/services/api_client.dart';
@@ -22,6 +24,8 @@ void main() {
 
   // 固定 400x800 手机宽度；图片 800x1200 → 预估高度 600px。
   Future<void> pumpReader(WidgetTester tester, {int? initialPage}) async {
+    final client = _ProgressClient();
+    addTearDown(client.close);
     final images = List.generate(
       10,
       (i) => ImageItem(
@@ -49,6 +53,11 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          apiClientProvider.overrideWithValue(client),
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          serverSessionProvider.overrideWith(
+            () => ServerSessionNotifier(initialUrl: 'http://example.com'),
+          ),
           comicDetailProvider.overrideWith((ref, id) async => detail),
           chapterImagesProvider.overrideWith((ref, id) async => images),
         ],
@@ -70,6 +79,13 @@ void main() {
     await pumpReader(tester, initialPage: 5);
 
     expect(find.text('第 6 / 10 页'), findsOneWidget);
+    final c = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
+    expect(
+      c.read(readingProgressQueueProvider).requireValue.single.entry.pageNumber,
+      5,
+    );
     final scrollable = tester.state<ScrollableState>(
       find.descendant(
         of: find.byType(ReaderScreen),
@@ -88,6 +104,20 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('第 2 / 10 页'), findsOneWidget);
+    final c = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
+    final client = c.read(apiClientProvider) as _ProgressClient;
+    expect(
+      c.read(readingProgressQueueProvider).requireValue.single.entry.pageNumber,
+      1,
+    );
+    expect(client.positions, isEmpty);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pumpAndSettle();
+    expect(client.positions.single.pageNumber, 1);
+    expect(c.read(readingProgressQueueProvider).requireValue, isEmpty);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
   });
 
   testWidgets(
@@ -103,6 +133,10 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+            serverSessionProvider.overrideWith(
+              () => ServerSessionNotifier(initialUrl: 'http://example.com'),
+            ),
             apiClientProvider.overrideWithValue(client),
             comicDetailProvider.overrideWith(
               (ref, id) async => ComicDetail(
