@@ -1,12 +1,12 @@
 {
-    "latestVersion":  "1.0.2",
-    "releaseNotes":  "修复：窗口位置记忆导致打不开、首页悬浮条崩溃",
-    "platforms":  {
-                      "windows":  {
-                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.2/comic-setup.exe"
-                                  },
-                      "android":  {
-                                      "downloadUrl":  "https://github.com/100110001/comic/releases/download/v1.0.2/app-release.apk"
-                                  }
-                  }
+  "platforms": {
+    "android": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.3/app-release.apk"
+    },
+    "windows": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.3/comic-setup.exe"
+    }
+  },
+  "latestVersion": "1.0.3",
+  "releaseNotes": "支持在设置中配置漫画服务器地址；修复重新导入后图片缓存未刷新的问题。"
 }
