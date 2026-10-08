@@ -1,12 +1,12 @@
 {
   "platforms": {
-    "android": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.3/app-release.apk"
-    },
     "windows": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.3/comic-setup.exe"
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.4/comic-setup.exe"
+    },
+    "android": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.0.4/app-release.apk"
     }
   },
-  "latestVersion": "1.0.3",
-  "releaseNotes": "支持在设置中配置漫画服务器地址；修复重新导入后图片缓存未刷新的问题。"
+  "releaseNotes": "优化首页、书库、详情与设置界面，改善手机小屏和大字体适配；更换人物应用图标并移除白底，适配 Windows 透明图标与 Android 自适应图标；首页继续阅读提示显示 5 秒后自动收起。",
+  "latestVersion": "1.0.4"
 }
