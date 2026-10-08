@@ -12,12 +12,16 @@ async function main() {
       .select("id", "title", "sort_order")
       .where({ comic_id: comic.id });
 
-    const sorted = [...chapters].sort((a, b) => compareChapterTitle(a.title, b.title));
+    const sorted = [...chapters].sort((a, b) =>
+      compareChapterTitle(a.title, b.title),
+    );
 
     for (let i = 0; i < sorted.length; i++) {
       const chapter = sorted[i]!;
       if (chapter.sort_order !== i) {
-        await db("chapters").where({ id: chapter.id }).update({ sort_order: i });
+        await db("chapters")
+          .where({ id: chapter.id })
+          .update({ sort_order: i });
         chaptersFixed++;
       }
     }

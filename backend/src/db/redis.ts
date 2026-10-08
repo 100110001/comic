@@ -47,7 +47,9 @@ export async function cacheSet(
 
   try {
     await redis.set(dataKey(generation, key), JSON.stringify(value), "EX", TTL);
-  } catch {}
+  } catch {
+    // Redis 缓存不可用时继续返回业务结果。
+  }
 }
 
 export async function invalidateProjectCache(): Promise<number> {

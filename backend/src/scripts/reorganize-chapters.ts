@@ -36,16 +36,23 @@ function main() {
     fs.mkdirSync(chapterPath, { recursive: true });
 
     for (const img of rootImages) {
-      fs.renameSync(path.join(comicPath, img.name), path.join(chapterPath, img.name));
+      fs.renameSync(
+        path.join(comicPath, img.name),
+        path.join(chapterPath, img.name),
+      );
     }
 
-    console.log(`✔ ${comicName}  →  ${CHAPTER_NAME}  (${rootImages.length} 张)`);
+    console.log(
+      `✔ ${comicName}  →  ${CHAPTER_NAME}  (${rootImages.length} 张)`,
+    );
     movedComics++;
     movedImages += rootImages.length;
   }
 
   console.log("\n─────────────────────────────");
-  console.log(`处理完成: ${movedComics} 个文件夹, 共移动 ${movedImages} 张图片`);
+  console.log(
+    `处理完成: ${movedComics} 个文件夹, 共移动 ${movedImages} 张图片`,
+  );
 }
 
 main();

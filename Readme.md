@@ -50,6 +50,10 @@ npm run setup
 # 格式化代码
 npm run format
 
+# 校验格式和 lint（CI 同样执行）
+npm run format:check
+npm run lint
+
 # 构建（生产环境）
 npm run build
 npm run start
@@ -91,7 +95,12 @@ flutter run -d <device-id>   # 指定设备（flutter devices 查看）
 # R  → 热重启（重置状态）
 
 # 格式化代码
-dart format lib/
+dart format lib/ test/
+
+# 校验格式、lint 和测试（CI 同样执行）
+dart format --output=none --set-exit-if-changed lib/ test/
+flutter analyze
+flutter test
 
 # 构建安装包
 flutter build apk --release                  # Android APK

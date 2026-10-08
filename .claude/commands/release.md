@@ -24,8 +24,9 @@ argument-hint: "[X.Y.Z] [更新说明] | publish X.Y.Z"
   时检查已有提交，不因版本已同步而再次执行脚本。
 - 新发版从最新 `origin/master` 创建 `codex/release-X.Y.Z` 分支。当前分支存在尚未
   合并的其他工作时，使用独立工作目录，保留当前分支。
-- 从 `app/` 执行 `flutter analyze` 与 `flutter test`。检查失败时停止发版并报告原因；
-  不运行后端构建检查。
+- 从 `app/` 执行 `dart format --output=none --set-exit-if-changed lib/ test/`、
+  `flutter analyze` 与 `flutter test`；从 `backend/` 执行 `npm run format:check`、
+  `npm run lint`。任一检查失败时停止发版并报告原因，不自动改写代码以绕过门禁。
 - 从仓库根目录调用 `scripts/release.ps1 -Version <版本号> -Notes <中文说明>`。
   Windows 使用 PowerShell；在 Bash 环境中通过可用的 `pwsh` 或 `powershell.exe`
   调用。妥善引用参数，尤其是含引号、换行或 `$` 的说明。

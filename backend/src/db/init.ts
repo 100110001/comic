@@ -17,7 +17,12 @@ async function init() {
   await conn.query(sql);
 
   // 对已存在的旧表补充新增的唯一约束（schema.sql 的 CREATE TABLE 只对全新库生效）
-  await ensureUniqueKey(conn, "comics", "uq_comics_title_author", "title, author");
+  await ensureUniqueKey(
+    conn,
+    "comics",
+    "uq_comics_title_author",
+    "title, author",
+  );
   await ensureUniqueKey(
     conn,
     "chapters",

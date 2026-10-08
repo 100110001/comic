@@ -14,7 +14,10 @@
     "reorganize-chapters": "ts-node src/scripts/reorganize-chapters.ts",
     "flatten-original": "ts-node src/scripts/flatten-original.ts",
     "fix-chapter-order": "ts-node src/scripts/fix-chapter-order.ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "lint": "eslint src --max-warnings=0",
+    "lint:fix": "eslint src --fix --max-warnings=0"
   },
   "keywords": [],
   "author": "",
@@ -32,12 +35,16 @@
     "prettier": "^3.8.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.9.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
     "nodemon": "^3.1.14",
     "ts-node": "^10.9.2",
-    "typescript": "~5.8.3"
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.71.1"
   }
 }

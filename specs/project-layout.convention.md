@@ -18,8 +18,14 @@ scope: convention
   该目录执行。
 - 仓库根目录只承载两个项目共享的规范、CI、文档、变更工具、发布协调脚本和发布
   元数据，不同时充当某个项目的构建根目录。
-- Flutter CI 固定使用 3.38.9，并从 `app/` 执行依赖恢复、静态分析和测试。后端按
-  项目偏好不纳入该构建门禁。
+- Flutter CI 固定使用 3.38.9，并从 `app/` 执行依赖恢复、`lib/` 与 `test/` 的只读
+  格式检查、静态分析（包含 `flutter_lints`）和测试；格式或分析问题使检查失败。
+- 后端 CI 独立使用 Node.js 24.11.1、pnpm 10.24.0，从 `backend/` 按
+  `pnpm-lock.yaml` 冻结恢复依赖，执行 Prettier 格式检查与 TypeScript ESLint
+  推荐规则校验；lint 的错误和警告均使检查失败。校验不启动服务或连接业务数据库。
+- 后端格式化与只读格式校验均覆盖 `src/**/*.ts`，对应 `npm run format` 与
+  `npm run format:check`；`npm run lint` 只检查，`npm run lint:fix` 修复可修复
+  问题。TypeScript 文件检出时使用 LF，避免 Windows 换行转换造成格式误报。
 - 根级 `scripts/release.ps1` 协调应用版本、安装器版本、根级更新清单、更新日志、
   Git 提交与版本标签；Flutter 与安装器构建在 `app/` 内完成。
 - GitHub Release 对外提供 `comic-setup.exe` 和 `app-release.apk`；仓库内部目录调整
