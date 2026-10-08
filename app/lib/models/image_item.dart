@@ -17,11 +17,16 @@ class ImageItem {
     this.height,
   });
 
-  factory ImageItem.fromJson(Map<String, dynamic> j) => ImageItem(
+  factory ImageItem.fromJson(
+    Map<String, dynamic> j, {
+    String serverUrl = defaultServerUrl,
+  }) => ImageItem(
     id: j['id'],
     filename: j['filename'],
     pageNumber: j['pageNumber'],
-    url: '$baseUrl${j['url']}',
+    url: Uri.parse(
+      '$serverUrl/',
+    ).resolve(j['url'].toString().replaceFirst(RegExp(r'^/'), '')).toString(),
     width: j['width'],
     height: j['height'],
   );

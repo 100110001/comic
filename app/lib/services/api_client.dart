@@ -143,6 +143,20 @@ class ApiClient {
     return decoded;
   }
 
+  T _parse<T>(T Function() parser) {
+    try {
+      return parser();
+    } on UserVisibleException {
+      rethrow;
+    } catch (error) {
+      throw UserVisibleException(
+        UserErrorKind.invalidResponse,
+        '服务器响应异常，请确认地址是否正确',
+        cause: error,
+      );
+    }
+  }
+
   Future<void> testConnection() async {
     final envelope = await _request('GET', '/api/health');
     final data = envelope['data'];
@@ -170,10 +184,12 @@ class ApiClient {
     };
     final path = Uri(path: '/api/comics', queryParameters: query).toString();
     final data = await _request('GET', path);
-    final list = (data['data'] as List)
-        .map((item) => Comic.fromJson(item))
-        .toList();
-    return (list: list, total: data['total'] as int);
+    return _parse(() {
+      final list = (data['data'] as List)
+          .map((item) => Comic.fromJson(item, serverUrl: baseUrl))
+          .toList();
+      return (list: list, total: data['total'] as int);
+    });
   }
 
   Future<({List<Comic> list, int total})> getRandomPage({
@@ -200,32 +216,38 @@ class ApiClient {
   >
   getComic(int id) async {
     final envelope = await _request('GET', '/api/comics/$id');
-    final data = envelope['data'];
-    final comic = Comic.fromJson(data);
-    final chapters = (data['chapters'] as List)
-        .map((item) => Chapter.fromJson(item))
-        .toList();
-    final progress = data['progress'];
-    return (
-      comic: comic,
-      chapters: chapters,
-      favorited: data['favorited'] == true,
-      authorFavorited: data['authorFavorited'] == true,
-      progress:
-          progress != null &&
-              progress['chapterId'] != null &&
-              progress['pageNumber'] != null
-          ? (
-              chapterId: progress['chapterId'] as int,
-              pageNumber: progress['pageNumber'] as int,
-            )
-          : null,
-    );
+    return _parse(() {
+      final data = envelope['data'];
+      final comic = Comic.fromJson(data, serverUrl: baseUrl);
+      final chapters = (data['chapters'] as List)
+          .map((item) => Chapter.fromJson(item))
+          .toList();
+      final progress = data['progress'];
+      return (
+        comic: comic,
+        chapters: chapters,
+        favorited: data['favorited'] == true,
+        authorFavorited: data['authorFavorited'] == true,
+        progress:
+            progress != null &&
+                progress['chapterId'] != null &&
+                progress['pageNumber'] != null
+            ? (
+                chapterId: progress['chapterId'] as int,
+                pageNumber: progress['pageNumber'] as int,
+              )
+            : null,
+      );
+    });
   }
 
   Future<List<Comic>> getRandomComics({int pageSize = 30}) async {
     final data = await _request('GET', '/api/comics/random?pageSize=$pageSize');
-    return (data['data'] as List).map((item) => Comic.fromJson(item)).toList();
+    return _parse(
+      () => (data['data'] as List)
+          .map((item) => Comic.fromJson(item, serverUrl: baseUrl))
+          .toList(),
+    );
   }
 
   Future<Comic> getRandomComic() async {
@@ -238,21 +260,31 @@ class ApiClient {
 
   Future<List<ImageItem>> getChapterImages(int chapterId) async {
     final data = await _request('GET', '/api/chapters/$chapterId/images');
-    return (data['data'] as List)
-        .map((item) => ImageItem.fromJson(item))
-        .toList();
+    return _parse(
+      () => (data['data'] as List)
+          .map((item) => ImageItem.fromJson(item, serverUrl: baseUrl))
+          .toList(),
+    );
   }
 
   Future<List<ReadingProgressEntry>> getRecent() async {
     final data = await _request('GET', '/api/mine/recent');
-    return (data['data'] as List)
-        .map((item) => ReadingProgressEntry.fromJson(item))
-        .toList();
+    return _parse(
+      () => (data['data'] as List)
+          .map(
+            (item) => ReadingProgressEntry.fromJson(item, serverUrl: baseUrl),
+          )
+          .toList(),
+    );
   }
 
   Future<List<Comic>> getFavorites() async {
     final data = await _request('GET', '/api/mine/favorites');
-    return (data['data'] as List).map((item) => Comic.fromJson(item)).toList();
+    return _parse(
+      () => (data['data'] as List)
+          .map((item) => Comic.fromJson(item, serverUrl: baseUrl))
+          .toList(),
+    );
   }
 
   Future<void> updateProgress({
@@ -276,9 +308,11 @@ class ApiClient {
 
   Future<List<FavoriteAuthor>> getFavoriteAuthors() async {
     final data = await _request('GET', '/api/favorite-authors');
-    return (data['data'] as List)
-        .map((item) => FavoriteAuthor.fromJson(item))
-        .toList();
+    return _parse(
+      () => (data['data'] as List)
+          .map((item) => FavoriteAuthor.fromJson(item))
+          .toList(),
+    );
   }
 
   Future<void> setAuthorFavorite(String author, bool favorited) async {

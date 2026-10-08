@@ -4,20 +4,21 @@ import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
-import '../services/api.dart';
+import '../services/api_client.dart';
+import 'server_provider.dart';
 
 // ---- 简单查询（会话内缓存） ----
 
 final favoritesProvider = FutureProvider<List<Comic>>(
-  (ref) => ApiService.getFavorites(),
+  (ref) => ref.watch(apiClientProvider).getFavorites(),
 );
 
 final favoriteAuthorsProvider = FutureProvider<List<FavoriteAuthor>>(
-  (ref) => ApiService.getFavoriteAuthors(),
+  (ref) => ref.watch(apiClientProvider).getFavoriteAuthors(),
 );
 
 final recentReadingProvider = FutureProvider<List<ReadingProgressEntry>>(
-  (ref) => ApiService.getRecent(),
+  (ref) => ref.watch(apiClientProvider).getRecent(),
 );
 
 class ComicDetail {
@@ -40,7 +41,7 @@ final comicDetailProvider = FutureProvider.family<ComicDetail, int>((
   ref,
   id,
 ) async {
-  final r = await ApiService.getComic(id);
+  final r = await ref.watch(apiClientProvider).getComic(id);
   return ComicDetail(
     comic: r.comic,
     chapters: r.chapters,
@@ -93,18 +94,24 @@ class RandomLibraryState {
 }
 
 class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
+  bool _isCurrent(ApiClient client) =>
+      ref.mounted &&
+      ref.read(serverSessionProvider).generation == client.generation;
+
   @override
   Future<RandomLibraryState> build() async {
+    final client = ref.watch(apiClientProvider);
     final seed = ref.read(randomSeedProvider);
-    return _fetch(seed: seed, pageOffset: 1, pageSize: 30);
+    return _fetch(client: client, seed: seed, pageOffset: 1, pageSize: 30);
   }
 
   Future<RandomLibraryState> _fetch({
+    required ApiClient client,
     required int seed,
     required int pageOffset,
     required int pageSize,
   }) async {
-    final r = await ApiService.getRandomPage(
+    final r = await client.getRandomPage(
       seed: seed,
       pageOffset: pageOffset,
       pageSize: pageSize,
@@ -127,11 +134,14 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   Future<void> loadMore() async {
     final s = state.value;
     if (s == null || s.comics.length >= s.total) return;
+    final client = ref.read(apiClientProvider);
     final next = await _fetch(
+      client: client,
       seed: s.seed,
       pageOffset: s.pageOffset + 1,
       pageSize: s.pageSize,
     );
+    if (!_isCurrent(client)) return;
     state = AsyncData(
       s.copyWith(
         pageOffset: next.pageOffset,
@@ -146,7 +156,14 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
     final seed = ref.read(randomSeedProvider);
     final s = state.value;
     final pageSize = s?.pageSize ?? 30;
-    final next = await _fetch(seed: seed, pageOffset: 1, pageSize: pageSize);
+    final client = ref.read(apiClientProvider);
+    final next = await _fetch(
+      client: client,
+      seed: seed,
+      pageOffset: 1,
+      pageSize: pageSize,
+    );
+    if (!_isCurrent(client)) return;
     state = AsyncData(next);
   }
 
@@ -198,15 +215,23 @@ class SearchState {
 
 class SearchNotifier extends AsyncNotifier<SearchState> {
   @override
-  Future<SearchState> build() async =>
-      const SearchState(keyword: '', pageOffset: 1, total: 0, comics: []);
+  Future<SearchState> build() async {
+    ref.watch(apiClientProvider);
+    return const SearchState(keyword: '', pageOffset: 1, total: 0, comics: []);
+  }
+
+  bool _isCurrent(ApiClient client) =>
+      ref.mounted &&
+      ref.read(serverSessionProvider).generation == client.generation;
 
   Future<void> search(String keyword) async {
-    final r = await ApiService.getComics(
+    final client = ref.read(apiClientProvider);
+    final r = await client.getComics(
       pageOffset: 1,
       pageSize: 30,
       keyword: keyword,
     );
+    if (!_isCurrent(client)) return;
     state = AsyncData(
       SearchState(
         keyword: keyword,
@@ -220,11 +245,13 @@ class SearchNotifier extends AsyncNotifier<SearchState> {
   Future<void> loadMore() async {
     final s = state.value;
     if (s == null || s.keyword.isEmpty || s.comics.length >= s.total) return;
-    final r = await ApiService.getComics(
+    final client = ref.read(apiClientProvider);
+    final r = await client.getComics(
       pageOffset: s.pageOffset + 1,
       pageSize: 30,
       keyword: s.keyword,
     );
+    if (!_isCurrent(client)) return;
     state = AsyncData(
       s.copyWith(
         pageOffset: s.pageOffset + 1,
@@ -258,7 +285,9 @@ Future<void> setComicFavorite(
   required int comicId,
   required bool favorited,
 }) async {
-  await ApiService.setFavorite(comicId, favorited);
+  final client = ref.read(apiClientProvider);
+  await client.setFavorite(comicId, favorited);
+  if (ref.read(serverSessionProvider).generation != client.generation) return;
   ref.invalidate(favoritesProvider);
   ref.invalidate(comicDetailProvider(comicId));
   // 列表原地更新收藏角标，避免重排或丢失已加载分页
@@ -272,7 +301,9 @@ Future<void> setAuthorFavorite(
   required bool favorited,
   required int comicId,
 }) async {
-  await ApiService.setAuthorFavorite(author, favorited);
+  final client = ref.read(apiClientProvider);
+  await client.setAuthorFavorite(author, favorited);
+  if (ref.read(serverSessionProvider).generation != client.generation) return;
   ref.invalidate(favoriteAuthorsProvider);
   ref.invalidate(comicDetailProvider(comicId));
 }

@@ -2,7 +2,8 @@ import 'dart:math';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
-import '../services/api.dart';
+import '../services/api_client.dart';
+import 'server_provider.dart';
 
 /// 发现随机阅读的序列状态：一次全库洗牌，一批内不重复，
 /// 向后翻过末尾自动重新洗牌接上，向前停在第一本。
@@ -25,8 +26,7 @@ class DiscoveryState {
 
   Comic? get current => comics.isEmpty ? null : comics[index];
   Comic? get prev => index > 0 ? comics[index - 1] : null;
-  Comic? get next =>
-      index + 1 < comics.length ? comics[index + 1] : null;
+  Comic? get next => index + 1 < comics.length ? comics[index + 1] : null;
   bool get canGoPrev => index > 0;
 
   DiscoveryState copyWith({
@@ -49,17 +49,29 @@ class DiscoveryNotifier extends AsyncNotifier<DiscoveryState> {
   bool _busy = false;
 
   @override
-  Future<DiscoveryState> build() async =>
-      _fetch(seed: _newSeed(), pageOffset: 1, pageSize: 30);
+  Future<DiscoveryState> build() async {
+    final client = ref.watch(apiClientProvider);
+    return _fetch(
+      client: client,
+      seed: _newSeed(),
+      pageOffset: 1,
+      pageSize: 30,
+    );
+  }
+
+  bool _isCurrent(ApiClient client) =>
+      ref.mounted &&
+      ref.read(serverSessionProvider).generation == client.generation;
 
   int _newSeed() => Random().nextInt(1 << 31);
 
   Future<DiscoveryState> _fetch({
+    required ApiClient client,
     required int seed,
     required int pageOffset,
     required int pageSize,
   }) async {
-    final r = await ApiService.getRandomPage(
+    final r = await client.getRandomPage(
       seed: seed,
       pageOffset: pageOffset,
       pageSize: pageSize,
@@ -100,11 +112,14 @@ class DiscoveryNotifier extends AsyncNotifier<DiscoveryState> {
         return state.value?.current;
       }
       if (s.comics.length < s.total) {
+        final client = ref.read(apiClientProvider);
         final next = await _fetch(
+          client: client,
           seed: s.seed,
           pageOffset: s.pageOffset + 1,
           pageSize: s.pageSize,
         );
+        if (!_isCurrent(client)) return null;
         state = AsyncData(
           s.copyWith(
             pageOffset: next.pageOffset,
@@ -115,11 +130,14 @@ class DiscoveryNotifier extends AsyncNotifier<DiscoveryState> {
         );
         return state.value?.current;
       }
+      final client = ref.read(apiClientProvider);
       final fresh = await _fetch(
+        client: client,
         seed: _newSeed(),
         pageOffset: 1,
         pageSize: s.pageSize,
       );
+      if (!_isCurrent(client)) return null;
       state = AsyncData(fresh);
       return state.value?.current;
     } finally {
@@ -133,11 +151,14 @@ class DiscoveryNotifier extends AsyncNotifier<DiscoveryState> {
     final s = state.value;
     _busy = true;
     try {
+      final client = ref.read(apiClientProvider);
       final fresh = await _fetch(
+        client: client,
         seed: _newSeed(),
         pageOffset: 1,
         pageSize: s?.pageSize ?? 30,
       );
+      if (!_isCurrent(client)) return;
       state = AsyncData(fresh);
     } finally {
       _busy = false;
