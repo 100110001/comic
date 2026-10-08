@@ -42,7 +42,12 @@ ImageProvider<Object> displayImageProvider(
   BoxFit fit = BoxFit.cover,
 }) {
   final source = NetworkImage(url);
-  if (kIsWeb) return source;
+  if (kIsWeb ||
+      (fit != BoxFit.cover &&
+          fit != BoxFit.contain &&
+          fit != BoxFit.fitWidth)) {
+    return source;
+  }
   final width = _pixelBucket(logicalSize.width, devicePixelRatio);
   final height = fit == BoxFit.fitWidth
       ? null

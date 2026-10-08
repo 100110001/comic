@@ -16,6 +16,7 @@ import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
+import '../utils/display_image_provider.dart';
 import '../widgets/chapter_drawer.dart';
 import '../widgets/reader_progress_bar.dart';
 import '../widgets/status_views.dart';
@@ -68,6 +69,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _switchingComic = false;
   final _scrollController = ScrollController();
   final List<double> _extents = [];
+  double? _extentWidth;
+  Size? _imageViewport;
+  double _imagePixelRatio = 1;
+  bool _desktopImages = false;
+  ImageProvider<Object>? _imageLayoutSignature;
+  int _imageLayoutGeneration = 0;
   Timer? _hideTimer;
   bool _chromeVisible = true;
   bool _pointerOverChrome = false;
@@ -290,6 +297,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _loadError = null;
       _images = [];
       _extents.clear();
+      _extentWidth = null;
+      _imageViewport = null;
+      _imageLayoutSignature = null;
+      _imageLayoutGeneration++;
       _pendingJumpPage = null;
       _jumpAttempts = 0;
       _initialJumping = false;
@@ -334,12 +345,46 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     await _loadChapter(chapterId);
   }
 
-  /// 预加载当前页前后各 1–2 张图片，避免翻页/滚动切换时闪屏。
+  ImageProvider<Object> _imageProvider(ImageItem item) => displayImageProvider(
+    item.url,
+    logicalSize: _imageViewport!,
+    devicePixelRatio: _imagePixelRatio,
+    fit: _desktopImages ? BoxFit.contain : BoxFit.fitWidth,
+  );
+
+  void _updateImageLayout(Size size, {required bool desktop}) {
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    _imageViewport = size;
+    _imagePixelRatio = ratio;
+    _desktopImages = desktop;
+    final signature = _imageProvider(_images.first);
+    if (signature == _imageLayoutSignature) return;
+    _imageLayoutSignature = signature;
+    final layoutGeneration = ++_imageLayoutGeneration;
+    final chapterGeneration = _jumpGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _loading ||
+          layoutGeneration != _imageLayoutGeneration ||
+          chapterGeneration != _jumpGeneration) {
+        return;
+      }
+      _precacheAround(_currentPage);
+    });
+  }
+
+  /// 显示与相邻页预加载使用同一尺寸缓存，布局确定前不预加载原图。
   void _precacheAround(int page) {
-    if (_images.isEmpty) return;
+    if (_images.isEmpty || _imageViewport == null) return;
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
-      precacheImage(NetworkImage(_images[i].url), context).catchError((_) {});
+      unawaited(
+        precacheImage(
+          _imageProvider(_images[i]),
+          context,
+          onError: (error, stack) {},
+        ),
+      );
     }
   }
 
@@ -351,6 +396,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   void _buildExtents(double width) {
+    _extentWidth = width;
     _extents.clear();
     var top = 0.0;
     for (final img in _images) {
@@ -359,7 +405,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
 
     final target = _pendingJumpPage;
-    if (target != null && target > 0 && target < _extents.length) {
+    if (target != null && target >= 0 && target < _extents.length) {
       _pendingJumpPage = null;
       _initialJumping = true;
       final generation = _jumpGeneration;
@@ -557,10 +603,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (!_loading && _extents.isEmpty && _images.isNotEmpty) {
-      _buildExtents(MediaQuery.of(context).size.width);
+    final width = MediaQuery.sizeOf(context).width;
+    final desktop = isDesktopAt(width);
+    if (!desktop &&
+        !_loading &&
+        _images.isNotEmpty &&
+        (_extentWidth != width || _desktopImages)) {
+      if (_extentWidth != null || _desktopImages) {
+        _pendingJumpPage = _currentPage;
+        _jumpGeneration++;
+        _jumpAttempts = 0;
+      }
+      _buildExtents(width);
     }
-    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
     final Widget scaffold = Scaffold(
@@ -743,17 +798,22 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Widget _buildScrollBody() {
-    final width = MediaQuery.of(context).size.width;
-    return ListView.builder(
-      controller: _scrollController,
-      // Flutter 3.41+ 弃用 cacheExtent（新 API scrollCacheExtent 需本地升级后使用）
-      // ignore: deprecated_member_use
-      cacheExtent: 800,
-      itemCount: _images.length,
-      itemBuilder: (ctx, i) => _LazyImage(
-        url: _images[i].url,
-        height: _estimatedHeight(_images[i], width),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        _updateImageLayout(Size(width, constraints.maxHeight), desktop: false);
+        return ListView.builder(
+          controller: _scrollController,
+          // ignore: deprecated_member_use
+          cacheExtent: 800,
+          itemCount: _images.length,
+          itemBuilder: (ctx, i) => _LazyImage(
+            key: ValueKey(_images[i].url),
+            provider: _imageProvider(_images[i]),
+            height: _estimatedHeight(_images[i], width),
+          ),
+        );
+      },
     );
   }
 
@@ -773,23 +833,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       child: Column(
         children: [
           Expanded(
-            child: Container(
-              color: c.readerBg,
-              alignment: Alignment.center,
-              child: Image.network(
-                _images[page].url,
-                key: ValueKey('page-img-$page-$_imageRetryTick'),
-                fit: BoxFit.contain,
-                loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (_, _, _) => GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _retryCurrentImage,
-                  child: const _ImageRetryBox(),
-                ),
-              ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                _updateImageLayout(constraints.biggest, desktop: true);
+                return Container(
+                  color: c.readerBg,
+                  alignment: Alignment.center,
+                  child: Image(
+                    image: _imageProvider(_images[page]),
+                    key: ValueKey('page-img-$page-$_imageRetryTick'),
+                    fit: BoxFit.contain,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (_, _, _) => GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _retryCurrentImage,
+                      child: const _ImageRetryBox(),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
           AnimatedOpacity(
@@ -813,21 +878,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   /// 单图重试：清理该 URL 缓存后强制重建当前页图片。
-  void _retryCurrentImage() {
-    if (_images.isEmpty) return;
-    PaintingBinding.instance.imageCache.evict(
-      NetworkImage(
-        _images[_currentPage.clamp(0, _images.length - 1).toInt()].url,
-      ),
-    );
+  Future<void> _retryCurrentImage() async {
+    if (_images.isEmpty || _imageViewport == null) return;
+    final url = _images[_currentPage].url;
+    final generation = _jumpGeneration;
+    await _imageProvider(_images[_currentPage]).evict();
+    if (!mounted ||
+        generation != _jumpGeneration ||
+        _images.isEmpty ||
+        _images[_currentPage].url != url) {
+      return;
+    }
     setState(() => _imageRetryTick++);
   }
 }
 
 class _LazyImage extends StatefulWidget {
-  final String url;
+  final ImageProvider<Object> provider;
   final double height;
-  const _LazyImage({required this.url, required this.height});
+  const _LazyImage({super.key, required this.provider, required this.height});
 
   @override
   State<_LazyImage> createState() => _LazyImageState();
@@ -855,9 +924,9 @@ class _LazyImageState extends State<_LazyImage> {
       child: ClipRect(
         child: !_visible
             ? _loadingBox()
-            : Image.network(
-                widget.url,
-                key: ValueKey('lazy-${widget.url}-$_retryTick'),
+            : Image(
+                image: widget.provider,
+                key: ValueKey(_retryTick),
                 width: double.infinity,
                 height: widget.height,
                 fit: BoxFit.fitWidth,
@@ -875,8 +944,10 @@ class _LazyImageState extends State<_LazyImage> {
     );
   }
 
-  void _retry() {
-    PaintingBinding.instance.imageCache.evict(NetworkImage(widget.url));
+  Future<void> _retry() async {
+    final provider = widget.provider;
+    await provider.evict();
+    if (!mounted || widget.provider != provider) return;
     setState(() => _retryTick++);
   }
 

@@ -12,18 +12,46 @@ import 'package:comic/providers/server_provider.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/services/api_client.dart';
 import 'package:comic/theme.dart';
+import 'package:comic/utils/display_image_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+Future<void> settleReader(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump();
+  // 尺寸解码会读取原图描述符；等待真实引擎任务，避免假时钟饿死解码。
+  await tester.runAsync(() async {
+    for (final element in find.byType(Image).evaluate()) {
+      final image = element.widget as Image;
+      await precacheImage(image.image, element, onError: (error, stack) {});
+    }
+  });
+  await tester.pumpAndSettle();
+}
+
+final _imageRequests = <String, int>{};
+final _failedImageUrls = <String>{};
 
 void main() {
   setUpAll(() {
     HttpOverrides.global = _FakeHttpOverrides();
   });
 
+  setUp(() {
+    PaintingBinding.instance.imageCache.clear();
+    PaintingBinding.instance.imageCache.clearLiveImages();
+    _imageRequests.clear();
+    _failedImageUrls.clear();
+  });
+
   // 固定 400x800 手机宽度；图片 800x1200 → 预估高度 600px。
-  Future<void> pumpReader(WidgetTester tester, {int? initialPage}) async {
+  Future<void> pumpReader(
+    WidgetTester tester, {
+    int? initialPage,
+    double width = 400,
+  }) async {
     final client = _ProgressClient();
     addTearDown(client.close);
     final images = List.generate(
@@ -45,7 +73,7 @@ void main() {
       progress: null,
     );
 
-    tester.view.physicalSize = const Size(400, 800);
+    tester.view.physicalSize = Size(width, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -72,7 +100,7 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settleReader(tester);
   }
 
   testWidgets('移动端初始定位到指定页且滚动偏移与页码一致', (tester) async {
@@ -101,7 +129,7 @@ void main() {
     expect(find.text('第 1 / 10 页'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -600));
-    await tester.pumpAndSettle();
+    await settleReader(tester);
 
     expect(find.text('第 2 / 10 页'), findsOneWidget);
     final c = ProviderScope.containerOf(
@@ -114,7 +142,7 @@ void main() {
     );
     expect(client.positions, isEmpty);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    await tester.pumpAndSettle();
+    await settleReader(tester);
     expect(client.positions.single.pageNumber, 1);
     expect(c.read(readingProgressQueueProvider).requireValue, isEmpty);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -185,16 +213,16 @@ void main() {
         ),
       );
       await tester.tap(find.text('开始阅读'));
-      await tester.pumpAndSettle();
+      await settleReader(tester);
       await tester.tap(find.byTooltip('下一本'));
-      await tester.pumpAndSettle();
+      await settleReader(tester);
       // 在第二本翻到第 2 页，再切第三本。
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
+      await settleReader(tester);
       await tester.tap(find.byTooltip('下一本'));
-      await tester.pumpAndSettle();
+      await settleReader(tester);
       await tester.pageBack();
-      await tester.pumpAndSettle();
+      await settleReader(tester);
       expect(client.positions, [
         (comicId: 1, chapterId: 10, pageNumber: 0),
         (comicId: 2, chapterId: 20, pageNumber: 1),
@@ -203,6 +231,128 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+  testWidgets(
+    '桌面显示命中相邻预加载尺寸缓存，同档窗口调整复用',
+    (tester) async {
+      await pumpReader(tester, width: 1200);
+      const url = 'http://example.com/0.jpg';
+      final image = tester.widget<Image>(find.byType(Image).first);
+      final provider = image.image as DisplaySizedNetworkImage;
+      expect(provider.fit, BoxFit.contain);
+      final viewport = tester.getSize(
+        find
+            .ancestor(
+              of: find.byType(Image).first,
+              matching: find.byType(LayoutBuilder),
+            )
+            .first,
+      );
+      final expected = displayImageProvider(
+        url,
+        logicalSize: viewport,
+        devicePixelRatio: 1,
+        fit: BoxFit.contain,
+      );
+      final key = await provider.obtainKey(ImageConfiguration.empty);
+      expect(key, await expected.obtainKey(ImageConfiguration.empty));
+      expect(_imageRequests['http://example.com/1.jpg'], 1);
+      expect(_imageRequests['http://example.com/2.jpg'], 1);
+      expect(_imageRequests['http://example.com/3.jpg'], isNull);
+      expect(
+        PaintingBinding.instance.imageCache.containsKey(NetworkImage(url)),
+        isFalse,
+      );
+      tester.view.physicalSize = const Size(1100, 800);
+      await settleReader(tester);
+      final resized = tester.widget<Image>(find.byType(Image).first).image;
+      expect(await resized.obtainKey(ImageConfiguration.empty), key);
+      expect(_imageRequests[url], 1);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      expect(_imageRequests['http://example.com/1.jpg'], 1);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    '桌面与移动布局切换保留当前页和本机断点',
+    (tester) async {
+      await pumpReader(tester, width: 1200);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      tester.view.physicalSize = const Size(400, 800);
+      await settleReader(tester);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+      final c = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderScreen)),
+      );
+      expect(
+        c
+            .read(readingProgressQueueProvider)
+            .requireValue
+            .single
+            .entry
+            .pageNumber,
+        1,
+      );
+      final provider =
+          tester.widget<Image>(find.byType(Image).first).image
+              as DisplaySizedNetworkImage;
+      expect(provider.fit, BoxFit.fitWidth);
+      expect(provider.height, isNull);
+      tester.view.physicalSize = const Size(450, 800);
+      await settleReader(tester);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+      tester.view.physicalSize = const Size(1100, 800);
+      await settleReader(tester);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      tester.view.physicalSize = const Size(400, 800);
+      await settleReader(tester);
+      expect(find.text('第 3 / 10 页'), findsOneWidget);
+      expect(
+        c
+            .read(readingProgressQueueProvider)
+            .requireValue
+            .single
+            .entry
+            .pageNumber,
+        2,
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  for (final width in [400.0, 1200.0]) {
+    testWidgets(
+      '缩图失败重试清实际缓存并重新请求（宽 $width）',
+      (tester) async {
+        const url = 'http://example.com/0.jpg';
+        _failedImageUrls.add(url);
+        await pumpReader(tester, width: width);
+        expect(find.text('点击重试'), findsOneWidget);
+        final provider = tester.widget<Image>(find.byType(Image).first).image;
+        _failedImageUrls.remove(url);
+        // 在错误页面保持不变时模拟预加载获得了有效尺寸缓存。
+        await tester.runAsync(
+          () => precacheImage(
+            provider,
+            tester.element(find.byType(ReaderScreen)),
+            onError: (error, stack) {},
+          ),
+        );
+        final key = await provider.obtainKey(ImageConfiguration.empty);
+        expect(PaintingBinding.instance.imageCache.containsKey(key), isTrue);
+        final before = _imageRequests[url]!;
+        await tester.tap(find.text('点击重试'));
+        await settleReader(tester);
+        expect(_imageRequests[url], before + 1);
+        expect(find.text('点击重试'), findsNothing);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
 }
 
 class _ProgressClient extends ApiClient {
@@ -247,7 +397,8 @@ class _FakeHttpClient implements HttpClient {
   String? userAgent;
 
   @override
-  Future<HttpClientRequest> getUrl(Uri url) async => _FakeHttpClientRequest();
+  Future<HttpClientRequest> getUrl(Uri url) async =>
+      _FakeHttpClientRequest(url.toString());
 
   @override
   Future<HttpClientRequest> openUrl(String method, Uri url) async =>
@@ -277,11 +428,18 @@ class _FakeHttpClient implements HttpClient {
 }
 
 class _FakeHttpClientRequest implements HttpClientRequest {
+  _FakeHttpClientRequest([this.url = '']);
+  final String url;
   @override
   final HttpHeaders headers = _FakeHttpHeaders();
 
   @override
-  Future<HttpClientResponse> close() async => _FakeHttpClientResponse();
+  Future<HttpClientResponse> close() async {
+    _imageRequests.update(url, (n) => n + 1, ifAbsent: () => 1);
+    return _FakeHttpClientResponse(
+      status: _failedImageUrls.contains(url) ? 503 : 200,
+    );
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
@@ -293,6 +451,8 @@ class _FakeHttpHeaders implements HttpHeaders {
 }
 
 class _FakeHttpClientResponse implements HttpClientResponse {
+  _FakeHttpClientResponse({this.status = 200});
+  final int status;
   static final Uint8List _png = Uint8List.fromList(const [
     0x89,
     0x50,
@@ -364,7 +524,7 @@ class _FakeHttpClientResponse implements HttpClientResponse {
   ]);
 
   @override
-  int get statusCode => HttpStatus.ok;
+  int get statusCode => status;
 
   @override
   int get contentLength => _png.length;

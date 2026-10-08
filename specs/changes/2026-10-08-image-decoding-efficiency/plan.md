@@ -22,7 +22,7 @@ date: 2026-10-08
 - 文件：新增 app/lib/utils/display_image_provider.dart 与 app/lib/widgets/display_network_image.dart，修改封面入口 comic_card、reading_lists、home、detail、discovery。
 - 验证：原比例 cover 与 contain 的真实解码尺寸、DPR、同档/跨档缓存键、来源与版本保留、超档回退及现有布局测试。
 
-### U2. 阅读器统一显示与预加载
+### U2. ✅ 阅读器统一显示与预加载（同分支 PR 待创建）
 
 - 依赖：U1。
 - 文件：reader_screen.dart 与既有 reader_screen_test.dart。
@@ -39,4 +39,5 @@ date: 2026-10-08
 - 新增 specs/image-loading.convention.md：公共图片解码策略、来源缓存身份、尺寸分档、原生/Web 边界。
 - 更新 specs/reader.spec.md：移动和桌面解码、预加载同键、过期回调保护、实际 provider 重试。
 - 检查 comics-browsing、discovery、UI 风格规范，保持封面比例、布局、分页及交互不变；通用图片规则集中于新约定，避免重复。
+
 
