@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
@@ -25,9 +23,6 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   String _keyword = '';
-  bool _recentBarVisible = false;
-  ReadingProgressEntry? _lastRecentEntry;
-  Timer? _barHideTimer;
 
   @override
   void initState() {
@@ -35,26 +30,13 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
-        if (_keyword.isEmpty) {
-          ref.read(randomLibraryProvider.notifier).loadMore();
-        } else {
-          ref.read(searchProvider.notifier).loadMore();
-        }
+        _loadMore();
       }
-    });
-    // 首帧后按实际列数校准页大小
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final width = MediaQuery.of(context).size.width;
-      ref
-          .read(randomLibraryProvider.notifier)
-          .setPageSize(comicGridColumns(width) * 6);
     });
   }
 
   @override
   void dispose() {
-    _barHideTimer?.cancel();
     _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -68,11 +50,28 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _search(String keyword) async {
     _keyword = keyword.trim();
     setState(() {});
-    if (_keyword.isNotEmpty) {
-      try {
-        await ref.read(searchProvider.notifier).search(_keyword);
-      } catch (error) {
-        if (mounted) _showRequestError(error, '搜索失败');
+    try {
+      await ref.read(searchProvider.notifier).search(_keyword);
+    } catch (error) {
+      if (mounted) _showRequestError(error, '搜索失败');
+    }
+  }
+
+  Future<void> _loadMore() async {
+    try {
+      if (_keyword.isEmpty) {
+        await ref.read(randomLibraryProvider.notifier).loadMore();
+      } else {
+        await ref.read(searchProvider.notifier).loadMore();
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userMessageFor(error, fallback: '加载更多失败，请重试')),
+            action: SnackBarAction(label: '重试', onPressed: _loadMore),
+          ),
+        );
       }
     }
   }
@@ -109,31 +108,23 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final recentEntry = (recent != null && recent.isNotEmpty)
         ? recent.first
         : null;
-    // A fresh reading entry re-shows the bar; it auto-hides after 3 seconds.
-    if (recentEntry != null && recentEntry != _lastRecentEntry) {
-      _lastRecentEntry = recentEntry;
-      _recentBarVisible = true;
-      _barHideTimer?.cancel();
-      _barHideTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted && _recentBarVisible) {
-          setState(() => _recentBarVisible = false);
-        }
-      });
-    }
 
     final comics = _keyword.isEmpty
         ? (random?.comics ?? const <Comic>[])
         : (search?.comics ?? const <Comic>[]);
     final hasError = _keyword.isEmpty
-        ? randomAsync.hasError
-        : searchAsync.hasError;
+        ? randomAsync.hasError || random?.error != null
+        : searchAsync.hasError || search?.error != null;
     final currentError = _keyword.isEmpty
-        ? randomAsync.error
-        : searchAsync.error;
+        ? randomAsync.error ?? random?.error
+        : searchAsync.error ?? search?.error;
     final loading = _keyword.isEmpty
         ? randomAsync.isLoading ||
-              (random != null && random.comics.length < random.total)
-        : searchAsync.isLoading && search?.comics.isEmpty == true;
+              (random?.isLoadingMore ?? false) ||
+              (random?.isRefreshing ?? false)
+        : searchAsync.isLoading ||
+              (search?.isLoadingMore ?? false) ||
+              (search?.isRefreshing ?? false);
     final c = context.appColors;
 
     return Scaffold(
@@ -210,7 +201,10 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           controller: _scrollController,
                           comics: comics,
                           loading: loading,
-                          bottomPadding: _recentBarVisible ? 96 : 0,
+                          bottomPadding: recentEntry != null ? 96 : 0,
+                          onColumnsChanged: (columns) => ref
+                              .read(randomLibraryProvider.notifier)
+                              .setPageSize(columns * 6),
                           onTap: (comic) => Navigator.push(
                             context,
                             MaterialPageRoute(
@@ -226,24 +220,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 left: 16,
                 right: 16,
                 bottom: 16,
-                child: IgnorePointer(
-                  ignoring: !_recentBarVisible,
-                  child: AnimatedSlide(
-                    offset: _recentBarVisible
-                        ? Offset.zero
-                        : const Offset(0, 1.2),
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOutCubic,
-                    child: AnimatedOpacity(
-                      opacity: _recentBarVisible ? 1 : 0,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeOut,
-                      child: _FloatingContinueBar(
-                        entry: recentEntry,
-                        onReturn: () => ref.invalidate(recentReadingProvider),
-                      ),
-                    ),
-                  ),
+                child: _FloatingContinueBar(
+                  entry: recentEntry,
+                  onReturn: () => ref.invalidate(recentReadingProvider),
                 ),
               ),
           ],

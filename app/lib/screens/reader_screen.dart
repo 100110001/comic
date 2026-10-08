@@ -40,6 +40,8 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
+  late int _comicId;
+  late int _chapterId;
   List<Chapter> _chapters = [];
   List<ImageItem> _images = [];
   int _chapterIndex = 0;
@@ -69,6 +71,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _comicId = widget.comicId;
+    _chapterId = widget.chapterId;
     _title = widget.title;
     _scrollController.addListener(_onScroll);
     _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
@@ -110,7 +114,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _init() async {
     try {
-      final detail = await ref.read(comicDetailProvider(widget.comicId).future);
+      final detail = await ref.read(comicDetailProvider(_comicId).future);
       if (!mounted) return;
       final idx = detail.chapters.indexWhere((c) => c.id == widget.chapterId);
       setState(() {
@@ -239,6 +243,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       return;
     }
     setState(() {
+      _comicId = comic.id;
       _title = comic.title;
       _chapters = detail!.chapters;
       _chapterIndex = 0;
@@ -249,6 +254,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
     setState(() {
+      _chapterId = chapterId;
       _loading = true;
       _loadFailed = false;
       _loadError = null;
@@ -289,7 +295,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   /// 章节级重试：重新拉取当前章节的图片列表。
   Future<void> _reloadChapter() async {
-    final chapterId = _currentChapter?.id ?? widget.chapterId;
+    final chapterId = _chapterId;
     await _loadChapter(chapterId);
   }
 
@@ -423,9 +429,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _ensureChapters() async {
     if (_chapters.isNotEmpty) return;
     try {
-      final detail = await ref.read(comicDetailProvider(widget.comicId).future);
+      final detail = await ref.read(comicDetailProvider(_comicId).future);
       if (!mounted || _chapters.isNotEmpty) return;
-      final targetId = _currentChapter?.id ?? widget.chapterId;
+      final targetId = _chapterId;
       final idx = detail.chapters.indexWhere((c) => c.id == targetId);
       setState(() {
         _chapters = detail.chapters;
@@ -465,8 +471,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     try {
       await updateReadingProgress(
         ref,
-        comicId: widget.comicId,
-        chapterId: _currentChapter?.id ?? widget.chapterId,
+        comicId: _comicId,
+        chapterId: _chapterId,
         pageNumber: _currentPage,
       );
     } catch (_) {

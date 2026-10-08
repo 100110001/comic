@@ -70,6 +70,9 @@ class RandomLibraryState {
   final int total;
   final int pageSize;
   final List<Comic> comics;
+  final bool isLoadingMore;
+  final bool isRefreshing;
+  final Object? error;
 
   const RandomLibraryState({
     required this.seed,
@@ -77,6 +80,9 @@ class RandomLibraryState {
     required this.total,
     required this.pageSize,
     required this.comics,
+    this.isLoadingMore = false,
+    this.isRefreshing = false,
+    this.error,
   });
 
   RandomLibraryState copyWith({
@@ -84,25 +90,43 @@ class RandomLibraryState {
     int? total,
     int? pageSize,
     List<Comic>? comics,
+    bool? isLoadingMore,
+    bool? isRefreshing,
+    Object? error,
+    bool clearError = false,
   }) => RandomLibraryState(
     seed: seed,
     pageOffset: pageOffset ?? this.pageOffset,
     total: total ?? this.total,
     pageSize: pageSize ?? this.pageSize,
     comics: comics ?? this.comics,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    isRefreshing: isRefreshing ?? this.isRefreshing,
+    error: clearError ? null : error ?? this.error,
   );
 }
 
 class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
-  bool _isCurrent(ApiClient client) =>
+  int _queryGeneration = 0;
+  int _pageSize = 30;
+
+  bool _isCurrent(ApiClient client, int queryGeneration) =>
       ref.mounted &&
+      _queryGeneration == queryGeneration &&
       ref.read(serverSessionProvider).generation == client.generation;
 
   @override
   Future<RandomLibraryState> build() async {
     final client = ref.watch(apiClientProvider);
+    _queryGeneration++;
     final seed = ref.read(randomSeedProvider);
-    return _fetch(client: client, seed: seed, pageOffset: 1, pageSize: 30);
+    final result = await _fetch(
+      client: client,
+      seed: seed,
+      pageOffset: 1,
+      pageSize: _pageSize,
+    );
+    return result.copyWith(pageSize: _pageSize);
   }
 
   Future<RandomLibraryState> _fetch({
@@ -125,53 +149,92 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
     );
   }
 
-  Future<void> setPageSize(int size) async {
+  void setPageSize(int size) {
+    _pageSize = size;
     final s = state.value;
     if (s == null || s.pageSize == size) return;
-    state = AsyncData(s.copyWith(pageSize: size));
+    state = state.whenData((s) => s.copyWith(pageSize: size));
   }
 
   Future<void> loadMore() async {
     final s = state.value;
-    if (s == null || s.comics.length >= s.total) return;
+    if (s == null ||
+        state.isLoading ||
+        s.isRefreshing ||
+        s.isLoadingMore ||
+        s.comics.length >= s.total) {
+      return;
+    }
     final client = ref.read(apiClientProvider);
-    final next = await _fetch(
-      client: client,
-      seed: s.seed,
-      pageOffset: s.pageOffset + 1,
-      pageSize: s.pageSize,
-    );
-    if (!_isCurrent(client)) return;
-    state = AsyncData(
-      s.copyWith(
-        pageOffset: next.pageOffset,
-        total: next.total,
-        comics: [...s.comics, ...next.comics],
-      ),
-    );
+    final generation = _queryGeneration;
+    // 接口偏移由页号和页大小共同决定；变更页大小后从已消费位置续接。
+    final skip = s.comics.length % s.pageSize;
+    state = AsyncData(s.copyWith(isLoadingMore: true));
+    try {
+      final next = await _fetch(
+        client: client,
+        seed: s.seed,
+        pageOffset: s.comics.length ~/ s.pageSize + 1,
+        pageSize: s.pageSize,
+      );
+      if (!_isCurrent(client, generation)) return;
+      final current = state.requireValue;
+      state = AsyncData(
+        current.copyWith(
+          pageOffset: next.pageOffset,
+          total: next.total,
+          comics: [...current.comics, ...next.comics.skip(skip)],
+          isLoadingMore: false,
+          clearError: true,
+        ),
+      );
+    } catch (_) {
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(state.requireValue.copyWith(isLoadingMore: false));
+      rethrow;
+    }
   }
 
   Future<void> reshuffle() async {
     ref.read(randomSeedProvider.notifier).reshuffle();
+    if (state.value == null) {
+      ref.invalidateSelf();
+      await future;
+      return;
+    }
     final seed = ref.read(randomSeedProvider);
-    final s = state.value;
-    final pageSize = s?.pageSize ?? 30;
     final client = ref.read(apiClientProvider);
-    final next = await _fetch(
-      client: client,
-      seed: seed,
-      pageOffset: 1,
-      pageSize: pageSize,
+    final generation = ++_queryGeneration;
+    state = AsyncData(
+      state.requireValue.copyWith(
+        isLoadingMore: false,
+        isRefreshing: true,
+        clearError: true,
+      ),
     );
-    if (!_isCurrent(client)) return;
-    state = AsyncData(next);
+    try {
+      final next = await _fetch(
+        client: client,
+        seed: seed,
+        pageOffset: 1,
+        pageSize: _pageSize,
+      );
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(next.copyWith(pageSize: _pageSize));
+    } catch (error) {
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(
+        state.requireValue.copyWith(isRefreshing: false, error: error),
+      );
+      rethrow;
+    }
   }
 
   void updateFavorited(int comicId, bool favorited) {
     final s = state.value;
     if (s == null) return;
-    state = AsyncData(
-      s.copyWith(
+    state = state.whenData(
+      (s) => s.copyWith(
         comics: s.comics
             .map((c) => c.id == comicId ? c.withFavorited(favorited) : c)
             .toList(),
@@ -192,12 +255,18 @@ class SearchState {
   final int pageOffset;
   final int total;
   final List<Comic> comics;
+  final bool isLoadingMore;
+  final bool isRefreshing;
+  final Object? error;
 
   const SearchState({
     required this.keyword,
     required this.pageOffset,
     required this.total,
     required this.comics,
+    this.isLoadingMore = false,
+    this.isRefreshing = false,
+    this.error,
   });
 
   SearchState copyWith({
@@ -205,67 +274,119 @@ class SearchState {
     int? pageOffset,
     int? total,
     List<Comic>? comics,
+    bool? isLoadingMore,
+    bool? isRefreshing,
+    Object? error,
+    bool clearError = false,
   }) => SearchState(
     keyword: keyword ?? this.keyword,
     pageOffset: pageOffset ?? this.pageOffset,
     total: total ?? this.total,
     comics: comics ?? this.comics,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    isRefreshing: isRefreshing ?? this.isRefreshing,
+    error: clearError ? null : error ?? this.error,
   );
 }
 
 class SearchNotifier extends AsyncNotifier<SearchState> {
+  int _queryGeneration = 0;
+
   @override
-  Future<SearchState> build() async {
+  SearchState build() {
     ref.watch(apiClientProvider);
+    _queryGeneration++;
     return const SearchState(keyword: '', pageOffset: 1, total: 0, comics: []);
   }
 
-  bool _isCurrent(ApiClient client) =>
+  bool _isCurrent(ApiClient client, int queryGeneration) =>
       ref.mounted &&
+      _queryGeneration == queryGeneration &&
       ref.read(serverSessionProvider).generation == client.generation;
 
   Future<void> search(String keyword) async {
     final client = ref.read(apiClientProvider);
-    final r = await client.getComics(
-      pageOffset: 1,
-      pageSize: 30,
-      keyword: keyword,
-    );
-    if (!_isCurrent(client)) return;
-    state = AsyncData(
-      SearchState(
-        keyword: keyword,
+    final generation = ++_queryGeneration;
+    final cached = state.value;
+    final previous = cached?.keyword == keyword
+        ? cached!.copyWith(isLoadingMore: false)
+        : SearchState(
+            keyword: keyword,
+            pageOffset: 1,
+            total: 0,
+            comics: const [],
+          );
+    if (keyword.isEmpty) {
+      state = AsyncData(previous);
+      return;
+    }
+    state = AsyncData(previous.copyWith(isRefreshing: true, clearError: true));
+    try {
+      final r = await client.getComics(
         pageOffset: 1,
-        total: r.total,
-        comics: r.list,
-      ),
-    );
+        pageSize: 30,
+        keyword: keyword,
+      );
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(
+        SearchState(
+          keyword: keyword,
+          pageOffset: 1,
+          total: r.total,
+          comics: r.list,
+        ),
+      );
+    } catch (error) {
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(
+        state.requireValue.copyWith(isRefreshing: false, error: error),
+      );
+      rethrow;
+    }
   }
 
   Future<void> loadMore() async {
     final s = state.value;
-    if (s == null || s.keyword.isEmpty || s.comics.length >= s.total) return;
+    if (s == null ||
+        state.isLoading ||
+        s.isRefreshing ||
+        s.isLoadingMore ||
+        s.keyword.isEmpty ||
+        s.comics.length >= s.total) {
+      return;
+    }
     final client = ref.read(apiClientProvider);
-    final r = await client.getComics(
-      pageOffset: s.pageOffset + 1,
-      pageSize: 30,
-      keyword: s.keyword,
-    );
-    if (!_isCurrent(client)) return;
-    state = AsyncData(
-      s.copyWith(
+    final generation = _queryGeneration;
+    state = AsyncData(s.copyWith(isLoadingMore: true));
+    try {
+      final r = await client.getComics(
         pageOffset: s.pageOffset + 1,
-        total: r.total,
-        comics: [...s.comics, ...r.list],
-      ),
-    );
+        pageSize: 30,
+        keyword: s.keyword,
+      );
+      if (!_isCurrent(client, generation)) return;
+      final current = state.requireValue;
+      state = AsyncData(
+        current.copyWith(
+          pageOffset: s.pageOffset + 1,
+          total: r.total,
+          comics: [...current.comics, ...r.list],
+          isLoadingMore: false,
+          clearError: true,
+        ),
+      );
+    } catch (_) {
+      if (!_isCurrent(client, generation)) return;
+      state = AsyncData(state.requireValue.copyWith(isLoadingMore: false));
+      rethrow;
+    }
   }
 
   void updateFavorited(int comicId, bool favorited) {
     final s = state.value;
     if (s == null) return;
-    state = AsyncData(
-      s.copyWith(
+    state = state.whenData(
+      (s) => s.copyWith(
         comics: s.comics
             .map((c) => c.id == comicId ? c.withFavorited(favorited) : c)
             .toList(),

@@ -26,12 +26,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final initial = widget.initialKeyword;
     if (initial != null && initial.isNotEmpty) {
       _controller.text = initial;
-      ref.read(searchProvider.notifier).search(initial);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search(initial);
+      });
     }
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 200) {
-        ref.read(searchProvider.notifier).loadMore();
+        _loadMore();
       }
     });
   }
@@ -54,14 +56,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
+  Future<void> _loadMore() async {
+    try {
+      await ref.read(searchProvider.notifier).loadMore();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(userMessageFor(error, fallback: '加载更多失败，请重试')),
+          action: SnackBarAction(label: '重试', onPressed: _loadMore),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final searchAsync = ref.watch(searchProvider);
     final state = searchAsync.value;
     final comics = state?.comics ?? const <Comic>[];
     final keyword = state?.keyword ?? '';
-    final hasError = searchAsync.hasError;
-    final loading = searchAsync.isLoading && comics.isEmpty;
+    final hasError = searchAsync.hasError || state?.error != null;
+    final loading =
+        (searchAsync.isLoading || (state?.isRefreshing ?? false)) &&
+        comics.isEmpty;
     final c = context.appColors;
 
     return Scaffold(
@@ -88,11 +106,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   ? StatusView(
                       icon: Icons.cloud_off,
                       message: userMessageFor(
-                        searchAsync.error,
+                        searchAsync.error ?? state?.error,
                         fallback: '搜索失败',
                       ),
                       actionLabel: '重试',
-                      onAction: () => ref.invalidate(searchProvider),
+                      onAction: () => _search(keyword),
                     )
                   : loading
                   ? const Center(child: CircularProgressIndicator())
@@ -101,7 +119,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   : ComicGrid(
                       controller: _scrollController,
                       comics: comics,
-                      loading: searchAsync.isLoading,
+                      loading:
+                          searchAsync.isLoading ||
+                          (state?.isRefreshing ?? false) ||
+                          (state?.isLoadingMore ?? false),
                       onTap: (comic) => Navigator.push(
                         context,
                         MaterialPageRoute(

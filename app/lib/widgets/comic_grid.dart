@@ -21,6 +21,7 @@ class ComicGrid extends StatelessWidget {
   final double bottomPadding;
   final ScrollController? controller;
   final void Function(Comic comic)? onTap;
+  final ValueChanged<int>? onColumnsChanged;
   const ComicGrid({
     super.key,
     required this.comics,
@@ -28,6 +29,7 @@ class ComicGrid extends StatelessWidget {
     this.bottomPadding = 0,
     this.controller,
     this.onTap,
+    this.onColumnsChanged,
   });
 
   static const double _maxGridWidth = 1920;
@@ -40,6 +42,11 @@ class ComicGrid extends StatelessWidget {
         child: LayoutBuilder(
           builder: (ctx, constraints) {
             final columns = comicGridColumns(constraints.maxWidth);
+            if (onColumnsChanged != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (ctx.mounted) onColumnsChanged!(columns);
+              });
+            }
             // 卡片高度 = 封面（3:4，占卡宽×4/3）+ 固定文字区（约 48px），
             // 按实际卡宽动态计算高宽比，避免卡片底部留白或文字溢出。
             final cardWidth =
