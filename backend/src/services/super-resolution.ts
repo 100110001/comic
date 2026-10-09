@@ -19,6 +19,27 @@ export interface UpscaleJob {
   url?: string;
   error?: string;
 }
+export interface UpscaleRequestRecord {
+  id: number;
+  imageId: number;
+  filename: string;
+  requestedAt: string;
+  priority: number;
+  status: UpscaleJob["status"] | "submitting";
+  kind?: "inference" | "cache" | "shared";
+  key?: string;
+  originalUrl?: string;
+  url?: string;
+  width?: number;
+  height?: number;
+  elapsedMs?: number;
+  error?: string;
+}
+interface RequestRecord extends UpscaleRequestRecord {
+  epoch: number;
+  time: number;
+}
+
 interface Task extends UpscaleJob {
   source: string;
   stamp: string;
@@ -57,6 +78,8 @@ function fileStamp(stat: {
 /** 单后端进程拥有缓存；发布、文件查找与清理串行；发送期间缓存仍可能被回收。 */
 export class SuperResolutionService {
   private jobs = new Map<string, Task>();
+  private requests: RequestRecord[] = [];
+  private requestCount = 0;
   private queue: Task[] = [];
   private order = 0;
   private epoch = 0;
@@ -141,8 +164,115 @@ export class SuperResolutionService {
   }
 
   async request(source: UpscaleSource, priority: number): Promise<UpscaleJob> {
+    const time = Date.now();
+    const relative = path.relative(
+      path.resolve(this.options.comicRoot || "."),
+      path.resolve(source.path),
+    );
+    const safe =
+      this.options.comicRoot &&
+      relative &&
+      relative !== ".." &&
+      !relative.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(relative) &&
+      /^\d+-\d+$/.test(source.version);
+    const record: RequestRecord = {
+      id: ++this.requestCount,
+      imageId: source.id,
+      filename: path.basename(source.path),
+      requestedAt: new Date(time).toISOString(),
+      priority,
+      status: "submitting",
+      epoch: this.epoch,
+      time,
+      ...(safe
+        ? {
+            originalUrl: `/static/${relative.split(path.sep).map(encodeURIComponent).join("/")}?v=${source.version}`,
+          }
+        : {}),
+    };
+    this.requests.push(record);
+    if (this.requests.length > 500) this.requests.shift();
+    try {
+      const { job, kind } = await this.requestInternal(
+        source,
+        priority,
+        record.epoch,
+      );
+      if (record.epoch !== this.epoch) return job;
+      Object.assign(record, job, { kind });
+      const task = this.jobs.get(job.key);
+      if (task) {
+        record.width = task.width;
+        record.height = task.height;
+      }
+      if (job.status === "ready" || job.status === "failed")
+        record.elapsedMs = Date.now() - time;
+      return job;
+    } catch (error) {
+      if (record.epoch !== this.epoch) throw error;
+      record.status = "failed";
+      record.error =
+        error instanceof SuperResolutionError
+          ? error.message
+          : "超分提交失败，请检查后端配置";
+      record.elapsedMs = Date.now() - time;
+      throw error;
+    }
+  }
+
+  private updateRequests(task: Task): void {
+    for (const record of this.requests) {
+      if (
+        record.key !== task.key ||
+        record.epoch !== task.epoch ||
+        (record.status !== "queued" && record.status !== "running")
+      )
+        continue;
+      Object.assign(record, this.result(task));
+      if (task.status === "ready" || task.status === "failed")
+        record.elapsedMs = Date.now() - record.time;
+    }
+  }
+
+  monitor() {
+    return {
+      enabled: this.options.enabled,
+      total: this.requestCount,
+      limit: 500,
+      queued: this.queue.length,
+      running: [...this.jobs.values()].filter(
+        (task) => task.status === "running",
+      ).length,
+      requests: this.requests
+        .slice()
+        .reverse()
+        .map((record) => ({
+          id: record.id,
+          imageId: record.imageId,
+          filename: record.filename,
+          requestedAt: record.requestedAt,
+          priority: record.priority,
+          status: record.status,
+          kind: record.kind,
+          key: record.key,
+          originalUrl: record.originalUrl,
+          url: record.url,
+          width: record.width,
+          height: record.height,
+          error: record.error,
+          elapsedMs: record.elapsedMs ?? Date.now() - record.time,
+        })),
+    };
+  }
+
+  private async requestInternal(
+    source: UpscaleSource,
+    priority: number,
+    requestedEpoch: number,
+  ): Promise<{ job: UpscaleJob; kind: "cache" | "shared" | "inference" }> {
     await this.initialize();
-    if (this.clearing)
+    if (this.clearing || requestedEpoch !== this.epoch)
       throw new SuperResolutionError("正在清理超分缓存，请稍后重试");
     const resolved = await fs.realpath(source.path);
     if (!inside(this.root, resolved))
@@ -167,6 +297,8 @@ export class SuperResolutionService {
     if (width <= 0 || height <= 0 || width * height > 20_000_000) {
       throw new SuperResolutionError("图片过大或尺寸无效，继续使用原图");
     }
+    if (requestedEpoch !== this.epoch)
+      throw new SuperResolutionError("缓存已清理，请重试");
     const stamp = fileStamp(stat);
     const key = createHash("sha256")
       .update(JSON.stringify([resolved, stamp, this.modelIdentity]))
@@ -178,7 +310,7 @@ export class SuperResolutionService {
     ) {
       existing.priority = Math.min(existing.priority, priority);
       existing.order = ++this.order;
-      return this.result(existing);
+      return { job: this.result(existing), kind: "shared" };
     }
     const task: Task = {
       key,
@@ -214,7 +346,7 @@ export class SuperResolutionService {
     ) {
       concurrent.priority = Math.min(concurrent.priority, priority);
       concurrent.order = ++this.order;
-      return this.result(concurrent);
+      return { job: this.result(concurrent), kind: "shared" };
     }
     if (cached) task.status = "ready";
     else if (this.queue.length >= 64)
@@ -232,7 +364,7 @@ export class SuperResolutionService {
         void this.drain();
       });
     }
-    return this.result(task);
+    return { job: this.result(task), kind: cached ? "cache" : "inference" };
   }
 
   status(keys: string[]): UpscaleJob[] {
@@ -306,6 +438,7 @@ export class SuperResolutionService {
         const task = this.queue.shift()!;
         if (task.epoch !== this.epoch) continue;
         task.status = "running";
+        this.updateRequests(task);
         const temporary = path.join(
           this.cache,
           `${task.key}-${randomUUID()}.tmp.webp`,
@@ -344,6 +477,7 @@ export class SuperResolutionService {
             console.error("[超分] 任务失败", task.key, error);
           }
         } finally {
+          this.updateRequests(task);
           await fs.rm(temporary, { force: true }).catch(() => {});
         }
       }
@@ -399,6 +533,13 @@ export class SuperResolutionService {
     await this.initialize();
     if (this.clearing) throw new SuperResolutionError("正在清理缓存");
     this.clearing = true;
+    for (const record of this.requests) {
+      if (["submitting", "queued", "running"].includes(record.status)) {
+        record.status = "failed";
+        record.error = "超分缓存已清理，任务已取消";
+        record.elapsedMs = Date.now() - record.time;
+      }
+    }
     ++this.epoch;
     this.cacheGeneration = randomUUID();
     this.queue = [];
