@@ -17,7 +17,7 @@ date: 2026-10-09
 
 ## 实现单元
 
-### U1. 已完成：后十页滑动窗口
+### U1. 已完成：后十页滑动窗口（PR #59）
 
 依赖：无。修改 app/lib/screens/reader_screen.dart、settings_screen.dart、app/lib/providers/super_resolution_provider.dart、backend/src/routes/images.ts、super-resolution.ts 与服务的窗口常量。
 
