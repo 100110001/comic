@@ -1,0 +1,37 @@
+---
+status: complete
+scope: feature
+---
+
+# 本地漫画超分
+
+## 职责
+
+为阅读器提供可选的后端 waifu2x 2× 增强。原文件保持完整，增强结果位于漫画扫描目录之外；未配置引擎或处理失败不影响原图阅读。Flutter 客户端不安装推理引擎。
+
+## 公开契约
+
+- 后端 `WAIFU2X_ENABLED=1` 启用；默认关闭。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
+- 默认使用后端 `tools/waifu2x/` 中的引擎与 `models-cunet`；缓存为 `data/super-resolution`、2048 MiB，单图超时 60000 ms。相对路径以 `backend/` 运行目录为基准。
+- Windows 从 `backend/` 执行 `npm run setup:waifu2x` 准备固定版本 `20250915` 的官方便携包，验证 SHA256，并保留许可证；不自动修改 `.env`。Linux/macOS 手动配置对应引擎。更新引擎或模型需重启后端。
+- 固定 2×、关闭降噪（`-n -1`）、分块大小 256、无损 WebP 输出；输入支持 JPEG、PNG、WebP，最多 2000 万像素，超出或尺寸无效则拒绝处理。
+- `POST /api/super-resolution/jobs` 接收 `images`，一到三项 `{ id, version }`；顺序代表当前页、后续页的优先级。版本必须匹配当前文件的 `size-trunc(mtimeMs)`；路径从数据库读取，并校验真实路径在漫画根内。
+- 提交返回任务列表，每项包含 `key`、`imageId`、`status`；状态为 `queued`、`running`、`ready`、`failed`。就绪时包含结果 `url`，失败时包含中文 `error`。
+- `GET /api/super-resolution/jobs?keys=...` 查询最多三个任务，响应不缓存。未知、被清理或已淘汰的任务返回 `failed`、`imageId=0`，客户端按已绑定键对应原图。
+- `GET /api/super-resolution/files/:key` 返回 WebP；结果 URL 携带缓存代际，图片可缓存一天。文件可能被清理或淘汰，就绪状态不承诺结果永久可下载，客户端须回退原图。
+- `DELETE /api/super-resolution/cache` 停止运行任务、清空队列和任务状态、移除衍生文件并更新缓存代际；发起清空的阅读器关闭超分并回原图。
+
+## 不变量
+
+- 缓存身份包含规范真实源路径、文件大小、完整修改和创建状态时间、引擎与模型内容指纹、倍率、降噪和输出参数版本。模型指纹在首次初始化计算，进程内固定。
+- 同键排队或运行请求合并，GPU 子进程串行；排队最多 64 项，任务记录至多 128 项，优先淘汰终态。当前页优先，同优先级最近请求优先。
+- 子进程通过参数数组启动，使用独立超时；不经 shell 拼接源路径，Windows 后台运行不弹出控制台。
+- 结果先写临时文件，尺寸必须严格为输入宽高各两倍；发布前再次核对源文件状态。通过后原子发布，源文件变化或旧清理代际不能发布。
+- 缓存目录真实路径不得位于漫画根内。一份目录由单个后端进程拥有；启动清理遗留临时文件，按最近访问回收已发布结果。
+- 容量限制针对已发布结果；单个推理临时文件允许产生额外瞬时占用，单个结果大于总预算时拒绝发布。
+- 清理与发布、文件查找串行，并使旧任务失效。图片发送期间仍可被回收；下载失败通过阅读器的原图回退处理。
+- 任务不持久化，后端重启后可重新提交并命中已有衍生文件；处理队列不依赖 Redis。内部路径与底层异常仅服务端日志记录，用户错误使用稳定中文。
+
+## 说明
+
+阅读器的开关、滚动布局及错误回退见 `specs/reader.spec.md`；来源隔离见 `specs/data-layer.convention.md`；输出解码仍遵循 `specs/image-loading.convention.md`。
