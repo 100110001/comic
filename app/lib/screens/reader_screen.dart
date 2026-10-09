@@ -699,8 +699,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : srJob?.status == 'failed'
         ? (srJob?.error ?? '超分失败，继续使用原图')
         : srJob?.status == 'ready'
-        ? '超分 2× 已就绪，点击显示原图'
-        : '超分 2× 处理中，点击关闭';
+        ? '超分 2× 已就绪，打开菜单可关闭'
+        : '超分 2× 处理中，打开菜单可关闭';
+    final srStatus = !sr.enabled
+        ? '超分关闭 · 原图'
+        : srJob?.status == 'failed'
+        ? '超分失败 · 已回退原图'
+        : srJob?.status == 'ready'
+        ? '超分 2× 已就绪'
+        : srJob?.status == 'queued'
+        ? '超分已开启 · 排队中'
+        : '超分已开启 · 处理中';
     final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
     final Widget scaffold = Scaffold(
@@ -734,11 +743,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               child: AppBar(
                 backgroundColor: c.readerBar,
                 iconTheme: IconThemeData(color: c.text1),
-                title: Text(
-                  _currentChapter?.title ?? _title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: c.text1, fontSize: 15),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _currentChapter?.title ?? _title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: c.text1, fontSize: 15),
+                    ),
+                    Text(
+                      srStatus,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: sr.enabled
+                            ? Theme.of(context).colorScheme.primary
+                            : c.text1,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
                 bottom: PreferredSize(
                   preferredSize: Size.fromHeight(1),

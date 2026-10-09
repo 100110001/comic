@@ -122,11 +122,15 @@ void main() {
     final list = tester.widget<ListView>(find.byType(ListView));
     final offset = list.controller!.offset;
     expect(client.requested, isEmpty);
+    expect(find.text('超分关闭 · 原图'), findsOneWidget);
+    expect(find.text('2× 超分'), findsNothing);
     await tester.tap(find.byTooltip('开启超分 2×'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('开启超分 2×'));
     await tester.pump();
     expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(find.text('超分已开启 · 处理中'), findsOneWidget);
+    expect(find.text('2× 超分'), findsNothing);
     expect(
       tester
           .widgetList<EnhancedImage>(find.byType(EnhancedImage))
@@ -143,7 +147,9 @@ void main() {
     );
     expect(list.controller!.offset, offset);
     expect(find.text('第 3 / 10 页'), findsOneWidget);
-    await tester.tap(find.byTooltip('超分 2× 已就绪，点击显示原图'));
+    expect(find.text('超分 2× 已就绪'), findsOneWidget);
+    expect(find.text('2× 超分'), findsWidgets);
+    await tester.tap(find.byTooltip('超分 2× 已就绪，打开菜单可关闭'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('关闭超分 2×'));
     await tester.pump();
@@ -178,6 +184,7 @@ void main() {
     );
     expect(find.text('点击重试'), findsNothing);
     expect(find.text('第 3 / 10 页'), findsOneWidget);
+    expect(find.text('超分失败 · 已回退原图'), findsOneWidget);
     expect(_imageRequests['http://example.com/2.jpg'], 1);
   });
 
