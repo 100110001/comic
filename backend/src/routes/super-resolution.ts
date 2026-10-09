@@ -6,7 +6,7 @@ import {
   SuperResolutionError,
 } from "../services/super-resolution";
 
-export const superResolutionRouter = Router();
+export const superResolutionRouter: Router = Router();
 
 superResolutionRouter.post("/jobs", async (req, res) => {
   const images = req.body?.images;

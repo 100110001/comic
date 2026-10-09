@@ -8,7 +8,7 @@ import { ok } from "../utils/response";
 
 import { superResolutionRouter } from "./super-resolution";
 
-export const router = Router();
+export const router: Router = Router();
 
 router.get("/health", (_req: Request, res: Response) => {
   ok(res, { status: "ok" });
