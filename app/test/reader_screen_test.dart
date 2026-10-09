@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:comic/models/chapter.dart';
 import 'package:comic/models/comic.dart';
 import 'package:comic/models/image_item.dart';
+import 'package:comic/models/super_resolution_job.dart';
+import 'package:comic/providers/super_resolution_provider.dart';
+import 'package:comic/widgets/enhanced_image.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
 import 'package:comic/providers/reading_progress_provider.dart';
@@ -53,8 +56,9 @@ void main() {
     double width = 400,
     List<Chapter>? chapters,
     Future<Comic?> Function()? onNextComic,
+    ApiClient? srClient,
   }) async {
-    final client = _ProgressClient();
+    final client = srClient ?? _ProgressClient();
     addTearDown(client.close);
     final images = List.generate(
       10,
@@ -105,6 +109,77 @@ void main() {
     );
     await settleReader(tester);
   }
+
+  testWidgets('320px 发现阅读器新增超分入口不溢出', (tester) async {
+    await pumpReader(tester, width: 320, onNextComic: () async => null);
+    expect(tester.takeException(), isNull);
+    expect(find.byTooltip('开启超分 2×'), findsOneWidget);
+  });
+
+  testWidgets('超分先保留原图，结果就绪和关闭均不改变手机阅读位置', (tester) async {
+    final client = _UpscaleProgressClient();
+    await pumpReader(tester, initialPage: 2, srClient: client);
+    final list = tester.widget<ListView>(find.byType(ListView));
+    final offset = list.controller!.offset;
+    expect(client.requested, isEmpty);
+    await tester.tap(find.byTooltip('开启超分 2×'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开启超分 2×'));
+    await tester.pump();
+    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(
+      tester
+          .widgetList<EnhancedImage>(find.byType(EnhancedImage))
+          .every((image) => image.enhanced == null),
+      isTrue,
+    );
+    client.complete();
+    await settleReader(tester);
+    expect(
+      tester
+          .widgetList<EnhancedImage>(find.byType(EnhancedImage))
+          .any((image) => image.enhanced != null),
+      isTrue,
+    );
+    expect(list.controller!.offset, offset);
+    expect(find.text('第 3 / 10 页'), findsOneWidget);
+    await tester.tap(find.byTooltip('超分 2× 已就绪，点击显示原图'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关闭超分 2×'));
+    await tester.pump();
+    expect(
+      tester
+          .widgetList<EnhancedImage>(find.byType(EnhancedImage))
+          .every((image) => image.enhanced == null),
+      isTrue,
+    );
+    expect(list.controller!.offset, offset);
+  });
+
+  testWidgets('增强图下载失败仍显示原图，超分错误可重试', (tester) async {
+    final client = _UpscaleProgressClient();
+    await pumpReader(tester, initialPage: 2, srClient: client);
+    _failedImageUrls.add('http://example.com/enhanced-2.png');
+    await tester.tap(find.byTooltip('开启超分 2×'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('开启超分 2×'));
+    await tester.pump();
+    client.complete();
+    await settleReader(tester);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
+    expect(
+      container
+          .read(superResolutionProvider)
+          .results['http://example.com/2.jpg']!
+          .status,
+      'failed',
+    );
+    expect(find.text('点击重试'), findsNothing);
+    expect(find.text('第 3 / 10 页'), findsOneWidget);
+    expect(_imageRequests['http://example.com/2.jpg'], 1);
+  });
 
   testWidgets('移动端初始定位到指定页且滚动偏移与页码一致', (tester) async {
     await pumpReader(tester, initialPage: 5);
@@ -633,4 +708,29 @@ class _FakeHttpClientResponse implements HttpClientResponse {
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;
+}
+
+class _UpscaleProgressClient extends _ProgressClient {
+  final response = Completer<List<SuperResolutionJob>>();
+  List<ImageItem> requested = [];
+  @override
+  Future<List<SuperResolutionJob>> requestSuperResolution(
+    List<ImageItem> images,
+  ) {
+    requested = images;
+    return response.future;
+  }
+
+  void complete() => response.complete(
+    requested
+        .map(
+          (image) => SuperResolutionJob(
+            key: '${'a' * 63}${image.id}',
+            imageId: image.id,
+            status: 'ready',
+            url: 'http://example.com/enhanced-${image.id}.png',
+          ),
+        )
+        .toList(),
+  );
 }

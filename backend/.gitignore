@@ -2,3 +2,5 @@ node_modules/
 dist/
 *.log
 data/
+
+tools/waifu2x/models-upconv_7_*/
