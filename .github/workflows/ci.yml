@@ -21,8 +21,9 @@ jobs:
         shell: pwsh
         working-directory: .
         env:
+          CI_EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA
+        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA -PullRequest:($env:CI_EVENT -eq 'pull_request')
 
       - name: Setup Flutter
         if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
@@ -31,6 +32,7 @@ jobs:
           channel: stable
           flutter-version: 3.38.9
           cache: true
+          pub-cache: false
 
       - name: Flutter pub get
         if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
@@ -61,8 +63,9 @@ jobs:
         shell: pwsh
         working-directory: .
         env:
+          CI_EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA
+        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA -PullRequest:($env:CI_EVENT -eq 'pull_request')
 
       - name: Setup pnpm
         if: steps.scope.outputs.backend == 'true'
