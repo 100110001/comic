@@ -17,7 +17,7 @@ imagesRouter.post("/resolve", async (req, res) => {
     typeof upscale !== "boolean" ||
     !Array.isArray(images) ||
     images.length < 1 ||
-    images.length > 3 ||
+    images.length > 5 ||
     images.some(
       (item) =>
         !item ||
@@ -28,7 +28,7 @@ imagesRouter.post("/resolve", async (req, res) => {
     ) ||
     new Set(images.map((item) => item.id)).size !== images.length
   ) {
-    return fail(res, "请提交超分开关及最多三张图片和原图版本");
+    return fail(res, "请提交超分开关及最多五张图片和原图版本");
   }
   res.setHeader("Cache-Control", "no-store");
   try {

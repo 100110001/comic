@@ -133,7 +133,12 @@ export class SuperResolutionService {
         this.modelIdentity = hash.digest("hex");
         await this.locked(async () => {
           for (const name of await fs.readdir(this.cache)) {
-            if (/^[a-f0-9]{64}-[a-f0-9-]+\.tmp\.webp$/.test(name)) {
+            if (/^batch-[a-f0-9-]+\.tmp$/.test(name)) {
+              await fs.rm(path.join(this.cache, name), {
+                recursive: true,
+                force: true,
+              });
+            } else if (/^[a-f0-9]{64}-[a-f0-9-]+\.tmp\.webp$/.test(name)) {
               await fs.rm(path.join(this.cache, name), { force: true });
             }
           }
@@ -381,12 +386,17 @@ export class SuperResolutionService {
     });
   }
 
-  private async runEngine(task: Task, output: string): Promise<void> {
+  private async runEngine(
+    input: string,
+    output: string,
+    count: number,
+    background: boolean,
+  ): Promise<void> {
     const child = spawn(
       this.options.executable,
       [
         "-i",
-        task.source,
+        input,
         "-o",
         output,
         "-s",
@@ -399,6 +409,8 @@ export class SuperResolutionService {
         "256",
         "-f",
         "webp",
+        "-j",
+        background ? "1:1:1" : "1:2:2",
       ],
       { shell: false, windowsHide: true, stdio: "ignore" },
     );
@@ -408,7 +420,7 @@ export class SuperResolutionService {
       const timer = setTimeout(() => {
         timedOut = true;
         child.kill();
-      }, this.options.timeoutMs);
+      }, this.options.timeoutMs * count);
       child.once("error", (error) => {
         clearTimeout(timer);
         reject(error);
@@ -429,56 +441,110 @@ export class SuperResolutionService {
     }
   }
 
+  private failTask(task: Task, error: unknown): void {
+    if (task.epoch !== this.epoch) return;
+    task.status = "failed";
+    task.error =
+      error instanceof SuperResolutionError
+        ? error.message
+        : "超分处理失败，请检查后端配置";
+    console.error("[超分] 任务失败", task.key, error);
+    this.updateRequests(task);
+  }
+
+  private async publish(task: Task, temporary: string): Promise<void> {
+    const dimensions = imageSize(temporary);
+    if (
+      dimensions.width !== task.width * 2 ||
+      dimensions.height !== task.height * 2
+    )
+      throw new SuperResolutionError("超分输出尺寸异常");
+    const stat = await fs.stat(task.source);
+    if (fileStamp(stat) !== task.stamp)
+      throw new SuperResolutionError("原图已变化，请重新加载章节");
+    await this.locked(async () => {
+      if (task.epoch !== this.epoch) return;
+      if ((await fs.stat(temporary)).size > this.options.maxBytes)
+        throw new SuperResolutionError("此图片超出超分缓存容量限制");
+      await fs.rename(temporary, path.join(this.cache, `${task.key}.webp`));
+      await this.prune(task.key);
+      task.status = "ready";
+    });
+    this.updateRequests(task);
+  }
+
   private async drain(): Promise<void> {
     if (this.draining || this.clearing) return;
     this.draining = true;
     try {
       while (this.queue.length && !this.clearing) {
         this.queue.sort((a, b) => a.priority - b.priority || b.order - a.order);
-        const task = this.queue.shift()!;
-        if (task.epoch !== this.epoch) continue;
-        task.status = "running";
-        this.updateRequests(task);
-        const temporary = path.join(
-          this.cache,
-          `${task.key}-${randomUUID()}.tmp.webp`,
-        );
+        const first = this.queue.shift()!;
+        if (first.epoch !== this.epoch) continue;
+        const tasks = [first];
+        const next = this.queue[0];
+        // 当前页独立优先；后台小批复用模型，限制流水线内存和新当前页等待。
+        if (
+          first.priority > 0 &&
+          next &&
+          next.epoch === first.epoch &&
+          first.width * first.height + next.width * next.height <= 20_000_000
+        )
+          tasks.push(this.queue.shift()!);
+        const directory = path.join(this.cache, `batch-${randomUUID()}.tmp`);
+        const input = path.join(directory, "input");
+        const output = path.join(directory, "output");
+        const prepared: { task: Task; name: string }[] = [];
         try {
-          await this.runEngine(task, temporary);
-          const dimensions = imageSize(temporary);
-          if (
-            dimensions.width !== task.width * 2 ||
-            dimensions.height !== task.height * 2
-          ) {
-            throw new SuperResolutionError("超分输出尺寸异常");
-          }
-          const stat = await fs.stat(task.source);
-          if (fileStamp(stat) !== task.stamp)
-            throw new SuperResolutionError("原图已变化，请重新加载章节");
-          await this.locked(async () => {
-            if (task.epoch !== this.epoch) return;
-            if ((await fs.stat(temporary)).size > this.options.maxBytes) {
-              throw new SuperResolutionError("此图片超出超分缓存容量限制");
+          await fs.mkdir(input, { recursive: true });
+          await fs.mkdir(output);
+          for (const [index, task] of tasks.entries()) {
+            if (task.epoch !== this.epoch) continue;
+            task.status = "running";
+            this.updateRequests(task);
+            const name = `${index}-${task.key}`;
+            try {
+              await fs.copyFile(
+                task.source,
+                path.join(input, `${name}${path.extname(task.source)}`),
+              );
+              prepared.push({ task, name });
+            } catch (error) {
+              this.failTask(task, error);
             }
-            await fs.rename(
-              temporary,
-              path.join(this.cache, `${task.key}.webp`),
-            );
-            await this.prune(task.key);
-            task.status = "ready";
-          });
-        } catch (error) {
-          if (task.epoch === this.epoch) {
-            task.status = "failed";
-            task.error =
-              error instanceof SuperResolutionError
-                ? error.message
-                : "超分处理失败，请检查后端配置";
-            console.error("[超分] 任务失败", task.key, error);
           }
+          if (this.clearing || first.epoch !== this.epoch || !prepared.length)
+            continue;
+          let engineError: unknown;
+          try {
+            await this.runEngine(
+              input,
+              output,
+              prepared.length,
+              first.priority > 0,
+            );
+          } catch (error) {
+            engineError = error;
+          }
+          // 退出后才发布完整文件；单图损坏不阻止同批有效结果。
+          for (const { task, name } of prepared) {
+            if (task.epoch !== this.epoch) continue;
+            const temporary = path.join(output, `${name}.webp`);
+            try {
+              await fs.access(temporary).catch((error: unknown) => {
+                throw engineError ?? error;
+              });
+              await this.publish(task, temporary);
+            } catch (error) {
+              this.failTask(task, error);
+            }
+          }
+        } catch (error) {
+          for (const task of tasks) this.failTask(task, error);
         } finally {
-          this.updateRequests(task);
-          await fs.rm(temporary, { force: true }).catch(() => {});
+          await fs
+            .rm(directory, { recursive: true, force: true })
+            .catch(() => {});
         }
       }
     } finally {
@@ -550,7 +616,12 @@ export class SuperResolutionService {
       await done?.catch(() => {});
       await this.locked(async () => {
         for (const name of await fs.readdir(this.cache)) {
-          if (/^[a-f0-9]{64}(?:-[a-f0-9-]+\.tmp)?\.webp$/.test(name)) {
+          if (/^batch-[a-f0-9-]+\.tmp$/.test(name)) {
+            await fs.rm(path.join(this.cache, name), {
+              recursive: true,
+              force: true,
+            });
+          } else if (/^[a-f0-9]{64}(?:-[a-f0-9-]+\.tmp)?\.webp$/.test(name)) {
             await fs.rm(path.join(this.cache, name), { force: true });
           }
         }

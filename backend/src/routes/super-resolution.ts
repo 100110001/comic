@@ -13,7 +13,7 @@ superResolutionRouter.post("/jobs", async (req, res) => {
   if (
     !Array.isArray(images) ||
     images.length < 1 ||
-    images.length > 3 ||
+    images.length > 5 ||
     images.some(
       (item) =>
         !item ||
@@ -23,7 +23,7 @@ superResolutionRouter.post("/jobs", async (req, res) => {
         !/^\d+-\d+$/.test(item.version),
     )
   ) {
-    return fail(res, "请提交最多三张图片及原图版本");
+    return fail(res, "请提交最多五张图片及原图版本");
   }
   try {
     const rows = await db("images")
@@ -67,7 +67,7 @@ superResolutionRouter.get("/jobs", (req, res) => {
     typeof req.query.keys === "string" ? req.query.keys.split(",") : [];
   if (
     keys.length < 1 ||
-    keys.length > 3 ||
+    keys.length > 5 ||
     keys.some((key) => !/^[a-f0-9]{64}$/.test(key))
   ) {
     return fail(res, "无效任务标识");

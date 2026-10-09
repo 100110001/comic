@@ -209,7 +209,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                   ),
                   subtitle: Text(
-                    '阅读时先显示原图，后台增强当前页并提前处理后两页。可在阅读器临时关闭。',
+                    '阅读时先显示原图，后台增强当前页并提前处理后四页。可在阅读器临时关闭。',
                     style: TextStyle(color: c.text2, fontSize: 13),
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16),

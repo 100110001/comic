@@ -89,7 +89,7 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
         .toList();
     if (pending.isEmpty) return;
     final client = _client;
-    // 提交完整窗口，让后端保持当前页、后两页的优先级；已有任务和缓存由后端复用。
+    // 提交完整窗口，让后端保持当前页、后四页的优先级；已有任务和缓存由后端复用。
     unawaited(_submit(client, images, generation));
   }
 
@@ -172,7 +172,7 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
     _timer = Timer(const Duration(seconds: 1), () async {
       if (!_current(generation)) return;
       try {
-        if (DateTime.now().difference(start) > const Duration(minutes: 2)) {
+        if (DateTime.now().difference(start) > const Duration(minutes: 5)) {
           throw const UserVisibleException(UserErrorKind.timeout, '超分等待超时，请重试');
         }
         final keys = pending

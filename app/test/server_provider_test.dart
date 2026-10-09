@@ -40,7 +40,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(superResolutionProvider, (_, _) {});
     final images = List.generate(
-      4,
+      6,
       (index) => ImageItem(
         id: index + 1,
         filename: '${index + 1}.jpg',
@@ -49,22 +49,22 @@ void main() {
       ),
     );
     final reader = container.read(superResolutionProvider.notifier);
-    reader.setWindow(images.take(3).toList());
+    reader.setWindow(images.take(5).toList());
     await container.pump();
     expect(client.windows, [
-      [1, 2, 3],
+      [1, 2, 3, 4, 5],
     ]);
-    reader.setWindow(images.skip(1).take(3).toList());
+    reader.setWindow(images.skip(1).take(5).toList());
     await container.pump();
-    expect(client.windows.last, [2, 3, 4]);
+    expect(client.windows.last, [2, 3, 4, 5, 6]);
     expect(
       container.read(superResolutionProvider).results[images.last.url]?.status,
       'ready',
     );
     reader.setEnabled(false);
-    reader.setWindow(images.skip(1).take(3).toList());
+    reader.setWindow(images.skip(1).take(5).toList());
     await container.pump();
-    expect(client.windows.last, [2, 3, 4]);
+    expect(client.windows.last, [2, 3, 4, 5, 6]);
     expect(client.choices, [true, true, false]);
     expect(container.read(superResolutionDefaultProvider), isTrue);
   });

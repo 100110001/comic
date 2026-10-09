@@ -116,7 +116,7 @@ void main() {
     await settleReader(tester);
   }
 
-  testWidgets('设置默认开启后自动预处理三页，临时关闭不修改默认', (tester) async {
+  testWidgets('设置默认开启后自动预处理五页，临时关闭不修改默认', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
       tester,
@@ -124,7 +124,7 @@ void main() {
       srClient: client,
       defaultUpscale: true,
     );
-    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(client.requested.map((image) => image.id), [2, 3, 4, 5, 6]);
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     await tester.tap(find.byTooltip('超分 2× 处理中，打开菜单可关闭'));
@@ -159,7 +159,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('开启超分 2×'));
     await tester.pump();
-    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(client.requested.map((image) => image.id), [2, 3, 4, 5, 6]);
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     expect(
