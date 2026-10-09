@@ -21,7 +21,7 @@ export function comicQuery() {
     .groupBy("comics.id");
 }
 
-export const comicsRouter = Router();
+export const comicsRouter: Router = Router();
 
 // 列表（分页 + 搜索）
 comicsRouter.get("/", async (req: Request, res: Response) => {

@@ -3,7 +3,7 @@ import type { Request, Response } from "express";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
 
-export const favoriteAuthorsRouter = Router();
+export const favoriteAuthorsRouter: Router = Router();
 
 // 收藏作者列表（含作品数）
 favoriteAuthorsRouter.get("/", async (_req: Request, res: Response) => {

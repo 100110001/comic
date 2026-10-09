@@ -7,7 +7,7 @@ import { ok, fail } from "../utils/response";
 import { config } from "../config";
 import { cacheGet, cacheSet } from "../db/redis";
 
-export const chaptersRouter = Router();
+export const chaptersRouter: Router = Router();
 
 const COMIC_ROOT = config.comicRoot;
 
@@ -69,7 +69,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
     const chapter = await db("chapters").where({ id }).first();
     if (!chapter) return fail(res, "Chapter not found", 1, 404);
 
-    const images = await db<ChapterImage>("images")
+    const images = await db<ChapterImage & { chapter_id: number }>("images")
       .where({ chapter_id: id })
       .select("id", "filename", "path", "page_number", "width", "height")
       .orderBy("page_number");

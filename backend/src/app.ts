@@ -5,7 +5,7 @@ import morgan from "morgan";
 import { router } from "./routes/index";
 import { config } from "./config";
 
-const app = express();
+const app: express.Express = express();
 
 app.use(cors());
 morgan.token("decoded-url", (req) => {
