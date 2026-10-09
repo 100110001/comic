@@ -62,7 +62,10 @@
       }
       main {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
+        grid-template-columns: minmax(0, 1fr) 8px minmax(
+            280px,
+            var(--preview-width, 360px)
+          );
         flex: 1;
         min-height: 0;
       }
@@ -70,7 +73,7 @@
         min-width: 0;
         min-height: 0;
         background: var(--panel);
-        border-right: 1px solid var(--line);
+        border-right: 0;
         display: flex;
         flex-direction: column;
       }
@@ -82,7 +85,7 @@
         flex-wrap: wrap;
       }
       .filters input[type="search"] {
-        flex: 1;
+        flex: 0 1 360px;
         min-width: 180px;
       }
       .filters label {
@@ -98,8 +101,8 @@
         min-height: 0;
       }
       .request-table {
-        width: 100%;
-        min-width: 660px;
+        width: auto;
+        min-width: 0;
         border-collapse: collapse;
         font-size: 12px;
         text-align: left;
@@ -120,7 +123,7 @@
       }
       .request-table th,
       .request-table td {
-        padding: 8px 12px;
+        padding: 5px 10px;
         border-bottom: 1px solid var(--line);
       }
       .request {
@@ -136,7 +139,8 @@
         box-shadow: inset 3px 0 var(--accent);
       }
       .request small {
-        display: block;
+        display: inline-block;
+        margin-left: 8px;
         color: var(--muted);
         font-size: 11px;
       }
@@ -147,17 +151,18 @@
         padding: 0;
         text-align: left;
         color: var(--text);
-        max-width: 240px;
+        max-width: 200px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        display: block;
+        display: inline-block;
+        vertical-align: middle;
       }
       .request-select[aria-pressed="true"] {
         background: transparent;
         color: #d4e0ff;
       }
-      .request-table td:not(:nth-child(2)) {
+      .request-table td {
         white-space: nowrap;
       }
       .tag {
@@ -175,6 +180,37 @@
       .tag.failed {
         background: #452730;
         color: var(--red);
+      }
+      .layout-divider {
+        cursor: col-resize;
+        touch-action: none;
+        background: var(--bg);
+        border-left: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+        position: relative;
+      }
+      .layout-divider::after {
+        content: "";
+        position: absolute;
+        width: 2px;
+        height: 32px;
+        background: var(--muted);
+        top: 50%;
+        left: 2px;
+        border-radius: 2px;
+      }
+      .layout-divider:hover,
+      .layout-divider:focus-visible,
+      main.resizing .layout-divider {
+        background: #2a3d61;
+        outline: 0;
+      }
+      .layout-divider:focus-visible::after {
+        background: var(--accent);
+      }
+      main.resizing {
+        user-select: none;
+        cursor: col-resize;
       }
       .workspace {
         min-width: 0;
@@ -330,20 +366,26 @@
       }
       @media (max-width: 1100px) and (min-width: 801px) {
         main {
-          grid-template-columns: minmax(0, 1fr) 320px;
+          grid-template-columns: minmax(0, 1fr) 8px minmax(
+              280px,
+              var(--preview-width, 320px)
+            );
         }
         .filters {
           padding: 14px;
         }
         .request-table th,
         .request-table td {
-          padding: 10px;
+          padding: 5px 10px;
         }
         .request-table {
-          min-width: 600px;
+          min-width: 0;
         }
       }
       @media (max-width: 800px) {
+        .layout-divider {
+          display: none;
+        }
         body {
           height: auto;
           min-height: 100dvh;
@@ -461,6 +503,18 @@
           </table>
         </div>
       </aside>
+      <div
+        id="layout-divider"
+        class="layout-divider"
+        role="separator"
+        tabindex="0"
+        aria-label="调整请求列表与图片预览宽度"
+        aria-orientation="vertical"
+        aria-valuemin="320"
+        aria-valuenow="320"
+        aria-valuemax="320"
+        title="拖动调整宽度；方向键微调"
+      ></div>
       <section class="workspace" aria-label="图片预览">
         <div class="preview-heading">
           <h2>图片对比</h2>
@@ -755,7 +809,68 @@
         dragging = false;
       };
       $("zoom").onchange = size;
-      window.addEventListener("resize", size);
+      const layout = document.querySelector("main");
+      const splitter = $("layout-divider");
+      const workspace = document.querySelector(".workspace");
+      const desktop = window.matchMedia("(min-width: 801px)");
+      let resizing = null;
+      function resizePreview(width) {
+        if (!desktop.matches) return;
+        const maximum = Math.max(280, layout.clientWidth - 328);
+        const preview = Math.max(280, Math.min(maximum, width));
+        layout.style.setProperty("--preview-width", preview + "px");
+        const listWidth = Math.round(layout.clientWidth - 8 - preview);
+        splitter.setAttribute("aria-valuemin", "320");
+        splitter.setAttribute(
+          "aria-valuemax",
+          String(Math.round(layout.clientWidth - 288)),
+        );
+        splitter.setAttribute("aria-valuenow", String(listWidth));
+        splitter.setAttribute(
+          "aria-valuetext",
+          `请求列表 ${listWidth} 像素，图片预览 ${Math.round(preview)} 像素`,
+        );
+      }
+      splitter.onpointerdown = (event) => {
+        if (event.button !== 0 || !desktop.matches) return;
+        resizing = {
+          x: event.clientX,
+          width: workspace.getBoundingClientRect().width,
+        };
+        splitter.setPointerCapture(event.pointerId);
+        layout.classList.add("resizing");
+        splitter.focus({ preventScroll: true });
+      };
+      splitter.onpointermove = (event) => {
+        if (resizing)
+          resizePreview(resizing.width + resizing.x - event.clientX);
+      };
+      const stopResizing = () => {
+        resizing = null;
+        layout.classList.remove("resizing");
+      };
+      splitter.onpointerup = stopResizing;
+      splitter.onpointercancel = stopResizing;
+      splitter.onlostpointercapture = stopResizing;
+      splitter.onkeydown = (event) => {
+        const width = workspace.getBoundingClientRect().width;
+        const widths = {
+          ArrowLeft: width + 24,
+          ArrowRight: width - 24,
+          Home: layout.clientWidth - 328,
+          End: 280,
+        };
+        if (event.key in widths) {
+          event.preventDefault();
+          resizePreview(widths[event.key]);
+        }
+      };
+      window.addEventListener("resize", () => {
+        stopResizing();
+        resizePreview(workspace.getBoundingClientRect().width);
+        size();
+      });
+      resizePreview(workspace.getBoundingClientRect().width);
       new ResizeObserver(size).observe($("canvas"));
       $("search").oninput = list;
       $("filter").onchange = list;
