@@ -209,13 +209,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _recordPosition();
   }
 
-  /// 桌面形态的键盘翻页绑定；边界行为复用现有翻页语义。
+  /// 桌面形态的键盘翻页与换章绑定；边界行为复用对应操作。
   Map<ShortcutActivator, VoidCallback> _desktopShortcutBindings() {
     return {
       const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
       const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
-      const SingleActivator(LogicalKeyboardKey.pageUp): _prevPage,
-      const SingleActivator(LogicalKeyboardKey.pageDown): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.pageUp): _prevChapter,
+      const SingleActivator(LogicalKeyboardKey.pageDown): _nextChapter,
       const SingleActivator(LogicalKeyboardKey.space): _nextPage,
       const SingleActivator(LogicalKeyboardKey.home): () => _goToPage(0),
       const SingleActivator(LogicalKeyboardKey.end): () =>

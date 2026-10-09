@@ -51,6 +51,8 @@ void main() {
     WidgetTester tester, {
     int? initialPage,
     double width = 400,
+    List<Chapter>? chapters,
+    Future<Comic?> Function()? onNextComic,
   }) async {
     final client = _ProgressClient();
     addTearDown(client.close);
@@ -65,9 +67,9 @@ void main() {
         height: 1200,
       ),
     );
-    const detail = ComicDetail(
+    final detail = ComicDetail(
       comic: Comic(id: 1, title: '测试漫画'),
-      chapters: [Chapter(id: 1, title: '第1话', sortOrder: 0)],
+      chapters: chapters ?? [const Chapter(id: 1, title: '第1话', sortOrder: 0)],
       favorited: false,
       authorFavorited: false,
       progress: null,
@@ -96,6 +98,7 @@ void main() {
             chapterId: 1,
             title: '测试漫画',
             initialPage: initialPage,
+            onNextComic: onNextComic,
           ),
         ),
       ),
@@ -231,6 +234,86 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+  testWidgets(
+    '桌面 Page Up 和 Page Down 换章并遵循章节边界',
+    (tester) async {
+      var nextComicCalls = 0;
+      await pumpReader(
+        tester,
+        width: 1200,
+        initialPage: 4,
+        chapters: [
+          for (var i = 1; i <= 3; i++)
+            Chapter(id: i, title: '第$i话', sortOrder: i - 1),
+        ],
+        onNextComic: () async {
+          nextComicCalls++;
+          return null;
+        },
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderScreen)),
+      );
+      Future<void> press(LogicalKeyboardKey key) async {
+        await tester.sendKeyEvent(key);
+        await settleReader(tester);
+      }
+
+      await press(LogicalKeyboardKey.pageUp);
+      expect(find.text('第1话'), findsOneWidget);
+      expect(find.text('第 5 / 10 页'), findsOneWidget);
+      await press(LogicalKeyboardKey.pageDown);
+      expect(find.text('第2话'), findsOneWidget);
+      expect(find.text('第 1 / 10 页'), findsOneWidget);
+      final entry = container
+          .read(readingProgressQueueProvider)
+          .requireValue
+          .single
+          .entry;
+      expect(entry.chapterId, 2);
+      expect(entry.pageNumber, 0);
+
+      await press(LogicalKeyboardKey.arrowRight);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+      await tester.tap(find.byType(Slider));
+      await settleReader(tester);
+      await press(LogicalKeyboardKey.pageUp);
+      expect(find.text('第1话'), findsOneWidget);
+      expect(find.text('第 1 / 10 页'), findsOneWidget);
+      await press(LogicalKeyboardKey.pageDown);
+      await press(LogicalKeyboardKey.pageDown);
+      expect(find.text('第3话'), findsOneWidget);
+      await press(LogicalKeyboardKey.end);
+      expect(find.text('第 10 / 10 页'), findsOneWidget);
+      await press(LogicalKeyboardKey.pageDown);
+      expect(find.text('第3话'), findsOneWidget);
+      expect(find.text('第 10 / 10 页'), findsOneWidget);
+      expect(nextComicCalls, 0);
+      await press(LogicalKeyboardKey.home);
+      await press(LogicalKeyboardKey.space);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+      await press(LogicalKeyboardKey.arrowLeft);
+      expect(find.text('第 1 / 10 页'), findsOneWidget);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    '单章节 Page Up 和 Page Down 不改变页码',
+    (tester) async {
+      await pumpReader(tester, width: 1200, initialPage: 4);
+      for (final key in [
+        LogicalKeyboardKey.pageUp,
+        LogicalKeyboardKey.pageDown,
+      ]) {
+        await tester.sendKeyEvent(key);
+        await settleReader(tester);
+        expect(find.text('第 5 / 10 页'), findsOneWidget);
+      }
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
   testWidgets(
     '桌面显示命中相邻预加载尺寸缓存，同档窗口调整复用',
     (tester) async {
