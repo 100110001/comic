@@ -64,7 +64,7 @@
         display: grid;
         grid-template-columns: minmax(0, 1fr) 8px minmax(
             280px,
-            var(--preview-width, 360px)
+            var(--preview-width, 40%)
           );
         flex: 1;
         min-height: 0;
@@ -101,11 +101,35 @@
         min-height: 0;
       }
       .request-table {
-        width: auto;
-        min-width: 0;
+        width: 100%;
+        min-width: 560px;
+        table-layout: fixed;
         border-collapse: collapse;
         font-size: 12px;
         text-align: left;
+      }
+      .col-sequence {
+        width: 56px;
+      }
+      .col-status {
+        width: 72px;
+      }
+      .col-kind {
+        width: 88px;
+      }
+      .col-elapsed {
+        width: 84px;
+      }
+      .col-time {
+        width: 100px;
+      }
+      .file-info {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+      }
+      .file-info small {
+        flex: none;
       }
       .request-table caption {
         text-align: left;
@@ -151,7 +175,9 @@
         padding: 0;
         text-align: left;
         color: var(--text);
-        max-width: 200px;
+        min-width: 0;
+        max-width: 100%;
+        flex: 0 1 auto;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -368,7 +394,7 @@
         main {
           grid-template-columns: minmax(0, 1fr) 8px minmax(
               280px,
-              var(--preview-width, 320px)
+              var(--preview-width, 40%)
             );
         }
         .filters {
@@ -377,9 +403,6 @@
         .request-table th,
         .request-table td {
           padding: 5px 10px;
-        }
-        .request-table {
-          min-width: 0;
         }
       }
       @media (max-width: 800px) {
@@ -489,6 +512,14 @@
             <caption>
               最近请求 · 点击文件名查看对比
             </caption>
+            <colgroup>
+              <col class="col-sequence" />
+              <col />
+              <col class="col-status" />
+              <col class="col-kind" />
+              <col class="col-elapsed" />
+              <col class="col-time" />
+            </colgroup>
             <thead>
               <tr>
                 <th scope="col">序号</th>
@@ -641,7 +672,10 @@
           button.setAttribute("aria-pressed", String(record.id === selected));
           const image = document.createElement("small");
           image.textContent = "图片 " + record.imageId;
-          file.append(button, image);
+          const fileInfo = document.createElement("div");
+          fileInfo.className = "file-info";
+          fileInfo.append(button, image);
+          file.append(fileInfo);
           const status = cell("");
           const tag = document.createElement("span");
           tag.className = "tag " + record.status;
@@ -814,10 +848,12 @@
       const workspace = document.querySelector(".workspace");
       const desktop = window.matchMedia("(min-width: 801px)");
       let resizing = null;
+      let previewRatio = 0.4;
       function resizePreview(width) {
         if (!desktop.matches) return;
         const maximum = Math.max(280, layout.clientWidth - 328);
         const preview = Math.max(280, Math.min(maximum, width));
+        previewRatio = preview / (layout.clientWidth - 8);
         layout.style.setProperty("--preview-width", preview + "px");
         const listWidth = Math.round(layout.clientWidth - 8 - preview);
         splitter.setAttribute("aria-valuemin", "320");
@@ -867,10 +903,10 @@
       };
       window.addEventListener("resize", () => {
         stopResizing();
-        resizePreview(workspace.getBoundingClientRect().width);
+        resizePreview((layout.clientWidth - 8) * previewRatio);
         size();
       });
-      resizePreview(workspace.getBoundingClientRect().width);
+      resizePreview((layout.clientWidth - 8) * previewRatio);
       new ResizeObserver(size).observe($("canvas"));
       $("search").oninput = list;
       $("filter").onchange = list;
