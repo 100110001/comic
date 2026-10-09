@@ -6,7 +6,7 @@ import { favoriteAuthorsRouter } from "./favorite-authors";
 import { mineRouter } from "./mine";
 import { ok } from "../utils/response";
 
-export const router = Router();
+export const router: Router = Router();
 
 router.get("/health", (_req: Request, res: Response) => {
   ok(res, { status: "ok" });

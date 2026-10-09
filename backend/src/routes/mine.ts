@@ -4,7 +4,7 @@ import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
 import { comicQuery } from "./comics";
 
-export const mineRouter = Router();
+export const mineRouter: Router = Router();
 
 // 最近阅读：每本漫画一条最新记录，按更新时间倒序
 mineRouter.get("/recent", async (_req: Request, res: Response) => {
