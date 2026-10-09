@@ -70,7 +70,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
           children: [
             Expanded(
               child: MouseRegion(
-                cursor: SystemMouseCursors.move,
+                cursor: SystemMouseCursors.basic,
                 child: GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onDoubleTap: _toggleMaximize,
