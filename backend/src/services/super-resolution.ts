@@ -200,7 +200,7 @@ export class SuperResolutionService {
         record.epoch,
       );
       if (record.epoch !== this.epoch) return job;
-      Object.assign(record, job, { kind });
+      Object.assign(record, job, { kind, imageId: source.id });
       const task = this.jobs.get(job.key);
       if (task) {
         record.width = task.width;
@@ -208,7 +208,7 @@ export class SuperResolutionService {
       }
       if (job.status === "ready" || job.status === "failed")
         record.elapsedMs = Date.now() - time;
-      return job;
+      return { ...job, imageId: source.id };
     } catch (error) {
       if (record.epoch !== this.epoch) throw error;
       record.status = "failed";
@@ -229,7 +229,7 @@ export class SuperResolutionService {
         (record.status !== "queued" && record.status !== "running")
       )
         continue;
-      Object.assign(record, this.result(task));
+      Object.assign(record, this.result(task), { imageId: record.imageId });
       if (task.status === "ready" || task.status === "failed")
         record.elapsedMs = Date.now() - record.time;
     }

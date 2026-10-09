@@ -22,9 +22,13 @@ Future<void> main() async {
   final themeMode = await loadThemeMode();
   final closeToTray = await loadCloseToTray();
   final serverUrl = await loadServerUrl();
+  final superResolutionDefault = await loadSuperResolutionDefault();
   runApp(
     ProviderScope(
       overrides: [
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: superResolutionDefault),
+        ),
         themeModeProvider.overrideWith(
           () => ThemeModeNotifier(initial: themeMode),
         ),

@@ -45,6 +45,7 @@ scope: convention
 - mutation 助手参数类型为 `WidgetRef`（Riverpod 3 中 `WidgetRef` 不实现 `Ref`）。
 - 候选服务器的健康检查也通过 provider 暴露，必须严格验证成功 HTTP、标准业务 envelope 与 `data.status == "ok"`，且不得改变当前会话。
 
-- 超分任务通过独立 `superResolutionProvider` 提交与轮询，不混入会话内缓存的章节图片列表。依赖不可变 API 客户端，服务器切换重置开关与结果；原图完整 URL 绑定增强结果，并拒绝跨来源提交。
-- 超分窗口最多当前页及后两页；窗口、章节与开关使用单调代际淘汰旧提交和轮询。轮询每秒一次，无并发轮询，等待最多两分钟；离开或关闭停止后续请求。
+- 超分默认偏好启动时恢复到 `superResolutionDefaultProvider`；`superResolutionProvider` 在会话初始化读取默认值，不监听偏好重建，阅读器临时开关不覆盖持久化设置。
+- 图片窗口经 `ApiClient.resolveImages(images, upscale: bool)` 统一解析，关闭也显式请求原图信息；增强任务通过独立 `superResolutionProvider` 提交与轮询，不混入会话内缓存的章节图片列表。依赖不可变 API 客户端，服务器切换清除结果并重新继承默认偏好；原图完整 URL 绑定增强结果，并拒绝跨来源提交。
+- 超分窗口最多当前页及后两页；窗口、章节与开关使用单调代际淘汰旧提交和轮询。轮询每秒一次，无并发轮询，等待最多两分钟；离开或关闭停止后续增强提交与轮询，关闭时仍可解析原图。
 - 超分失败保持原图并允许手动重试，当前页面失败不无限自动重提；会话内结果数量有界，超分文件的长期缓存由后端管理。

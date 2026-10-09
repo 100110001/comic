@@ -140,11 +140,11 @@ flutter doctor
 
 仓库已包含 Windows 便携引擎 `20250915`、`models-cunet` 模型和许可证，位于 `backend/tools/waifu2x/`，正常拉取项目后即可配置启用，无需额外下载。Flutter 客户端无需安装引擎。需要兼容 Vulkan 的显卡与驱动。`backend/` 下的 `npm run setup:waifu2x` 保留为重新下载与更新入口；脚本校验官方包的 SHA256，更新版本时须同步修改脚本内的版本与校验值，并提交更新后的引擎、模型文件。
 
-在 `backend/.env` 设置 `WAIFU2X_ENABLED=1` 后重启后端。阅读器工具栏的超分入口默认关闭，开启后处理当前页及后两页；原图先显示，就绪后显示增强图。失败仍可阅读原图，可通过“重试超分”重提。关闭入口立即回原图。
+后端默认允许超分，无需设置 `WAIFU2X_ENABLED=1`；如需禁用，在 `backend/.env` 设置 `WAIFU2X_ENABLED=0` 并重启后端。在设置页“阅读”中开启“默认开启 2× 超分”，新进入的漫画阅读器会自动使用超分，并提前处理当前页及后两页，翻页时推进预处理窗口；阅读器工具栏可临时关闭，不修改设置默认值。未保存偏好时默认关闭。原图先显示，就绪后显示增强图。失败仍可阅读原图，可通过“重试超分”重提。关闭入口立即回原图。
 
 | 环境变量 | 默认值 / 用途 |
 | --- | --- |
-| `WAIFU2X_ENABLED` | `0`，设为 `1` 启用 |
+| `WAIFU2X_ENABLED` | `1`，设为 `0` 禁用 |
 | `WAIFU2X_EXECUTABLE` | `tools/waifu2x/waifu2x-ncnn-vulkan.exe`，Linux 使用无后缀文件 |
 | `WAIFU2X_MODEL_DIR` | 引擎目录内 `models-cunet` |
 | `WAIFU2X_CACHE_DIR` | `data/super-resolution`，必须在 `COMIC_ROOT` 外 |

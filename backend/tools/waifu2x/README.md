@@ -9,7 +9,7 @@
 - 总体积约 29 MiB，使用普通 Git 文件保存。
 - 环境要求：Windows、兼容 Vulkan 的显卡与驱动。
 
-在 `backend/.env` 设置 `WAIFU2X_ENABLED=1` 并重启后端即可启用。Linux/macOS 需自行部署对应平台引擎并配置路径。
+后端默认允许超分，无需额外设置启用变量；阅读器内仍需手动开启。需要禁用时在 `backend/.env` 设置 `WAIFU2X_ENABLED=0` 并重启后端。Linux/macOS 需自行部署对应平台引擎并配置路径。
 
 从 `backend/` 执行 `npm run setup:waifu2x` 可重新下载并校验固定版本。升级时同步修改 `scripts/setup-waifu2x.ps1` 中的版本和 SHA256，执行脚本后提交本目录更新，并重启后端。脚本保留本说明，不修改 `.env`。
 

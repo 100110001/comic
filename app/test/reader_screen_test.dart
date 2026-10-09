@@ -1,3 +1,5 @@
+import 'package:comic/models/image_resolution.dart';
+import 'package:comic/providers/settings_provider.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -57,6 +59,7 @@ void main() {
     List<Chapter>? chapters,
     Future<Comic?> Function()? onNextComic,
     ApiClient? srClient,
+    bool defaultUpscale = false,
   }) async {
     final client = srClient ?? _ProgressClient();
     addTearDown(client.close);
@@ -87,6 +90,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          superResolutionDefaultProvider.overrideWith(
+            () => SuperResolutionDefaultNotifier(initial: defaultUpscale),
+          ),
           apiClientProvider.overrideWithValue(client),
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           serverSessionProvider.overrideWith(
@@ -110,6 +116,31 @@ void main() {
     await settleReader(tester);
   }
 
+  testWidgets('设置默认开启后自动预处理三页，临时关闭不修改默认', (tester) async {
+    final client = _UpscaleProgressClient();
+    await pumpReader(
+      tester,
+      initialPage: 2,
+      srClient: client,
+      defaultUpscale: true,
+    );
+    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(find.text('超分已开启 · 处理中'), findsOneWidget);
+    expect(find.text('2× 超分'), findsNothing);
+    await tester.tap(find.byTooltip('超分 2× 处理中，打开菜单可关闭'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关闭超分 2×'));
+    await tester.pump();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
+    expect(container.read(superResolutionDefaultProvider), isTrue);
+    expect(find.text('超分关闭 · 原图'), findsOneWidget);
+    client.complete();
+    await settleReader(tester);
+    expect(find.text('2× 超分'), findsNothing);
+  });
+
   testWidgets('320px 发现阅读器新增超分入口不溢出', (tester) async {
     await pumpReader(tester, width: 320, onNextComic: () async => null);
     expect(tester.takeException(), isNull);
@@ -122,11 +153,15 @@ void main() {
     final list = tester.widget<ListView>(find.byType(ListView));
     final offset = list.controller!.offset;
     expect(client.requested, isEmpty);
+    expect(find.text('超分关闭 · 原图'), findsOneWidget);
+    expect(find.text('2× 超分'), findsNothing);
     await tester.tap(find.byTooltip('开启超分 2×'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('开启超分 2×'));
     await tester.pump();
     expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(find.text('超分已开启 · 处理中'), findsOneWidget);
+    expect(find.text('2× 超分'), findsNothing);
     expect(
       tester
           .widgetList<EnhancedImage>(find.byType(EnhancedImage))
@@ -143,7 +178,9 @@ void main() {
     );
     expect(list.controller!.offset, offset);
     expect(find.text('第 3 / 10 页'), findsOneWidget);
-    await tester.tap(find.byTooltip('超分 2× 已就绪，点击显示原图'));
+    expect(find.text('超分 2× 已就绪'), findsOneWidget);
+    expect(find.text('2× 超分'), findsWidgets);
+    await tester.tap(find.byTooltip('超分 2× 已就绪，打开菜单可关闭'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('关闭超分 2×'));
     await tester.pump();
@@ -178,6 +215,7 @@ void main() {
     );
     expect(find.text('点击重试'), findsNothing);
     expect(find.text('第 3 / 10 页'), findsOneWidget);
+    expect(find.text('超分失败 · 已回退原图'), findsOneWidget);
     expect(_imageRequests['http://example.com/2.jpg'], 1);
   });
 
@@ -514,6 +552,16 @@ void main() {
 }
 
 class _ProgressClient extends ApiClient {
+  @override
+  Future<List<ImageResolution>> resolveImages(
+    List<ImageItem> images, {
+    required bool upscale,
+  }) async => images
+      .map(
+        (image) => ImageResolution(imageId: image.id, originalUrl: image.url),
+      )
+      .toList();
+
   _ProgressClient() : super(baseUrl: 'http://example.com', generation: 0);
 
   final positions = <({int comicId, int chapterId, int pageNumber})>[];
@@ -714,11 +762,34 @@ class _UpscaleProgressClient extends _ProgressClient {
   final response = Completer<List<SuperResolutionJob>>();
   List<ImageItem> requested = [];
   @override
-  Future<List<SuperResolutionJob>> requestSuperResolution(
-    List<ImageItem> images,
-  ) {
+  Future<List<ImageResolution>> resolveImages(
+    List<ImageItem> images, {
+    required bool upscale,
+  }) {
+    if (!upscale) {
+      return Future.value(
+        images
+            .map(
+              (image) =>
+                  ImageResolution(imageId: image.id, originalUrl: image.url),
+            )
+            .toList(),
+      );
+    }
     requested = images;
-    return response.future;
+    return response.future.then(
+      (jobs) => images
+          .map(
+            (image) => ImageResolution(
+              imageId: image.id,
+              originalUrl: image.url,
+              superResolution: jobs.singleWhere(
+                (job) => job.imageId == image.id,
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 
   void complete() => response.complete(

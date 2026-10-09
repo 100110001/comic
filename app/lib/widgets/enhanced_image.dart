@@ -28,7 +28,35 @@ class EnhancedImage extends StatelessWidget {
               fit: fit,
               frameBuilder: (_, child, frame, synchronous) =>
                   frame != null || synchronous
-                  ? child
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        child,
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
+                              ),
+                              child: Text(
+                                '2× 超分',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
                   : const SizedBox.shrink(),
               errorBuilder: (_, _, _) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {

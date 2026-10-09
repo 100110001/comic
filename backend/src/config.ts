@@ -46,7 +46,7 @@ const waifu2xExecutable = path.resolve(
 
 export const config = {
   superResolution: {
-    enabled: env("WAIFU2X_ENABLED") === "1",
+    enabled: (env("WAIFU2X_ENABLED") ?? "1") === "1",
     executable: waifu2xExecutable,
     modelDir: path.resolve(
       env("WAIFU2X_MODEL_DIR") ??

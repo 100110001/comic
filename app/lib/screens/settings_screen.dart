@@ -28,6 +28,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _lastVerifiedUrl;
   String? _serverSaveMessage;
   bool _serverSaving = false;
+  bool _savingSuperResolution = false;
   int _serverTestSerial = 0;
   _UpdateStatus _status = _UpdateStatus.idle;
   UpdateInfo? _info;
@@ -66,6 +67,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final closeToTray = ref.watch(closeToTrayProvider);
+    final superResolutionDefault = ref.watch(superResolutionDefaultProvider);
     final serverSession = ref.watch(serverSessionProvider);
     final c = context.appColors;
     // 桌面侧栏嵌入时无需标题；手机端推入时保留返回箭头。
@@ -177,6 +179,42 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+              Text(
+                '阅读',
+                style: TextStyle(
+                  color: c.text2,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: c.surface2,
+                  borderRadius: BorderRadius.circular(kRadiusCard),
+                  border: Border.all(color: c.border),
+                ),
+                child: SwitchListTile(
+                  value: superResolutionDefault,
+                  onChanged: _savingSuperResolution
+                      ? null
+                      : _saveSuperResolutionDefault,
+                  title: Text(
+                    '默认开启 2× 超分',
+                    style: TextStyle(
+                      color: c.text1,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '阅读时先显示原图，后台增强当前页并提前处理后两页。可在阅读器临时关闭。',
+                    style: TextStyle(color: c.text2, fontSize: 13),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+              ),
               if (defaultTargetPlatform == TargetPlatform.windows) ...[
                 const SizedBox(height: 24),
                 Text(
@@ -241,6 +279,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _saveSuperResolutionDefault(bool value) async {
+    setState(() => _savingSuperResolution = true);
+    try {
+      await ref.read(superResolutionDefaultProvider.notifier).setEnabled(value);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('超分设置保存失败，请重试')));
+      }
+    } finally {
+      if (mounted) setState(() => _savingSuperResolution = false);
+    }
   }
 
   Widget _buildServerSection(AppColors c, ServerSession session) {

@@ -378,10 +378,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 显示与相邻页预加载使用同一尺寸缓存，布局确定前不预加载原图。
   void _precacheAround(int page) {
-    if (_images.isEmpty || _imageViewport == null) return;
+    if (_images.isEmpty) return;
     ref
         .read(superResolutionProvider.notifier)
         .setWindow(_images.skip(page).take(3).toList());
+    if (_imageViewport == null) return;
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
       unawaited(
@@ -420,7 +421,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _toggleSuperResolution() {
     final enabled = ref.read(superResolutionProvider).enabled;
     ref.read(superResolutionProvider.notifier).setEnabled(!enabled);
-    if (!enabled) _precacheAround(_currentPage);
+    _precacheAround(_currentPage);
     _onActivity();
   }
 
@@ -699,8 +700,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : srJob?.status == 'failed'
         ? (srJob?.error ?? '超分失败，继续使用原图')
         : srJob?.status == 'ready'
-        ? '超分 2× 已就绪，点击显示原图'
-        : '超分 2× 处理中，点击关闭';
+        ? '超分 2× 已就绪，打开菜单可关闭'
+        : '超分 2× 处理中，打开菜单可关闭';
+    final srStatus = !sr.enabled
+        ? '超分关闭 · 原图'
+        : srJob?.status == 'failed'
+        ? '超分失败 · 已回退原图'
+        : srJob?.status == 'ready'
+        ? '超分 2× 已就绪'
+        : srJob?.status == 'queued'
+        ? '超分已开启 · 排队中'
+        : '超分已开启 · 处理中';
     final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
     final Widget scaffold = Scaffold(
@@ -734,11 +744,28 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               child: AppBar(
                 backgroundColor: c.readerBar,
                 iconTheme: IconThemeData(color: c.text1),
-                title: Text(
-                  _currentChapter?.title ?? _title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: c.text1, fontSize: 15),
+                title: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _currentChapter?.title ?? _title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: c.text1, fontSize: 15),
+                    ),
+                    Text(
+                      srStatus,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: sr.enabled
+                            ? Theme.of(context).colorScheme.primary
+                            : c.text1,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
                 bottom: PreferredSize(
                   preferredSize: Size.fromHeight(1),
