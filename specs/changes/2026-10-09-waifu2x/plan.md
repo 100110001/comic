@@ -21,7 +21,7 @@ Flutter 独立 provider 提交/轮询当前窗口；增强层成功解码后覆�
 
 ## 实现单元
 
-### U1. 已完成：后端任务与阅读器完整接入
+### U1. 已完成：后端任务与阅读器完整接入（PR #52）
 
 - 依赖：无；按用户要求整个变更同分支、单 PR。
 - 文件：backend/src/services/super-resolution.ts、backend/src/routes/super-resolution.ts、backend/src/config.ts、backend/src/routes/index.ts、backend/scripts/setup-waifu2x.ps1、backend/package.json、backend/.gitignore；app/lib/models/super_resolution_job.dart、app/lib/services/api_client.dart、app/lib/providers/super_resolution_provider.dart、app/lib/screens/reader_screen.dart、app/test/reader_screen_test.dart；README.md。
@@ -38,4 +38,3 @@ Flutter 独立 provider 提交/轮询当前窗口；增强层成功解码后覆�
 ## 风险与边界
 
 后端任务不持久化；重启保留衍生文件、未完成任务可重提。单进程拥有缓存目录。超大图受像素预算限制。整章预处理、多模型和客户端推理延后。
-

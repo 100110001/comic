@@ -10,10 +10,19 @@ try {
   $url = "https://github.com/nihui/waifu2x-ncnn-vulkan/releases/download/$version/waifu2x-ncnn-vulkan-$version-windows.zip"
   Write-Host '下载官方 waifu2x Windows 便携引擎…'
   Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-  if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expectedHash) {
+  $hasher = [System.Security.Cryptography.SHA256]::Create()
+  $stream = [System.IO.File]::OpenRead($archive)
+  try {
+    $actualHash = [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '')
+  } finally {
+    $stream.Dispose()
+    $hasher.Dispose()
+  }
+  if ($actualHash -ne $expectedHash) {
     throw '引擎包 SHA256 校验失败，停止部署'
   }
-  Expand-Archive -LiteralPath $archive -DestinationPath $temporaryRoot
+  [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null
+  [System.IO.Compression.ZipFile]::ExtractToDirectory($archive, $temporaryRoot)
   $extracted = Join-Path $temporaryRoot "waifu2x-ncnn-vulkan-$version-windows"
   New-Item -ItemType Directory -Path $destination -Force | Out-Null
   Get-ChildItem -LiteralPath $extracted | Copy-Item -Destination $destination -Recurse -Force

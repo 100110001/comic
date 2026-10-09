@@ -10,3 +10,5 @@
 - 部署脚本保留许可证，不修改用户 .env；本机已准备便携引擎用于实际验证。
 
 - 收尾发现 320px 工具栏溢出：超分操作合并为菜单，窄屏同步入口放入同一菜单，章节导航继续常驻；新增窄屏回归通过。Flutter 格式、analyze 与 76 项测试通过；后端格式、lint、build 通过。
+
+- 部署实测发现当前 Windows PowerShell 缺少 Get-FileHash，改用 .NET SHA256 和 ZipFile 实现校验解压，避免依赖额外 PowerShell 模块。
