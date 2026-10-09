@@ -3,17 +3,25 @@ import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
 import {
   superResolution,
+  SUPER_RESOLUTION_WINDOW_SIZE,
   SuperResolutionError,
 } from "../services/super-resolution";
 
+import { superResolutionPolicy } from "../services/super-resolution-policy";
+
 export const superResolutionRouter: Router = Router();
+
+superResolutionRouter.get("/policy", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  ok(res, await superResolutionPolicy.read());
+});
 
 superResolutionRouter.post("/jobs", async (req, res) => {
   const images = req.body?.images;
   if (
     !Array.isArray(images) ||
     images.length < 1 ||
-    images.length > 3 ||
+    images.length > SUPER_RESOLUTION_WINDOW_SIZE ||
     images.some(
       (item) =>
         !item ||
@@ -23,7 +31,7 @@ superResolutionRouter.post("/jobs", async (req, res) => {
         !/^\d+-\d+$/.test(item.version),
     )
   ) {
-    return fail(res, "请提交最多三张图片及原图版本");
+    return fail(res, "请提交最多十一张图片及原图版本");
   }
   try {
     const rows = await db("images")
@@ -67,7 +75,7 @@ superResolutionRouter.get("/jobs", (req, res) => {
     typeof req.query.keys === "string" ? req.query.keys.split(",") : [];
   if (
     keys.length < 1 ||
-    keys.length > 3 ||
+    keys.length > SUPER_RESOLUTION_WINDOW_SIZE ||
     keys.some((key) => !/^[a-f0-9]{64}$/.test(key))
   ) {
     return fail(res, "无效任务标识");

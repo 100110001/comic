@@ -27,6 +27,161 @@ class _DelayedApiClient extends ApiClient {
 }
 
 void main() {
+  test('超分三态保存及旧布尔偏好迁移', () async {
+    SharedPreferences.setMockInitialValues({});
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.adaptive);
+    SharedPreferences.setMockInitialValues({kSuperResolutionDefaultKey: true});
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.on);
+    SharedPreferences.setMockInitialValues({kSuperResolutionDefaultKey: false});
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.off);
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    await container
+        .read(superResolutionDefaultProvider.notifier)
+        .setMode(SuperResolutionMode.adaptive);
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.adaptive);
+    await container
+        .read(superResolutionDefaultProvider.notifier)
+        .setMode(SuperResolutionMode.off);
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.off);
+  });
+
+  test('自适应只增强缺少显示像素的图片，并限制动态窗口', () async {
+    final client = _WindowUpscaleClient()..lookahead = 2;
+    final container = ProviderContainer(
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(
+            initialMode: SuperResolutionMode.adaptive,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(superResolutionProvider, (_, _) {});
+    final images = List.generate(
+      11,
+      (index) => ImageItem(
+        id: index + 1,
+        filename: '$index.jpg',
+        pageNumber: index,
+        url: 'http://example.test/$index.jpg?v=20-30',
+        width: index == 0
+            ? 1600
+            : index == 2
+            ? null
+            : 800,
+        height: 1200,
+      ),
+    );
+    final controller = container.read(superResolutionProvider.notifier);
+    controller.setWindow(
+      images,
+      targetWidths: {for (final image in images) image.url: 1600},
+    );
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.windows.single, [2]);
+    expect(client.submittedPriorities.single, {2: 1});
+    expect(container.read(superResolutionProvider).lookahead, 2);
+    expect(
+      container.read(superResolutionProvider).reasons[images[0].url],
+      '原图分辨率足够，已跳过',
+    );
+    expect(
+      container.read(superResolutionProvider).reasons[images[2].url],
+      '原图尺寸未知，保留原图',
+    );
+    controller.setEnabled(false);
+    controller.setEnabled(true);
+    expect(
+      container.read(superResolutionProvider).mode,
+      SuperResolutionMode.adaptive,
+    );
+    controller.setWindow(
+      images,
+      targetWidths: {for (final image in images) image.url: 600},
+    );
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.choices.last, isFalse);
+    expect(
+      container.read(superResolutionProvider).reasons[images[1].url],
+      '原图分辨率足够，已跳过',
+    );
+  });
+
+  test('关闭后晚到的 GPU 策略不提交增强任务', () async {
+    final client = _DelayedPolicyClient();
+    final container = ProviderContainer(
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(superResolutionProvider, (_, _) {});
+    final controller = container.read(superResolutionProvider.notifier);
+    controller.setWindow([
+      const ImageItem(
+        id: 1,
+        filename: '1.jpg',
+        pageNumber: 0,
+        url: 'http://example.test/1.jpg?v=20-30',
+      ),
+    ]);
+    controller.setEnabled(false);
+    client.policy.complete(10);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.windows, isEmpty);
+    expect(container.read(superResolutionProvider).enabled, isFalse);
+  });
+
+  testWidgets('阅读位置不变时也根据新 GPU 策略推进窗口', (tester) async {
+    final client = _WindowUpscaleClient()..lookahead = 2;
+    final container = ProviderContainer(
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(superResolutionProvider, (_, _) {});
+    final images = List.generate(
+      11,
+      (index) => ImageItem(
+        id: index + 1,
+        filename: '$index.jpg',
+        pageNumber: index,
+        url: 'http://example.test/$index.jpg?v=20-30',
+      ),
+    );
+    container.read(superResolutionProvider.notifier).setWindow(images);
+    await tester.pump();
+    await tester.pump();
+    expect(client.windows.single, [1, 2, 3]);
+    client.lookahead = 6;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(client.windows.last, [1, 2, 3, 4, 5, 6, 7]);
+    expect(container.read(superResolutionProvider).lookahead, 6);
+    client.policyFails = true;
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pump();
+    expect(container.read(superResolutionProvider).lookahead, 4);
+    container.read(superResolutionProvider.notifier).setEnabled(false);
+    await tester.pump();
+  });
+
   test('默认超分窗口随翻页推进，关闭后仍请求原图且不提交增强', () async {
     final client = _WindowUpscaleClient();
     final container = ProviderContainer(
@@ -40,7 +195,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(superResolutionProvider, (_, _) {});
     final images = List.generate(
-      4,
+      100,
       (index) => ImageItem(
         id: index + 1,
         filename: '${index + 1}.jpg',
@@ -49,24 +204,36 @@ void main() {
       ),
     );
     final reader = container.read(superResolutionProvider.notifier);
-    reader.setWindow(images.take(3).toList());
+    reader.setWindow(images.take(superResolutionWindowSize).toList());
     await container.pump();
-    expect(client.windows, [
-      [1, 2, 3],
-    ]);
-    reader.setWindow(images.skip(1).take(3).toList());
+    await Future<void>.delayed(Duration.zero);
     await container.pump();
-    expect(client.windows.last, [2, 3, 4]);
+    expect(client.windows, [List.generate(11, (index) => index + 1)]);
+    reader.setWindow(images.skip(7).take(superResolutionWindowSize).toList());
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.windows.last, List.generate(11, (index) => index + 8));
     expect(
-      container.read(superResolutionProvider).results[images.last.url]?.status,
+      container.read(superResolutionProvider).results[images[17].url]?.status,
       'ready',
     );
-    reader.setEnabled(false);
-    reader.setWindow(images.skip(1).take(3).toList());
+    reader.setWindow(images.skip(94).take(superResolutionWindowSize).toList());
     await container.pump();
-    expect(client.windows.last, [2, 3, 4]);
-    expect(client.choices, [true, true, false]);
-    expect(container.read(superResolutionDefaultProvider), isTrue);
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.windows.last, [95, 96, 97, 98, 99, 100]);
+    reader.setEnabled(false);
+    reader.setWindow(images.skip(7).take(superResolutionWindowSize).toList());
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    expect(client.windows.last, List.generate(11, (index) => index + 8));
+    expect(client.choices, [true, true, true, false]);
+    expect(
+      container.read(superResolutionDefaultProvider),
+      SuperResolutionMode.on,
+    );
   });
 
   test('超分默认值持久化，阅读器临时关闭不修改设置，重进恢复默认', () async {
@@ -89,15 +256,20 @@ void main() {
     reader.setEnabled(false);
     reader.resetChapter();
     expect(container.read(superResolutionProvider).enabled, isFalse);
-    expect(container.read(superResolutionDefaultProvider), isTrue);
+    expect(
+      container.read(superResolutionDefaultProvider),
+      SuperResolutionMode.on,
+    );
     expect(await loadSuperResolutionDefault(), isTrue);
     listener.close();
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
     await container.pump();
     listener = container.listen(superResolutionProvider, (_, _) {});
     expect(container.read(superResolutionProvider).enabled, isTrue);
     listener.close();
     SharedPreferences.setMockInitialValues({kSuperResolutionDefaultKey: 'bad'});
-    expect(await loadSuperResolutionDefault(), isFalse);
+    expect(await loadSuperResolutionMode(), SuperResolutionMode.adaptive);
   });
 
   test('关闭、换章和切服务器后超分晚到结果均不发布', () async {
@@ -105,6 +277,9 @@ void main() {
     final clients = <_DelayedUpscaleClient>[];
     final container = ProviderContainer(
       overrides: [
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: false),
+        ),
         serverSessionProvider.overrideWith(
           () => ServerSessionNotifier(initialUrl: 'http://example.test'),
         ),
@@ -128,6 +303,9 @@ void main() {
     );
     final controller = container.read(superResolutionProvider.notifier);
     controller.setWindow([image]);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     expect(clients.single.responses, isEmpty);
     for (final stop in [
       () => controller.setEnabled(false),
@@ -135,6 +313,9 @@ void main() {
     ]) {
       controller.setEnabled(true);
       controller.setWindow([image]);
+      await container.pump();
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
       stop();
       clients.single.responses.last.complete([
         SuperResolutionJob(
@@ -145,21 +326,35 @@ void main() {
         ),
       ]);
       await container.pump();
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
       expect(container.read(superResolutionProvider).results, isEmpty);
     }
     controller.setEnabled(true);
     controller.setWindow([image]);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     final oldClient = clients.single;
     await container
         .read(serverSessionProvider.notifier)
         .save('http://other.test');
     await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     oldClient.responses.last.completeError(StateError('旧请求失败'));
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
     await container.pump();
     expect(container.read(superResolutionProvider).enabled, isFalse);
     expect(container.read(superResolutionProvider).results, isEmpty);
     controller.setEnabled(true);
     controller.setWindow([image]);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
     await container.pump();
     expect(clients.last.responses, isEmpty);
     expect(
@@ -171,7 +366,12 @@ void main() {
   test('旧增强图解码失败不能覆盖关闭后重新开启的新结果', () async {
     final client = _DelayedUpscaleClient('http://example.test', 0);
     final container = ProviderContainer(
-      overrides: [apiClientProvider.overrideWithValue(client)],
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: true),
+        ),
+      ],
     );
     addTearDown(container.dispose);
     addTearDown(client.close);
@@ -185,6 +385,9 @@ void main() {
     );
     controller.setEnabled(true);
     controller.setWindow([image]);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     client.responses.last.complete([
       SuperResolutionJob(
         key: 'a' * 64,
@@ -194,11 +397,16 @@ void main() {
       ),
     ]);
     await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     final expected = container.read(superResolutionProvider).results[image.url];
     final generation = controller.generation;
     controller.setEnabled(false);
     controller.setEnabled(true);
     controller.setWindow([image]);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     controller.imageFailed(
       image.url,
       generation: generation,
@@ -262,10 +470,14 @@ void main() {
       serverConnectionTestProvider('http://example.test').future,
     );
     await container.pump();
+    await Future<void>.delayed(Duration.zero);
+    await container.pump();
     expect(client.closed, isFalse);
 
     completer.complete();
     await expectLater(result, completes);
+    await container.pump();
+    await Future<void>.delayed(Duration.zero);
     await container.pump();
     expect(client.closed, isTrue);
   });
@@ -274,11 +486,14 @@ void main() {
 class _DelayedUpscaleClient extends ApiClient {
   _DelayedUpscaleClient(String url, int version)
     : super(baseUrl: url, generation: version);
+  @override
+  Future<int> getSuperResolutionLookahead() async => 10;
   final responses = <Completer<List<SuperResolutionJob>>>[];
   @override
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) {
     if (!upscale) {
       return Future.value(
@@ -310,14 +525,25 @@ class _DelayedUpscaleClient extends ApiClient {
 
 class _WindowUpscaleClient extends ApiClient {
   _WindowUpscaleClient() : super(baseUrl: 'http://example.test', generation: 0);
+  var lookahead = 10;
+  var policyFails = false;
+  final submittedPriorities = <Map<int, int>>[];
+  @override
+  Future<int> getSuperResolutionLookahead() async {
+    if (policyFails) throw StateError('策略不可用');
+    return lookahead;
+  }
+
   final windows = <List<int>>[];
   final choices = <bool>[];
   @override
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) async {
     windows.add(images.map((image) => image.id).toList());
+    submittedPriorities.add(priorities ?? {});
     choices.add(upscale);
     return images
         .map(
@@ -336,4 +562,10 @@ class _WindowUpscaleClient extends ApiClient {
         )
         .toList();
   }
+}
+
+class _DelayedPolicyClient extends _WindowUpscaleClient {
+  final policy = Completer<int>();
+  @override
+  Future<int> getSuperResolutionLookahead() => policy.future;
 }

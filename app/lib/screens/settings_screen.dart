@@ -195,24 +195,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   borderRadius: BorderRadius.circular(kRadiusCard),
                   border: Border.all(color: c.border),
                 ),
-                child: SwitchListTile(
-                  value: superResolutionDefault,
-                  onChanged: _savingSuperResolution
-                      ? null
-                      : _saveSuperResolutionDefault,
-                  title: Text(
-                    '默认开启 2× 超分',
-                    style: TextStyle(
-                      color: c.text1,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '超分默认策略',
+                        style: TextStyle(
+                          color: c.text1,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final mode in SuperResolutionMode.values)
+                            ChoiceChip(
+                              label: Text(switch (mode) {
+                                SuperResolutionMode.on => '开启',
+                                SuperResolutionMode.adaptive => '自适应',
+                                SuperResolutionMode.off => '关闭',
+                              }),
+                              selected: superResolutionDefault == mode,
+                              onSelected: _savingSuperResolution
+                                  ? null
+                                  : (_) => _saveSuperResolutionDefault(mode),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '开启：固定 2× 增强；自适应：原图像素不足时增强；关闭：原图。后续预处理根据 GPU 压力调整，最多十页。阅读器可临时开关。',
+                        style: TextStyle(color: c.text2, fontSize: 13),
+                      ),
+                    ],
                   ),
-                  subtitle: Text(
-                    '阅读时先显示原图，后台增强当前页并提前处理后两页。可在阅读器临时关闭。',
-                    style: TextStyle(color: c.text2, fontSize: 13),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                 ),
               ),
               if (defaultTargetPlatform == TargetPlatform.windows) ...[
@@ -281,10 +302,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Future<void> _saveSuperResolutionDefault(bool value) async {
+  Future<void> _saveSuperResolutionDefault(SuperResolutionMode value) async {
     setState(() => _savingSuperResolution = true);
     try {
-      await ref.read(superResolutionDefaultProvider.notifier).setEnabled(value);
+      await ref.read(superResolutionDefaultProvider.notifier).setMode(value);
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(

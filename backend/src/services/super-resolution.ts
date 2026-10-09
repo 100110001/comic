@@ -4,6 +4,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { imageSize } from "image-size";
 import { config } from "../config";
+import { superResolutionPolicy } from "./super-resolution-policy";
+
+export const SUPER_RESOLUTION_WINDOW_SIZE = 11;
 
 export class SuperResolutionError extends Error {}
 
@@ -240,6 +243,7 @@ export class SuperResolutionService {
       enabled: this.options.enabled,
       total: this.requestCount,
       limit: 500,
+      prefetch: superResolutionPolicy.snapshot(),
       queued: this.queue.length,
       running: [...this.jobs.values()].filter(
         (task) => task.status === "running",
@@ -400,8 +404,20 @@ export class SuperResolutionService {
         "-f",
         "webp",
       ],
-      { shell: false, windowsHide: true, stdio: "ignore" },
+      { shell: false, windowsHide: true, stdio: ["ignore", "ignore", "pipe"] },
     );
+    const devices = new Map<number, string>();
+    let stderr = "";
+    child.stderr?.setEncoding("utf8");
+    child.stderr?.on("data", (chunk: string) => {
+      stderr += chunk;
+      const lines = stderr.split(/\r?\n/);
+      stderr = lines.pop()!.slice(-4096);
+      for (const line of lines) {
+        const match = /^\[(\d+) ([^\]]+)\]/.exec(line);
+        if (match) devices.set(Number(match[1]), match[2]);
+      }
+    });
     this.child = child;
     this.childDone = new Promise<void>((resolve, reject) => {
       let timedOut = false;
@@ -424,6 +440,7 @@ export class SuperResolutionService {
     try {
       await this.childDone;
     } finally {
+      superResolutionPolicy.setInferenceDevices([...devices.values()]);
       this.child = undefined;
       this.childDone = undefined;
     }
@@ -444,7 +461,9 @@ export class SuperResolutionService {
           `${task.key}-${randomUUID()}.tmp.webp`,
         );
         try {
+          const started = Date.now();
           await this.runEngine(task, temporary);
+          superResolutionPolicy.recordProcessing(Date.now() - started);
           const dimensions = imageSize(temporary);
           if (
             dimensions.width !== task.width * 2 ||

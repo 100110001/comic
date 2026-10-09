@@ -272,6 +272,7 @@ class ApiClient {
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) async {
     final data = await _request(
       'POST',
@@ -282,6 +283,8 @@ class ApiClient {
             .map(
               (image) => {
                 'id': image.id,
+                if (priorities?.containsKey(image.id) == true)
+                  'priority': priorities![image.id],
                 'version': Uri.parse(image.url).queryParameters['v'],
               },
             )
@@ -316,6 +319,17 @@ class ApiClient {
           )
           .toList(),
     );
+  }
+
+  Future<int> getSuperResolutionLookahead() async {
+    final data = await _request('GET', '/api/super-resolution/policy');
+    return _parse(() {
+      final value = data['data']['lookahead'];
+      if (value is! int || value < 2 || value > 10) {
+        throw const FormatException('无效超分预处理策略');
+      }
+      return value;
+    });
   }
 
   Future<void> clearSuperResolutionCache() async {

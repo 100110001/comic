@@ -123,18 +123,19 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(tester.takeException(), isNull);
-    expect(find.byType(ChoiceChip), findsNWidgets(3));
+    expect(find.text('跟随系统'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('默认开启 2× 超分'),
+      find.text('超分默认策略'),
       200,
       scrollable: find.byType(Scrollable).first,
     );
     expect(tester.takeException(), isNull);
-    await tester.tap(find.text('默认开启 2× 超分'));
+    await tester.ensureVisible(find.widgetWithText(ChoiceChip, '开启'));
+    await tester.tap(find.widgetWithText(ChoiceChip, '开启'));
     await tester.pumpAndSettle();
     expect(
-      (await SharedPreferences.getInstance()).getBool('superResolutionDefault'),
-      isTrue,
+      (await SharedPreferences.getInstance()).getString('superResolutionMode'),
+      'on',
     );
   });
 

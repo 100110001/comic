@@ -6,6 +6,7 @@ import { config } from "../config";
 import { ok, fail } from "../utils/response";
 import {
   superResolution,
+  SUPER_RESOLUTION_WINDOW_SIZE,
   SuperResolutionError,
 } from "../services/super-resolution";
 
@@ -17,18 +18,27 @@ imagesRouter.post("/resolve", async (req, res) => {
     typeof upscale !== "boolean" ||
     !Array.isArray(images) ||
     images.length < 1 ||
-    images.length > 3 ||
+    images.length > SUPER_RESOLUTION_WINDOW_SIZE ||
     images.some(
       (item) =>
         !item ||
         !Number.isSafeInteger(item.id) ||
         item.id <= 0 ||
         typeof item.version !== "string" ||
-        !/^\d+-\d+$/.test(item.version),
+        !/^\d+-\d+$/.test(item.version) ||
+        (item.priority !== undefined &&
+          (!Number.isSafeInteger(item.priority) ||
+            item.priority < 0 ||
+            item.priority >= SUPER_RESOLUTION_WINDOW_SIZE)),
     ) ||
-    new Set(images.map((item) => item.id)).size !== images.length
+    new Set(images.map((item) => item.id)).size !== images.length ||
+    images.some(
+      (item, index) =>
+        index > 0 &&
+        (item.priority ?? index) <= (images[index - 1].priority ?? index - 1),
+    )
   ) {
-    return fail(res, "请提交超分开关及最多三张图片和原图版本");
+    return fail(res, "请提交超分开关及最多十一张图片和原图版本");
   }
   res.setHeader("Cache-Control", "no-store");
   try {
@@ -40,7 +50,7 @@ imagesRouter.post("/resolve", async (req, res) => {
       .select("id", "path");
     const root = await fs.realpath(config.comicRoot);
     const sources = [];
-    for (const item of images) {
+    for (const [index, item] of images.entries()) {
       const row = rows.find((row) => row.id === item.id);
       if (!row) return fail(res, "图片不存在", 1, 404);
       const real = await fs.realpath(row.path);
@@ -67,18 +77,19 @@ imagesRouter.post("/resolve", async (req, res) => {
         return fail(res, "图片来源无效", 1, 400);
       sources.push({
         id: item.id,
+        priority: item.priority ?? index,
         path: row.path,
         version: item.version,
         url: `/static/${relative.replace(/\\/g, "/")}?v=${item.version}`,
       });
     }
     const result = [];
-    for (const [priority, source] of sources.entries()) {
+    for (const source of sources) {
       let job = null;
       let error: string | undefined;
       if (upscale) {
         try {
-          job = await superResolution.request(source, priority);
+          job = await superResolution.request(source, source.priority);
         } catch (cause) {
           console.error("[图片] 超分提交失败", cause);
           error =

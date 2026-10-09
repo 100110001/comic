@@ -60,11 +60,14 @@ void main() {
     Future<Comic?> Function()? onNextComic,
     ApiClient? srClient,
     bool defaultUpscale = false,
+    int pageCount = 10,
+    double pixelRatio = 1,
+    SuperResolutionMode? defaultMode,
   }) async {
     final client = srClient ?? _ProgressClient();
     addTearDown(client.close);
     final images = List.generate(
-      10,
+      pageCount,
       (i) => ImageItem(
         id: i,
         filename: '$i.jpg',
@@ -82,8 +85,8 @@ void main() {
       progress: null,
     );
 
-    tester.view.physicalSize = Size(width, 800);
-    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = Size(width * pixelRatio, 800 * pixelRatio);
+    tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
@@ -91,7 +94,10 @@ void main() {
       ProviderScope(
         overrides: [
           superResolutionDefaultProvider.overrideWith(
-            () => SuperResolutionDefaultNotifier(initial: defaultUpscale),
+            () => SuperResolutionDefaultNotifier(
+              initial: defaultUpscale,
+              initialMode: defaultMode,
+            ),
           ),
           apiClientProvider.overrideWithValue(client),
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
@@ -116,15 +122,55 @@ void main() {
     await settleReader(tester);
   }
 
-  testWidgets('设置默认开启后自动预处理三页，临时关闭不修改默认', (tester) async {
+  testWidgets('自适应随 DPR 改变重判，即使原图解码缓存尺寸没有改变', (tester) async {
+    final client = _UpscaleProgressClient();
+    await pumpReader(
+      tester,
+      initialPage: 2,
+      pixelRatio: 2,
+      srClient: client,
+      defaultMode: SuperResolutionMode.adaptive,
+    );
+    expect(client.requested, isEmpty);
+    expect(find.text('自适应 · 原图分辨率足够，已跳过'), findsOneWidget);
+    tester.view.physicalSize = const Size(1200, 2400);
+    tester.view.devicePixelRatio = 3;
+    await settleReader(tester);
+    expect(
+      client.requested.map((image) => image.id),
+      List.generate(8, (index) => index + 2),
+    );
+  });
+
+  testWidgets(
+    '桌面自适应以 contain 后实际显示宽度判断长图',
+    (tester) async {
+      final client = _UpscaleProgressClient();
+      await pumpReader(
+        tester,
+        width: 1200,
+        srClient: client,
+        defaultMode: SuperResolutionMode.adaptive,
+      );
+      expect(client.requested, isEmpty);
+      expect(find.text('自适应 · 原图分辨率足够，已跳过'), findsOneWidget);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets('设置默认开启后自动预处理当前及后十页，临时关闭不修改默认', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
       tester,
       initialPage: 2,
       srClient: client,
       defaultUpscale: true,
+      pageCount: 100,
     );
-    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(
+      client.requested.map((image) => image.id),
+      List.generate(11, (index) => index + 2),
+    );
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     await tester.tap(find.byTooltip('超分 2× 处理中，打开菜单可关闭'));
@@ -134,7 +180,10 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderScreen)),
     );
-    expect(container.read(superResolutionDefaultProvider), isTrue);
+    expect(
+      container.read(superResolutionDefaultProvider),
+      SuperResolutionMode.on,
+    );
     expect(find.text('超分关闭 · 原图'), findsOneWidget);
     client.complete();
     await settleReader(tester);
@@ -159,7 +208,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('开启超分 2×'));
     await tester.pump();
-    expect(client.requested.map((image) => image.id), [2, 3, 4]);
+    expect(
+      client.requested.map((image) => image.id),
+      List.generate(8, (index) => index + 2),
+    );
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     expect(
@@ -553,9 +605,12 @@ void main() {
 
 class _ProgressClient extends ApiClient {
   @override
+  Future<int> getSuperResolutionLookahead() async => 10;
+  @override
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) async => images
       .map(
         (image) => ImageResolution(imageId: image.id, originalUrl: image.url),
@@ -765,6 +820,7 @@ class _UpscaleProgressClient extends _ProgressClient {
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) {
     if (!upscale) {
       return Future.value(

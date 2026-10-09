@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -76,6 +77,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   double _imagePixelRatio = 1;
   bool _desktopImages = false;
   ImageProvider<Object>? _imageLayoutSignature;
+  Object? _superResolutionLayoutSignature;
   int _imageLayoutGeneration = 0;
   Timer? _hideTimer;
   bool _chromeVisible = true;
@@ -361,8 +363,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _imagePixelRatio = ratio;
     _desktopImages = desktop;
     final signature = _imageProvider(_images.first);
-    if (signature == _imageLayoutSignature) return;
+    final srLayout = (size, ratio, desktop);
+    if (signature == _imageLayoutSignature &&
+        srLayout == _superResolutionLayoutSignature) {
+      return;
+    }
     _imageLayoutSignature = signature;
+    _superResolutionLayoutSignature = srLayout;
     final layoutGeneration = ++_imageLayoutGeneration;
     final chapterGeneration = _jumpGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -381,7 +388,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_images.isEmpty) return;
     ref
         .read(superResolutionProvider.notifier)
-        .setWindow(_images.skip(page).take(3).toList());
+        .setWindow(
+          _images.skip(page).take(superResolutionWindowSize).toList(),
+          targetWidths: _superResolutionTargets(page),
+        );
     if (_imageViewport == null) return;
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
@@ -395,9 +405,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
+  Map<String, int> _superResolutionTargets(int page) {
+    final viewport = _imageViewport;
+    if (viewport == null) return {};
+    return {
+      for (final image in _images.skip(page).take(superResolutionWindowSize))
+        image.url:
+            ((_desktopImages &&
+                            image.width != null &&
+                            image.height != null &&
+                            image.height! > 0
+                        ? math.min(
+                            viewport.width,
+                            viewport.height * image.width! / image.height!,
+                          )
+                        : viewport.width) *
+                    _imagePixelRatio)
+                .ceil(),
+    };
+  }
+
   ImageProvider<Object>? _enhancedProvider(ImageItem image) {
     final sr = ref.read(superResolutionProvider);
-    final url = sr.enabled ? sr.results[image.url]?.url : null;
+    final url = sr.enabled && !sr.reasons.containsKey(image.url)
+        ? sr.results[image.url]?.url
+        : null;
     if (url == null || _imageViewport == null) return null;
     return displayImageProvider(
       url,
@@ -437,13 +469,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     if (action == 'retry') {
       if (_images.isEmpty) return;
-      for (final image in _images.skip(_currentPage).take(3)) {
+      for (final image
+          in _images.skip(_currentPage).take(superResolutionWindowSize)) {
         await _enhancedProvider(image)?.evict();
       }
       if (!mounted) return;
       controller.setWindow(
-        _images.skip(_currentPage).take(3).toList(),
+        _images.skip(_currentPage).take(superResolutionWindowSize).toList(),
         retry: true,
+        targetWidths: _superResolutionTargets(_currentPage),
       );
     } else {
       try {
@@ -695,8 +729,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final srJob = _images.isEmpty
         ? null
         : sr.results[_images[_currentPage].url];
+    final srReason = _images.isEmpty
+        ? null
+        : sr.reasons[_images[_currentPage].url];
     final srHint = !sr.enabled
         ? '开启超分 2×'
+        : srReason != null
+        ? '$srReason，打开菜单可关闭'
         : srJob?.status == 'failed'
         ? (srJob?.error ?? '超分失败，继续使用原图')
         : srJob?.status == 'ready'
@@ -704,6 +743,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : '超分 2× 处理中，打开菜单可关闭';
     final srStatus = !sr.enabled
         ? '超分关闭 · 原图'
+        : srReason != null
+        ? '自适应 · $srReason'
         : srJob?.status == 'failed'
         ? '超分失败 · 已回退原图'
         : srJob?.status == 'ready'
@@ -792,12 +833,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                         PopupMenuItem(
                           enabled: false,
                           child: Text(
-                            srJob?.status == 'failed'
-                                ? (srJob?.error ?? '超分失败，继续使用原图')
-                                : srJob?.status == 'ready'
-                                ? '超分 2× 已就绪'
-                                : '超分 2× 处理中',
+                            srReason ??
+                                (srJob?.status == 'failed'
+                                    ? (srJob?.error ?? '超分失败，继续使用原图')
+                                    : srJob?.status == 'ready'
+                                    ? '超分 2× 已就绪'
+                                    : '超分 2× 处理中'),
                           ),
+                        ),
+                      if (sr.enabled)
+                        PopupMenuItem(
+                          enabled: false,
+                          child: Text('预处理：后 ${sr.lookahead} 页'),
                         ),
                       PopupMenuItem(
                         value: 'toggle',
