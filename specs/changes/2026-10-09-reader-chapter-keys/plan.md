@@ -23,7 +23,7 @@ origin: specs/changes/2026-10-09-reader-chapter-keys/define.md
 
 ## 实现单元
 
-### U1. 桌面键盘换章
+### U1. 已完成：桌面键盘换章
 
 - 文件：`app/lib/screens/reader_screen.dart`、`app/test/reader_screen_test.dart`。
 - 方案：调整两条键盘绑定；扩展现有阅读器测试夹具以提供多个章节。
