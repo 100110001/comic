@@ -12,7 +12,7 @@
 
 ## 实现单元
 
-### U1. 替换全部平台图标
+### U1. 已完成：替换全部平台图标
 
 依赖：无。文件：app/windows/runner/resources/、app/android/app/src/main/res/、app/ios/Runner/Assets.xcassets/AppIcon.appiconset/、app/web/。
 
