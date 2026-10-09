@@ -34,6 +34,9 @@ if ($BaseSha -eq ('0' * 40)) {
             $appChanged = $true
         } elseif ($file -cmatch '^backend/') {
             $backendChanged = $true
+        } elseif ($file -cmatch '^\.github/(?:workflows/[^/]+\.ya?ml|scripts/ci-scope\.ps1)$') {
+            # 工作流与范围工具配置不改变项目源码，项目验证由实验显式开启。
+            continue
         } elseif ($file -match '^(Readme\.md|AGENTS\.md|CHANGELOG\.md|(?:docs|specs|\.claude)/.*\.md)$') {
             # 仅明确的仓库文档免检，目录内的应用资源仍按项目检查。
             continue
