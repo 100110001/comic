@@ -7,7 +7,9 @@ on:
 
 jobs:
   check:
-    runs-on: windows-latest
+    runs-on: ubuntu-24.04
+    env:
+      VALIDATE_FLUTTER_CI: 'true'
     defaults:
       run:
         working-directory: app
@@ -19,32 +21,34 @@ jobs:
         shell: pwsh
         working-directory: .
         env:
+          CI_EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA
+        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA -PullRequest:($env:CI_EVENT -eq 'pull_request')
 
       - name: Setup Flutter
-        if: steps.scope.outputs.app == 'true'
+        if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           flutter-version: 3.38.9
           cache: true
+          pub-cache: false
 
       - name: Flutter pub get
-        if: steps.scope.outputs.app == 'true'
+        if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
         run: flutter pub get
 
       - name: Dart format check
-        if: steps.scope.outputs.app == 'true'
+        if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
         run: dart format --output=none --set-exit-if-changed lib/ test/
 
       - name: Flutter analyze
-        if: steps.scope.outputs.app == 'true'
-        run: flutter analyze
+        if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
+        run: flutter analyze --no-pub
 
       - name: Flutter test
-        if: steps.scope.outputs.app == 'true'
-        run: flutter test
+        if: steps.scope.outputs.app == 'true' || env.VALIDATE_FLUTTER_CI == 'true'
+        run: flutter test --no-pub
 
   backend-check:
     runs-on: windows-latest
@@ -59,8 +63,9 @@ jobs:
         shell: pwsh
         working-directory: .
         env:
+          CI_EVENT: ${{ github.event_name }}
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
-        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA
+        run: ./.github/scripts/ci-scope.ps1 -BaseSha $env:BASE_SHA -PullRequest:($env:CI_EVENT -eq 'pull_request')
 
       - name: Setup pnpm
         if: steps.scope.outputs.backend == 'true'
