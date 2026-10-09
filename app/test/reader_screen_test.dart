@@ -60,11 +60,12 @@ void main() {
     Future<Comic?> Function()? onNextComic,
     ApiClient? srClient,
     bool defaultUpscale = false,
+    int pageCount = 10,
   }) async {
     final client = srClient ?? _ProgressClient();
     addTearDown(client.close);
     final images = List.generate(
-      10,
+      pageCount,
       (i) => ImageItem(
         id: i,
         filename: '$i.jpg',
@@ -116,15 +117,19 @@ void main() {
     await settleReader(tester);
   }
 
-  testWidgets('设置默认开启后自动预处理五页，临时关闭不修改默认', (tester) async {
+  testWidgets('设置默认开启后自动预处理当前及后十页，临时关闭不修改默认', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
       tester,
       initialPage: 2,
       srClient: client,
       defaultUpscale: true,
+      pageCount: 100,
     );
-    expect(client.requested.map((image) => image.id), [2, 3, 4, 5, 6]);
+    expect(
+      client.requested.map((image) => image.id),
+      List.generate(11, (index) => index + 2),
+    );
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     await tester.tap(find.byTooltip('超分 2× 处理中，打开菜单可关闭'));
@@ -159,7 +164,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('开启超分 2×'));
     await tester.pump();
-    expect(client.requested.map((image) => image.id), [2, 3, 4, 5, 6]);
+    expect(
+      client.requested.map((image) => image.id),
+      List.generate(8, (index) => index + 2),
+    );
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
     expect(

@@ -6,6 +6,7 @@ import { config } from "../config";
 import { ok, fail } from "../utils/response";
 import {
   superResolution,
+  SUPER_RESOLUTION_WINDOW_SIZE,
   SuperResolutionError,
 } from "../services/super-resolution";
 
@@ -17,7 +18,7 @@ imagesRouter.post("/resolve", async (req, res) => {
     typeof upscale !== "boolean" ||
     !Array.isArray(images) ||
     images.length < 1 ||
-    images.length > 5 ||
+    images.length > SUPER_RESOLUTION_WINDOW_SIZE ||
     images.some(
       (item) =>
         !item ||
@@ -28,7 +29,7 @@ imagesRouter.post("/resolve", async (req, res) => {
     ) ||
     new Set(images.map((item) => item.id)).size !== images.length
   ) {
-    return fail(res, "请提交超分开关及最多五张图片和原图版本");
+    return fail(res, "请提交超分开关及最多十一张图片和原图版本");
   }
   res.setHeader("Cache-Control", "no-store");
   try {

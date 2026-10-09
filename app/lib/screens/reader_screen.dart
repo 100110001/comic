@@ -381,7 +381,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_images.isEmpty) return;
     ref
         .read(superResolutionProvider.notifier)
-        .setWindow(_images.skip(page).take(5).toList());
+        .setWindow(_images.skip(page).take(superResolutionWindowSize).toList());
     if (_imageViewport == null) return;
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
@@ -437,12 +437,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     if (action == 'retry') {
       if (_images.isEmpty) return;
-      for (final image in _images.skip(_currentPage).take(5)) {
+      for (final image
+          in _images.skip(_currentPage).take(superResolutionWindowSize)) {
         await _enhancedProvider(image)?.evict();
       }
       if (!mounted) return;
       controller.setWindow(
-        _images.skip(_currentPage).take(5).toList(),
+        _images.skip(_currentPage).take(superResolutionWindowSize).toList(),
         retry: true,
       );
     } else {

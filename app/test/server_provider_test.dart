@@ -40,7 +40,7 @@ void main() {
     addTearDown(container.dispose);
     container.listen(superResolutionProvider, (_, _) {});
     final images = List.generate(
-      6,
+      100,
       (index) => ImageItem(
         id: index + 1,
         filename: '${index + 1}.jpg',
@@ -49,23 +49,24 @@ void main() {
       ),
     );
     final reader = container.read(superResolutionProvider.notifier);
-    reader.setWindow(images.take(5).toList());
+    reader.setWindow(images.take(superResolutionWindowSize).toList());
     await container.pump();
-    expect(client.windows, [
-      [1, 2, 3, 4, 5],
-    ]);
-    reader.setWindow(images.skip(1).take(5).toList());
+    expect(client.windows, [List.generate(11, (index) => index + 1)]);
+    reader.setWindow(images.skip(7).take(superResolutionWindowSize).toList());
     await container.pump();
-    expect(client.windows.last, [2, 3, 4, 5, 6]);
+    expect(client.windows.last, List.generate(11, (index) => index + 8));
     expect(
-      container.read(superResolutionProvider).results[images.last.url]?.status,
+      container.read(superResolutionProvider).results[images[17].url]?.status,
       'ready',
     );
-    reader.setEnabled(false);
-    reader.setWindow(images.skip(1).take(5).toList());
+    reader.setWindow(images.skip(94).take(superResolutionWindowSize).toList());
     await container.pump();
-    expect(client.windows.last, [2, 3, 4, 5, 6]);
-    expect(client.choices, [true, true, false]);
+    expect(client.windows.last, [95, 96, 97, 98, 99, 100]);
+    reader.setEnabled(false);
+    reader.setWindow(images.skip(7).take(superResolutionWindowSize).toList());
+    await container.pump();
+    expect(client.windows.last, List.generate(11, (index) => index + 8));
+    expect(client.choices, [true, true, true, false]);
     expect(container.read(superResolutionDefaultProvider), isTrue);
   });
 
