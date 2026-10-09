@@ -11,7 +11,7 @@ scope: feature
 
 ## 公开契约
 
-- 后端 `WAIFU2X_ENABLED=1` 启用；默认关闭。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
+- 后端默认启用超分能力；未设置 `WAIFU2X_ENABLED` 或设为 `1` 时启用，设为 `0` 时禁用，其他显式值不启用。阅读器会话仍默认关闭。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
 - 默认使用后端 `tools/waifu2x/` 中的引擎与 `models-cunet`；缓存为 `data/super-resolution`、2048 MiB，单图超时 60000 ms。相对路径以 `backend/` 运行目录为基准。
 - 仓库通过普通 Git 文件内置 Windows 官方便携引擎 `20250915`、运行库、完整 `models-cunet` 与上游许可证，拉取项目后无需下载引擎。`backend/` 下的 `npm run setup:waifu2x` 保留为重新下载与更新入口，验证官方压缩包 SHA256，仅更新这组运行文件，保留中文说明且不修改 `.env`；升级须同步版本、校验值与提交的运行文件。Linux/macOS 手动配置对应引擎。更新引擎或模型需重启后端。
 - 固定 2×、关闭降噪（`-n -1`）、分块大小 256、无损 WebP 输出；输入支持 JPEG、PNG、WebP，最多 2000 万像素，超出或尺寸无效则拒绝处理。

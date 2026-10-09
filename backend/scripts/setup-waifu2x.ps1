@@ -29,7 +29,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $extracted $entry) -Destination $destination -Recurse -Force
   }
   Write-Host "引擎已准备：$destination"
-  Write-Host '在 backend/.env 设置 WAIFU2X_ENABLED=1，重启后端后使用。'
+  Write-Host '后端默认允许超分；更新后重启后端，在阅读器内手动开启。WAIFU2X_ENABLED=0 可禁用后端超分。'
 } finally {
   $resolvedTemporary = [System.IO.Path]::GetFullPath($temporaryRoot)
   $resolvedTempBase = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath()).TrimEnd('\') + '\'
