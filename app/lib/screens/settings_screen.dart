@@ -286,10 +286,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       await ref.read(superResolutionDefaultProvider.notifier).setEnabled(value);
     } catch (_) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('超分设置保存失败，请重试')));
+      }
     } finally {
       if (mounted) setState(() => _savingSuperResolution = false);
     }

@@ -766,7 +766,7 @@ class _UpscaleProgressClient extends _ProgressClient {
     List<ImageItem> images, {
     required bool upscale,
   }) {
-    if (!upscale)
+    if (!upscale) {
       return Future.value(
         images
             .map(
@@ -775,6 +775,7 @@ class _UpscaleProgressClient extends _ProgressClient {
             )
             .toList(),
       );
+    }
     requested = images;
     return response.future.then(
       (jobs) => images

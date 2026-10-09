@@ -138,8 +138,9 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
       if (!upscale) return;
       final jobs = images.map((image) {
         final result = resolved.singleWhere((item) => item.imageId == image.id);
-        if (result.originalUrl != image.url)
+        if (result.originalUrl != image.url) {
           throw const FormatException('原图版本已变化，请重新打开章节');
+        }
         return result.superResolution ??
             SuperResolutionJob(
               key: '',

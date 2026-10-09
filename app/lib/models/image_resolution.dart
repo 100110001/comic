@@ -21,17 +21,23 @@ class ImageResolution {
         relative.hasScheme ||
         relative.hasAuthority ||
         !relative.path.startsWith('/static/') ||
-        relative.fragment.isNotEmpty)
+        relative.fragment.isNotEmpty) {
       throw const FormatException('无效原图响应');
+    }
+    final original = Uri.parse('$serverUrl/').resolveUri(relative);
+    if (!original.path.startsWith('/static/')) {
+      throw const FormatException('无效原图响应');
+    }
     final job = json['superResolution'];
     final parsed = job == null
         ? null
         : SuperResolutionJob.fromJson(job as Map<String, dynamic>, serverUrl);
-    if (parsed != null && parsed.imageId != id)
+    if (parsed != null && parsed.imageId != id) {
       throw const FormatException('超分页面不匹配');
+    }
     return ImageResolution(
       imageId: id,
-      originalUrl: Uri.parse('$serverUrl/').resolveUri(relative).toString(),
+      originalUrl: original.toString(),
       superResolution: parsed,
       error: json['error'] as String?,
     );

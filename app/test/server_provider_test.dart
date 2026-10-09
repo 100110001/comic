@@ -238,7 +238,7 @@ class _DelayedUpscaleClient extends ApiClient {
     List<ImageItem> images, {
     required bool upscale,
   }) {
-    if (!upscale)
+    if (!upscale) {
       return Future.value(
         images
             .map(
@@ -247,6 +247,7 @@ class _DelayedUpscaleClient extends ApiClient {
             )
             .toList(),
       );
+    }
     final response = Completer<List<SuperResolutionJob>>();
     responses.add(response);
     return response.future.then(
