@@ -11,17 +11,25 @@ scope: feature
 
 ## 公开契约
 
-- 后端默认启用超分能力；未设置 `WAIFU2X_ENABLED` 或设为 `1` 时启用，设为 `0` 时禁用，其他显式值不启用。阅读器会话继承设置页的默认偏好，无偏好时关闭。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
+- 后端默认启用超分能力；未设置 `WAIFU2X_ENABLED` 或设为 `1` 时启用，设为 `0` 时禁用，其他显式值不启用。阅读器会话继承设置页的三态默认策略，无偏好时自适应。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
 - 默认使用后端 `tools/waifu2x/` 中的引擎与 `models-cunet`；缓存为 `data/super-resolution`、2048 MiB，单图超时 60000 ms。相对路径以 `backend/` 运行目录为基准。
 - 仓库通过普通 Git 文件内置 Windows 官方便携引擎 `20250915`、运行库、完整 `models-cunet` 与上游许可证，拉取项目后无需下载引擎。`backend/` 下的 `npm run setup:waifu2x` 保留为重新下载与更新入口，验证官方压缩包 SHA256，仅更新这组运行文件，保留中文说明且不修改 `.env`；升级须同步版本、校验值与提交的运行文件。Linux/macOS 手动配置对应引擎。更新引擎或模型需重启后端。
 - 固定 2×、关闭降噪（`-n -1`）、分块大小 256、无损 WebP 输出；输入支持 JPEG、PNG、WebP，最多 2000 万像素，超出或尺寸无效则拒绝处理。
-- `POST /api/images/resolve` 为统一图片解析入口，接收严格布尔 `upscale` 与一到十一项非重复 `{ id, version }`，顺序为当前页及后续页优先级。真实路径须在漫画根内，版本须匹配现文件；不等待 GPU 推理。返回每项 `{ id, url, superResolution }`，`url` 是同源原图地址；关闭时任务为 `null` 且不启动引擎，开启时任务为已有任务格式。单图超分不可用仍返回原图，任务为 `null` 并附中文 `error`；无效图片/版本拒绝整个解析请求。响应不缓存。
+- `POST /api/images/resolve` 为统一图片解析入口，接收严格布尔 `upscale` 与一到十一项非重复 `{ id, version, priority? }`，priority 可省略并按数组位置决定；显式优先级为 0—10 且严格递增，保留自适应筛选前的窗口位置，0 表示当前页。真实路径须在漫画根内，版本须匹配现文件；不等待 GPU 推理。返回每项 `{ id, url, superResolution }`，`url` 是同源原图地址；关闭时任务为 `null` 且不启动引擎，开启时任务为已有任务格式。单图超分不可用仍返回原图，任务为 `null` 并附中文 `error`；无效图片/版本拒绝整个解析请求。响应不缓存。
 - 同文件由不同图片 ID 提交时共用缓存/推理，提交响应与监视记录仍绑定各自请求 ID；轮询按客户端已经绑定的任务键恢复页面身份。
 - `POST /api/super-resolution/jobs` 保留兼容既有客户端，接收 `images`，一到十一项 `{ id, version }`；顺序代表当前页、后续页的优先级。版本必须匹配当前文件的 `size-trunc(mtimeMs)`；路径从数据库读取，并校验真实路径在漫画根内。
 - 提交返回任务列表，每项包含 `key`、`imageId`、`status`；状态为 `queued`、`running`、`ready`、`failed`。就绪时包含结果 `url`，失败时包含中文 `error`。
 - `GET /api/super-resolution/jobs?keys=...` 查询最多十一个任务，响应不缓存。未知、被清理或已淘汰的任务返回 `failed`、`imageId=0`，客户端按已绑定键对应原图。
 - `GET /api/super-resolution/files/:key` 返回 WebP；结果 URL 携带缓存代际，图片可缓存一天。文件可能被清理或淘汰，就绪状态不承诺结果永久可下载，客户端须回退原图。
 - `DELETE /api/super-resolution/cache` 停止运行任务、清空队列和任务状态、移除衍生文件并更新缓存代际；发起清空的阅读器关闭超分并回原图。
+
+## 动态前瞻策略
+
+- `GET /api/super-resolution/policy` 不缓存，返回 `lookahead`（后续两到十页）、`source`（nvidia/fallback）、中文 reason，以及已知的 utilization、memoryUsedMiB、memoryTotalMiB、processingMs。后端监视快照的 prefetch 提供最后一次策略，监视页轮询不主动采样。
+- 只读 nvidia-smi 查询与推理设备核对：实际引擎只枚举一个 Vulkan GPU，且名称匹配唯一 NVIDIA GPU 时才采用整卡利用率和显存。未确认、多卡、非 NVIDIA、指标缺失或工具失败均使用后四页；查询两秒超时，同期调用合并，成功五秒缓存，工具失败三十秒后重试。初始化不主动启动推理来识别设备。
+- 利用率至少 90% 或显存占用至少 85% 的连续两次采样缩小两页；显存至少 95% 时立即收缩。利用率至多 65% 且显存至多 75% 的连续两次采样增加一页；中间区间保持窗口，交替负载重置计数，范围始终两到十页。
+- 实际引擎耗时平滑平均约束最大窗口：未知耗时最多六页；超过十二秒最多两页、超过六秒最多四页、超过三秒最多六页，其余最多十页。耗时不包含排队。
+- 前瞻策略只控制新提交数量；已排队/运行的任务继续处理，推理保持串行。整卡指标包含其他应用，窗口策略不是固定 GPU 百分比控制，也不承诺负载曲线完全平直。
 
 ## 不变量
 
