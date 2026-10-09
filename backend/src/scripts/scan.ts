@@ -39,14 +39,9 @@ function parseFolderName(name: string): {
 function collectImages(dir: string): ImageFile[] {
   return fs
     .readdirSync(dir)
+    .filter((f) => IMAGE_EXTS.has(path.extname(f).toLowerCase()))
     .sort()
-    .filter((f) => {
-      const fullPath = path.join(dir, f);
-      return (
-        fs.statSync(fullPath).isFile() &&
-        IMAGE_EXTS.has(path.extname(f).toLowerCase())
-      );
-    })
+    .filter((f) => fs.statSync(path.join(dir, f)).isFile())
     .map((f) => {
       const fullPath = path.join(dir, f);
       return { filename: f, path: fullPath };
