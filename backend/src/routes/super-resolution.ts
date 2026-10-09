@@ -57,6 +57,11 @@ superResolutionRouter.post("/jobs", async (req, res) => {
   }
 });
 
+superResolutionRouter.get("/monitor", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  ok(res, superResolution.monitor());
+});
+
 superResolutionRouter.get("/jobs", (req, res) => {
   const keys =
     typeof req.query.keys === "string" ? req.query.keys.split(",") : [];
