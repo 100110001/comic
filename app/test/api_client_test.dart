@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:comic/models/image_item.dart';
 import 'dart:async';
 
 import 'package:comic/services/api_client.dart';
@@ -16,6 +18,46 @@ void main() {
     client: MockClient(handler),
     timeout: timeout,
   );
+
+  test('图片解析显式发送超分选择，原图先返回且失败不丢原图', () async {
+    const image = ImageItem(
+      id: 1,
+      filename: '1.jpg',
+      pageNumber: 0,
+      url: 'http://example.test/static/1.jpg?v=20-30',
+    );
+    for (final upscale in [false, true]) {
+      final client = clientWith((request) async {
+        expect(request.url.path, '/api/images/resolve');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['upscale'], upscale);
+        expect(body['images'], [
+          {'id': 1, 'version': '20-30'},
+        ]);
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': [
+              {
+                'id': 1,
+                'url': '/static/1.jpg?v=20-30',
+                'superResolution': null,
+                if (upscale) 'error': '引擎不可用',
+              },
+            ],
+          }),
+          200,
+        );
+      });
+      final result = (await client.resolveImages([
+        image,
+      ], upscale: upscale)).single;
+      expect(result.originalUrl, image.url);
+      expect(result.superResolution, isNull);
+      expect(result.error, upscale ? '引擎不可用' : null);
+      client.close();
+    }
+  });
 
   test('健康检查严格匹配漫画服务响应', () async {
     final client = clientWith(

@@ -87,3 +87,29 @@ Future<void> saveWindowBounds(Rect bounds) async {
     '${bounds.left},${bounds.top},${bounds.width},${bounds.height}',
   );
 }
+
+const kSuperResolutionDefaultKey = 'superResolutionDefault';
+final superResolutionDefaultProvider =
+    NotifierProvider<SuperResolutionDefaultNotifier, bool>(
+      SuperResolutionDefaultNotifier.new,
+    );
+
+class SuperResolutionDefaultNotifier extends Notifier<bool> {
+  SuperResolutionDefaultNotifier({this.initial = false});
+  final bool initial;
+  @override
+  bool build() => initial;
+  Future<void> setEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool(kSuperResolutionDefaultKey, value)) {
+      throw StateError('超分设置保存失败');
+    }
+    state = value;
+  }
+}
+
+Future<bool> loadSuperResolutionDefault() async {
+  final prefs = await SharedPreferences.getInstance();
+  final stored = prefs.get(kSuperResolutionDefaultKey);
+  return stored is bool ? stored : false;
+}

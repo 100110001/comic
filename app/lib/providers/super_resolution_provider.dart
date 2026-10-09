@@ -5,6 +5,7 @@ import '../models/super_resolution_job.dart';
 import '../services/api_client.dart';
 import '../utils/user_error.dart';
 import 'server_provider.dart';
+import 'settings_provider.dart';
 
 class SuperResolutionState {
   const SuperResolutionState({this.enabled = false, this.results = const {}});
@@ -38,7 +39,9 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
       ++_generation;
       _timer?.cancel();
     });
-    return const SuperResolutionState();
+    return SuperResolutionState(
+      enabled: ref.read(superResolutionDefaultProvider),
+    );
   }
 
   void setEnabled(bool enabled) {
@@ -57,13 +60,17 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
   }
 
   void setWindow(List<ImageItem> images, {bool retry = false}) {
-    if (!state.enabled) return;
-    final signature = images.map((image) => image.url).join('\n');
+    final signature =
+        '${state.enabled}:${images.map((image) => image.url).join('\n')}';
     if (!retry && signature == _signature) return;
     _signature = signature;
     _window = images;
     final generation = ++_generation;
     _timer?.cancel();
+    if (!state.enabled) {
+      unawaited(_submit(_client, images, generation, upscale: false));
+      return;
+    }
     final results = Map<String, SuperResolutionJob>.of(state.results);
     if (retry) {
       for (final image in images) {
@@ -114,8 +121,9 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
   Future<void> _submit(
     ApiClient client,
     List<ImageItem> images,
-    int generation,
-  ) async {
+    int generation, {
+    bool upscale = true,
+  }) async {
     try {
       if (images.any(
         (image) =>
@@ -126,7 +134,20 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
           '漫画来源已切换，请重新打开章节',
         );
       }
-      final jobs = await client.requestSuperResolution(images);
+      final resolved = await client.resolveImages(images, upscale: upscale);
+      if (!upscale) return;
+      final jobs = images.map((image) {
+        final result = resolved.singleWhere((item) => item.imageId == image.id);
+        if (result.originalUrl != image.url)
+          throw const FormatException('原图版本已变化，请重新打开章节');
+        return result.superResolution ??
+            SuperResolutionJob(
+              key: '',
+              imageId: image.id,
+              status: 'failed',
+              error: result.error ?? '超分不可用，继续显示原图',
+            );
+      }).toList();
       if (!_current(generation)) return;
       _publish(images, jobs);
       _schedule(client, images, generation, DateTime.now());

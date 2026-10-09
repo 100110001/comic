@@ -378,10 +378,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 显示与相邻页预加载使用同一尺寸缓存，布局确定前不预加载原图。
   void _precacheAround(int page) {
-    if (_images.isEmpty || _imageViewport == null) return;
+    if (_images.isEmpty) return;
     ref
         .read(superResolutionProvider.notifier)
         .setWindow(_images.skip(page).take(3).toList());
+    if (_imageViewport == null) return;
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
       unawaited(
@@ -420,7 +421,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _toggleSuperResolution() {
     final enabled = ref.read(superResolutionProvider).enabled;
     ref.read(superResolutionProvider.notifier).setEnabled(!enabled);
-    if (!enabled) _precacheAround(_currentPage);
+    _precacheAround(_currentPage);
     _onActivity();
   }
 

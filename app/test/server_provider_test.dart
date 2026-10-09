@@ -1,3 +1,5 @@
+import 'package:comic/models/image_resolution.dart';
+import 'package:comic/providers/settings_provider.dart';
 import 'dart:async';
 
 import 'package:comic/providers/server_provider.dart';
@@ -25,6 +27,37 @@ class _DelayedApiClient extends ApiClient {
 }
 
 void main() {
+  test('超分默认值持久化，阅读器临时关闭不修改设置，重进恢复默认', () async {
+    SharedPreferences.setMockInitialValues({});
+    final saved = ProviderContainer();
+    await saved.read(superResolutionDefaultProvider.notifier).setEnabled(true);
+    expect(await loadSuperResolutionDefault(), isTrue);
+    saved.dispose();
+    final container = ProviderContainer(
+      overrides: [
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    var listener = container.listen(superResolutionProvider, (_, _) {});
+    expect(container.read(superResolutionProvider).enabled, isTrue);
+    final reader = container.read(superResolutionProvider.notifier);
+    reader.setEnabled(false);
+    reader.resetChapter();
+    expect(container.read(superResolutionProvider).enabled, isFalse);
+    expect(container.read(superResolutionDefaultProvider), isTrue);
+    expect(await loadSuperResolutionDefault(), isTrue);
+    listener.close();
+    await container.pump();
+    listener = container.listen(superResolutionProvider, (_, _) {});
+    expect(container.read(superResolutionProvider).enabled, isTrue);
+    listener.close();
+    SharedPreferences.setMockInitialValues({kSuperResolutionDefaultKey: 'bad'});
+    expect(await loadSuperResolutionDefault(), isFalse);
+  });
+
   test('关闭、换章和切服务器后超分晚到结果均不发布', () async {
     SharedPreferences.setMockInitialValues({});
     final clients = <_DelayedUpscaleClient>[];
@@ -201,11 +234,33 @@ class _DelayedUpscaleClient extends ApiClient {
     : super(baseUrl: url, generation: version);
   final responses = <Completer<List<SuperResolutionJob>>>[];
   @override
-  Future<List<SuperResolutionJob>> requestSuperResolution(
-    List<ImageItem> images,
-  ) {
+  Future<List<ImageResolution>> resolveImages(
+    List<ImageItem> images, {
+    required bool upscale,
+  }) {
+    if (!upscale)
+      return Future.value(
+        images
+            .map(
+              (image) =>
+                  ImageResolution(imageId: image.id, originalUrl: image.url),
+            )
+            .toList(),
+      );
     final response = Completer<List<SuperResolutionJob>>();
     responses.add(response);
-    return response.future;
+    return response.future.then(
+      (jobs) => images
+          .map(
+            (image) => ImageResolution(
+              imageId: image.id,
+              originalUrl: image.url,
+              superResolution: jobs.singleWhere(
+                (job) => job.imageId == image.id,
+              ),
+            ),
+          )
+          .toList(),
+    );
   }
 }

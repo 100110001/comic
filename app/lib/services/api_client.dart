@@ -10,6 +10,7 @@ import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/image_item.dart';
 import '../models/super_resolution_job.dart';
+import '../models/image_resolution.dart';
 import '../models/reading_progress_entry.dart';
 import '../utils/user_error.dart';
 
@@ -268,13 +269,15 @@ class ApiClient {
     );
   }
 
-  Future<List<SuperResolutionJob>> requestSuperResolution(
-    List<ImageItem> images,
-  ) async {
+  Future<List<ImageResolution>> resolveImages(
+    List<ImageItem> images, {
+    required bool upscale,
+  }) async {
     final data = await _request(
       'POST',
-      '/api/super-resolution/jobs',
+      '/api/images/resolve',
       body: {
+        'upscale': upscale,
         'images': images
             .map(
               (image) => {
@@ -288,10 +291,8 @@ class ApiClient {
     return _parse(
       () => (data['data'] as List)
           .map(
-            (item) => SuperResolutionJob.fromJson(
-              item as Map<String, dynamic>,
-              baseUrl,
-            ),
+            (item) =>
+                ImageResolution.fromJson(item as Map<String, dynamic>, baseUrl),
           )
           .toList(),
     );

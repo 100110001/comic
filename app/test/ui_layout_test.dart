@@ -124,6 +124,18 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.byType(ChoiceChip), findsNWidgets(3));
+    await tester.scrollUntilVisible(
+      find.text('默认开启 2× 超分'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('默认开启 2× 超分'));
+    await tester.pumpAndSettle();
+    expect(
+      (await SharedPreferences.getInstance()).getBool('superResolutionDefault'),
+      isTrue,
+    );
   });
 
   testWidgets('小屏和放大字体下两行标题与作者不溢出', (tester) async {

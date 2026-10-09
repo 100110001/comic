@@ -7,6 +7,7 @@ import { mineRouter } from "./mine";
 import { ok } from "../utils/response";
 
 import { superResolutionRouter } from "./super-resolution";
+import { imagesRouter } from "./images";
 
 export const router: Router = Router();
 
@@ -20,3 +21,5 @@ router.use("/favorite-authors", favoriteAuthorsRouter);
 router.use("/mine", mineRouter);
 
 router.use("/super-resolution", superResolutionRouter);
+
+router.use("/images", imagesRouter);
