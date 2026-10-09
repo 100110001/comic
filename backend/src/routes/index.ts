@@ -6,6 +6,8 @@ import { favoriteAuthorsRouter } from "./favorite-authors";
 import { mineRouter } from "./mine";
 import { ok } from "../utils/response";
 
+import { superResolutionRouter } from "./super-resolution";
+
 export const router = Router();
 
 router.get("/health", (_req: Request, res: Response) => {
@@ -16,3 +18,5 @@ router.use("/comics", comicsRouter);
 router.use("/chapters", chaptersRouter);
 router.use("/favorite-authors", favoriteAuthorsRouter);
 router.use("/mine", mineRouter);
+
+router.use("/super-resolution", superResolutionRouter);
