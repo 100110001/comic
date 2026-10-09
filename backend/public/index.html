@@ -1,263 +1,514 @@
-﻿<!DOCTYPE html>
-<html lang="zh">
-
-<head>
-  <meta charset="UTF-8">
-  <title>Comic API 测试</title>
-  <style>
-    html,
-    body {
-      height: 100%;
-      overflow: hidden;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: monospace;
-      background: #0d1117;
-      color: #c9d1d9;
-      min-height: 100vh;
-    }
-
-    header {
-      padding: 16px 24px;
-      border-bottom: 1px solid #21262d;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    header h1 {
-      font-size: 16px;
-      color: #58a6ff;
-    }
-
-    .container {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      height: calc(100vh - 53px);
-    }
-
-    .sidebar {
-      border-right: 1px solid #21262d;
-      overflow-y: auto;
-    }
-
-    .endpoint {
-      padding: 10px 16px;
-      cursor: pointer;
-      border-bottom: 1px solid #161b22;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-    }
-
-    .endpoint:hover {
-      background: #161b22;
-    }
-
-    .endpoint.active {
-      background: #1f2937;
-      border-left: 2px solid #58a6ff;
-    }
-
-    .method {
-      font-size: 11px;
-      font-weight: bold;
-      padding: 2px 6px;
-      border-radius: 3px;
-      min-width: 38px;
-      text-align: center;
-    }
-
-    .get {
-      background: #033a16;
-      color: #3fb950;
-    }
-
-    .delete {
-      background: #3d0000;
-      color: #f85149;
-    }
-
-    .url {
-      color: #8b949e;
-    }
-
-    .main {
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-    }
-
-    .toolbar {
-      padding: 12px 16px;
-      border-bottom: 1px solid #21262d;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    #url-input {
-      flex: 1;
-      background: #161b22;
-      border: 1px solid #30363d;
-      color: #c9d1d9;
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-family: monospace;
-      font-size: 13px;
-    }
-
-    #send-btn {
-      background: #238636;
-      color: #fff;
-      border: none;
-      padding: 6px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-
-    #send-btn:hover {
-      background: #2ea043;
-    }
-
-    .response-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-
-    .response-meta {
-      padding: 8px 16px;
-      border-bottom: 1px solid #21262d;
-      font-size: 12px;
-      color: #8b949e;
-      display: flex;
-      gap: 16px;
-    }
-
-    .status-ok {
-      color: #3fb950;
-    }
-
-    .status-err {
-      color: #f85149;
-    }
-
-    #response-body {
-      flex: 1;
-      overflow: auto;
-      padding: 16px;
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-all;
-    }
-  </style>
-</head>
-
-<body>
-  <a href="/super-resolution-monitor.html" style="position:fixed;right:20px;top:12px;z-index:100;color:#2563eb;background:white;padding:6px 12px;border-radius:6px">超分监视与图片对比</a>
-
-  <header>
-    <h1>Comic API 测试台</h1>
-  </header>
-  <div class="container">
-    <div class="sidebar" id="sidebar"></div>
-    <div class="main">
-      <div class="toolbar">
-        <input id="url-input" value="http://localhost:8888/api/health" />
-        <button id="send-btn">发送</button>
-      </div>
-      <div class="response-area">
-        <div class="response-meta">
-          <span id="meta-status">—</span>
-          <span id="meta-time">—</span>
-          <span id="meta-size">—</span>
-        </div>
-        <div id="response-body">点击左侧接口或直接输入 URL 后发送</div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    const ENDPOINTS = [
-      { method: 'GET', url: '/api/health', label: 'Health 检查' },
-      { method: 'GET', url: '/api/comics', label: '所有漫画' },
-      { method: 'GET', url: '/api/comics/1', label: '漫画详情' },
-      { method: 'GET', url: '/api/chapters/1/images', label: '章节图片' },
-      { method: 'GET', url: '/api/comics/random', label: '随机漫画' },
-      { method: 'DELETE', url: '/api/comics/1', label: '删除漫画' },
-    ];
-
-    const sidebar = document.getElementById('sidebar');
-    const urlInput = document.getElementById('url-input');
-    const sendBtn = document.getElementById('send-btn');
-    const body = document.getElementById('response-body');
-    const metaStatus = document.getElementById('meta-status');
-    const metaTime = document.getElementById('meta-time');
-    const metaSize = document.getElementById('meta-size');
-
-    ENDPOINTS.forEach((ep, i) => {
-      const el = document.createElement('div');
-      el.className = 'endpoint';
-      el.innerHTML = `<span class="method ${ep.method.toLowerCase()}">${ep.method}</span><span class="url">${ep.url}</span>`;
-      el.title = ep.label;
-      el.onclick = () => {
-        document.querySelectorAll('.endpoint').forEach(e => e.classList.remove('active'));
-        el.classList.add('active');
-        urlInput.value = location.origin + ep.url;
-        currentMethod = ep.method;
-        sendBtn.textContent = ep.method === 'DELETE' ? '删除' : '发送';
-        sendBtn.style.background = ep.method === 'DELETE' ? '#b91c1c' : '#238636';
-        send();
-      };
-      sidebar.appendChild(el);
-    });
-
-    let currentMethod = 'GET';
-
-    async function send() {
-      const url = urlInput.value.trim();
-      if (currentMethod === 'DELETE' && !confirm(`确定要删除吗？\n${url}`)) return;
-      body.textContent = '请求中…';
-      metaStatus.textContent = '—';
-      metaTime.textContent = '—';
-      metaSize.textContent = '—';
-
-      const t0 = Date.now();
-      try {
-        const res = await fetch(url, { method: currentMethod });
-        const ms = Date.now() - t0;
-        const text = await res.text();
-        let display = text;
-        try { display = JSON.stringify(JSON.parse(text), null, 2); } catch { }
-
-        metaStatus.textContent = `${res.status} ${res.statusText}`;
-        metaStatus.className = res.ok ? 'status-ok' : 'status-err';
-        metaTime.textContent = `${ms} ms`;
-        metaSize.textContent = `${new Blob([text]).size} B`;
-        body.textContent = display;
-      } catch (e) {
-        body.textContent = `请求失败: ${e}`;
-        metaStatus.textContent = 'Error';
-        metaStatus.className = 'status-err';
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>API 调试 · 漫画后台</title>
+    <link rel="stylesheet" href="/admin.css" />
+    <style>
+      body {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
       }
-    }
-
-    sendBtn.onclick = send;
-    urlInput.addEventListener('keydown', e => e.key === 'Enter' && send());
-  </script>
-</body>
-
+      .container {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        flex: 1;
+        min-height: 0;
+      }
+      .sidebar {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .sidebar-head {
+        padding: 24px 20px 16px;
+      }
+      .sidebar-head h2 {
+        font-size: 16px;
+        margin: 6px 0 14px;
+      }
+      .sidebar-head input {
+        width: 100%;
+      }
+      .endpoints {
+        padding: 0 12px 20px;
+        overflow: auto;
+      }
+      .endpoint {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        width: 100%;
+        padding: 13px 12px;
+        margin-bottom: 6px;
+        background: transparent;
+        border-color: transparent;
+        text-align: left;
+      }
+      .endpoint.active {
+        background: #243553;
+        border-color: #5577ae;
+      }
+      .endpoint-copy {
+        min-width: 0;
+      }
+      .endpoint strong {
+        display: block;
+        font-size: 13px;
+      }
+      .endpoint code {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      .method {
+        font:
+          600 10px/1.5 Consolas,
+          monospace;
+        border-radius: 5px;
+        min-width: 48px;
+        text-align: center;
+        padding: 3px 6px;
+        color: var(--green);
+        background: #1b3d34;
+        margin-top: 2px;
+      }
+      .method.delete {
+        background: #452730;
+        color: var(--red);
+      }
+      .sidebar-foot {
+        margin-top: auto;
+        padding: 16px 20px;
+        border-top: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .main {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+        padding: 28px;
+        gap: 20px;
+      }
+      .heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .heading h2 {
+        font-size: 24px;
+        margin: 0;
+      }
+      .heading p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .request-panel {
+        padding: 20px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+      }
+      .request-panel label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .toolbar {
+        display: flex;
+        gap: 8px;
+      }
+      .toolbar input {
+        flex: 1;
+        min-width: 0;
+        font-family: Consolas, monospace;
+      }
+      .request-hint {
+        margin: 10px 0 0;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .response-area {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 160px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--panel);
+        overflow: hidden;
+      }
+      .response-head {
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .response-head h3 {
+        font-size: 14px;
+        margin: 0;
+      }
+      .response-head button {
+        margin-left: auto;
+        font-size: 12px;
+        padding: 6px 10px;
+      }
+      .response-meta {
+        padding: 12px 20px;
+        display: flex;
+        gap: 24px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
+      }
+      .response-meta span {
+        display: flex;
+        gap: 8px;
+      }
+      #response-body {
+        margin: 0;
+        flex: 1;
+        overflow: auto;
+        padding: 20px;
+        font:
+          13px/1.75 Consolas,
+          "Microsoft YaHei",
+          monospace;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      .copy-feedback {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .empty {
+        padding: 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      @media (max-width: 900px) {
+        .container {
+          grid-template-columns: 240px minmax(0, 1fr);
+        }
+        .main {
+          padding: 20px;
+        }
+        .toolbar {
+          flex-wrap: wrap;
+        }
+        .toolbar input {
+          flex-basis: 60%;
+        }
+      }
+      @media (max-width: 700px) {
+        body {
+          height: auto;
+          min-height: 100dvh;
+        }
+        .container {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .sidebar-head {
+          padding: 16px;
+        }
+        .sidebar-head h2 {
+          margin: 0 0 10px;
+        }
+        .endpoints {
+          max-height: 220px;
+        }
+        .sidebar-foot {
+          display: none;
+        }
+        .main {
+          padding: 16px;
+          gap: 16px;
+        }
+        .heading h2 {
+          font-size: 21px;
+        }
+        .request-panel {
+          padding: 16px;
+        }
+        .toolbar input {
+          flex-basis: 70%;
+          width: 100%;
+        }
+        .toolbar #send-btn {
+          width: 100%;
+        }
+        .response-area {
+          min-height: 320px;
+        }
+        .response-meta {
+          gap: 12px;
+        }
+        .response-head {
+          flex-wrap: wrap;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <div>
+          <h1>漫画后台</h1>
+          <p>接口调试与图像处理监视</p>
+        </div>
+      </div>
+      <nav class="page-nav" aria-label="后台导航">
+        <a href="/" aria-current="page">API 调试</a
+        ><a href="/super-resolution-monitor.html">超分监视</a>
+      </nav>
+    </header>
+    <div class="container">
+      <aside class="sidebar" aria-label="接口列表">
+        <div class="sidebar-head">
+          <div class="eyebrow">接口目录</div>
+          <h2>常用接口</h2>
+          <input
+            id="search"
+            type="search"
+            placeholder="搜索名称或路径…"
+            aria-label="搜索接口"
+          />
+        </div>
+        <div id="sidebar" class="endpoints"></div>
+        <div class="sidebar-foot">
+          选择接口，编辑地址后发送。<br />示例中的 ID 可替换为实际值。
+        </div>
+      </aside>
+      <main class="main">
+        <div class="heading">
+          <div>
+            <h2>API 调试</h2>
+            <p>检查后端响应，快速定位接口问题。</p>
+          </div>
+          <span class="pill">JSON 格式化</span>
+        </div>
+        <section class="request-panel" aria-label="请求配置">
+          <label for="url-input">请求地址</label>
+          <form id="request-form" class="toolbar">
+            <select id="method" aria-label="请求方法">
+              <option>GET</option>
+              <option>DELETE</option></select
+            ><input
+              id="url-input"
+              type="text"
+              spellcheck="false"
+              required
+              aria-label="请求地址"
+            /><button id="send-btn" class="primary" type="submit">
+              发送请求
+            </button>
+          </form>
+          <p class="request-hint" id="request-hint">
+            默认连接当前后端，支持编辑完整 URL 或相对路径。
+          </p>
+        </section>
+        <section class="response-area" aria-labelledby="response-title">
+          <div class="response-head">
+            <h3 id="response-title">响应结果</h3>
+            <span id="copy-feedback" class="copy-feedback" role="status"></span
+            ><button id="copy-btn" disabled>复制响应</button>
+          </div>
+          <div class="response-meta" role="status" aria-live="polite">
+            <span>状态 <b id="meta-status">未发送</b></span
+            ><span>耗时 <b id="meta-time">—</b></span
+            ><span>大小 <b id="meta-size">—</b></span>
+          </div>
+          <pre id="response-body" tabindex="0" aria-label="响应内容">
+选择左侧接口，或输入请求地址后点击「发送请求」。</pre>
+        </section>
+      </main>
+    </div>
+    <script>
+      "use strict";
+      const ENDPOINTS = [
+        { method: "GET", url: "/api/health", label: "健康检查" },
+        { method: "GET", url: "/api/comics", label: "漫画列表" },
+        { method: "GET", url: "/api/comics/random", label: "随机漫画" },
+        { method: "GET", url: "/api/comics/1", label: "漫画详情" },
+        { method: "GET", url: "/api/chapters/1/images", label: "章节图片" },
+        {
+          method: "GET",
+          url: "/api/super-resolution/monitor",
+          label: "超分监视状态",
+        },
+        { method: "DELETE", url: "/api/comics/1", label: "删除漫画" },
+      ];
+      const $ = (id) => document.getElementById(id);
+      let selected = 0,
+        busy = false,
+        responseText = "";
+      $("url-input").value = location.origin + ENDPOINTS[0].url;
+      function render() {
+        const focused =
+          document.activeElement?.closest(".endpoint")?.dataset.index;
+        const query = $("search").value.trim().toLowerCase();
+        const fragment = document.createDocumentFragment();
+        ENDPOINTS.forEach((ep, index) => {
+          if (
+            !`${ep.label} ${ep.url} ${ep.method}`.toLowerCase().includes(query)
+          )
+            return;
+          const button = document.createElement("button");
+          button.className = "endpoint" + (index === selected ? " active" : "");
+          button.disabled = busy;
+          button.dataset.index = String(index);
+          button.setAttribute("aria-pressed", String(index === selected));
+          const badge = document.createElement("span");
+          badge.className = "method " + ep.method.toLowerCase();
+          badge.textContent = ep.method;
+          const description = document.createElement("span");
+          description.className = "endpoint-copy";
+          const title = document.createElement("strong");
+          title.textContent = ep.label;
+          const path = document.createElement("code");
+          path.textContent = ep.url;
+          description.append(title, path);
+          button.append(badge, description);
+          button.onclick = () => {
+            selected = index;
+            $("url-input").value = location.origin + ep.url;
+            $("method").value = ep.method;
+            updateMethod();
+            render();
+          };
+          fragment.append(button);
+        });
+        if (!fragment.childNodes.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "没有匹配的接口，试试其他关键词。";
+          fragment.append(empty);
+        }
+        $("sidebar").replaceChildren(fragment);
+        if (focused)
+          Array.from($("sidebar").children)
+            .find((button) => button.dataset.index === focused)
+            ?.focus({ preventScroll: true });
+      }
+      function updateMethod() {
+        const destructive = $("method").value === "DELETE";
+        $("send-btn").className = destructive ? "danger" : "primary";
+        $("send-btn").textContent = busy
+          ? "请求中…"
+          : destructive
+            ? "发送删除请求"
+            : "发送请求";
+        $("request-hint").textContent = destructive
+          ? "删除漫画会修改数据；发送前需要确认。"
+          : "默认连接当前后端，支持编辑完整 URL 或相对路径。";
+      }
+      async function send(event) {
+        event.preventDefault();
+        if (busy) return;
+        const url = $("url-input").value.trim();
+        if (!url) return;
+        const method = $("method").value;
+        if (method === "DELETE" && !confirm(`确定要删除吗？\n${url}`)) return;
+        busy = true;
+        responseText = "";
+        $("response-body").textContent = "正在等待后端响应…";
+        $("meta-status").className = "";
+        $("meta-status").textContent = "请求中";
+        $("meta-time").textContent = "—";
+        $("meta-size").textContent = "—";
+        $("copy-feedback").textContent = "";
+        $("copy-btn").disabled = true;
+        for (const id of ["send-btn", "method", "url-input"])
+          $(id).disabled = true;
+        for (const button of $("sidebar").querySelectorAll("button"))
+          button.disabled = true;
+        updateMethod();
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30000);
+        const start = performance.now();
+        try {
+          const response = await fetch(url, {
+            method,
+            signal: controller.signal,
+            cache: "no-store",
+          });
+          const raw = await response.text();
+          try {
+            responseText = JSON.stringify(JSON.parse(raw), null, 2);
+          } catch {
+            responseText = raw;
+          }
+          $("response-body").textContent = responseText || "响应内容为空。";
+          $("meta-status").textContent =
+            `${response.status} ${response.statusText}`.trim();
+          $("meta-status").className = response.ok ? "status-ok" : "status-err";
+          $("meta-size").textContent =
+            `${new Blob([raw]).size.toLocaleString()} B`;
+          $("copy-btn").disabled = !responseText;
+        } catch (error) {
+          $("meta-status").textContent =
+            error.name === "AbortError" ? "请求超时" : "请求失败";
+          $("meta-status").className = "status-err";
+          $("response-body").textContent =
+            error.name === "AbortError"
+              ? "请求超过 30 秒，请检查后端后重试。"
+              : `无法获取响应，请检查地址、后端连接和跨域设置。\n${error.message}`;
+        } finally {
+          clearTimeout(timeout);
+          $("meta-time").textContent =
+            `${Math.round(performance.now() - start)} ms`;
+          busy = false;
+          for (const id of ["send-btn", "method", "url-input"])
+            $(id).disabled = false;
+          for (const button of $("sidebar").querySelectorAll("button"))
+            button.disabled = false;
+          updateMethod();
+        }
+      }
+      $("request-form").onsubmit = send;
+      $("search").oninput = render;
+      $("method").onchange = () => {
+        selected = -1;
+        updateMethod();
+        render();
+      };
+      $("url-input").oninput = () => {
+        selected = -1;
+        for (const button of $("sidebar").querySelectorAll("button")) {
+          button.classList.remove("active");
+          button.setAttribute("aria-pressed", "false");
+        }
+      };
+      $("copy-btn").onclick = async () => {
+        const snapshot = responseText;
+        $("copy-btn").disabled = true;
+        try {
+          await navigator.clipboard.writeText(snapshot);
+          $("copy-feedback").textContent = "已复制";
+        } catch {
+          $("copy-feedback").textContent = "复制不可用，请选中响应内容复制。";
+        } finally {
+          $("copy-btn").disabled = busy || !responseText;
+        }
+      };
+      render();
+    </script>
+  </body>
 </html>
