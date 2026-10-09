@@ -44,6 +44,7 @@ CI 在工作流内部判断改动范围：`app/` 改动执行 Flutter 门禁，`
 后端门禁；仅明确的仓库 Markdown 文档改动免检，CI、共享配置和未知文件改动检查
 两边。文档白名单、差异范围与失败处理以 `specs/project-layout.convention.md` 为准。
 所有范围仍生成 `check` 状态；本地 `br-work` 完成门禁仍须执行以上五项命令。
+
 ## 提交约定
 
 提交消息不要求附加 trailer。
