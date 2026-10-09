@@ -77,6 +77,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   double _imagePixelRatio = 1;
   bool _desktopImages = false;
   ImageProvider<Object>? _imageLayoutSignature;
+  Object? _superResolutionLayoutSignature;
   int _imageLayoutGeneration = 0;
   Timer? _hideTimer;
   bool _chromeVisible = true;
@@ -362,8 +363,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _imagePixelRatio = ratio;
     _desktopImages = desktop;
     final signature = _imageProvider(_images.first);
-    if (signature == _imageLayoutSignature) return;
+    final srLayout = (size, ratio, desktop);
+    if (signature == _imageLayoutSignature &&
+        srLayout == _superResolutionLayoutSignature) {
+      return;
+    }
     _imageLayoutSignature = signature;
+    _superResolutionLayoutSignature = srLayout;
     final layoutGeneration = ++_imageLayoutGeneration;
     final chapterGeneration = _jumpGeneration;
     WidgetsBinding.instance.addPostFrameCallback((_) {
