@@ -138,7 +138,7 @@ flutter doctor
 
 ## 本地漫画超分（可选）
 
-在 Windows 后端目录运行一次 `npm run setup:waifu2x`，脚本下载固定版本官方便携包并验证 SHA256。引擎、模型和许可证保存在 `backend/tools/waifu2x/`（不提交 Git）；Flutter 客户端无需安装引擎。需要兼容 Vulkan 的显卡与驱动。
+仓库已包含 Windows 便携引擎 `20250915`、`models-cunet` 模型和许可证，位于 `backend/tools/waifu2x/`，正常拉取项目后即可配置启用，无需额外下载。Flutter 客户端无需安装引擎。需要兼容 Vulkan 的显卡与驱动。`backend/` 下的 `npm run setup:waifu2x` 保留为重新下载与更新入口；脚本校验官方包的 SHA256，更新版本时须同步修改脚本内的版本与校验值，并提交更新后的引擎、模型文件。
 
 在 `backend/.env` 设置 `WAIFU2X_ENABLED=1` 后重启后端。阅读器工具栏的超分入口默认关闭，开启后处理当前页及后两页；原图先显示，就绪后显示增强图。失败仍可阅读原图，可通过“重试超分”重提。关闭入口立即回原图。
 

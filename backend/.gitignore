@@ -3,4 +3,4 @@ dist/
 *.log
 data/
 
-tools/waifu2x/
+tools/waifu2x/models-upconv_7_*/

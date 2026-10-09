@@ -25,7 +25,9 @@ try {
   [System.IO.Compression.ZipFile]::ExtractToDirectory($archive, $temporaryRoot)
   $extracted = Join-Path $temporaryRoot "waifu2x-ncnn-vulkan-$version-windows"
   New-Item -ItemType Directory -Path $destination -Force | Out-Null
-  Get-ChildItem -LiteralPath $extracted | Copy-Item -Destination $destination -Recurse -Force
+  foreach ($entry in @('waifu2x-ncnn-vulkan.exe', 'vcomp140.dll', 'LICENSE', 'models-cunet')) {
+    Copy-Item -LiteralPath (Join-Path $extracted $entry) -Destination $destination -Recurse -Force
+  }
   Write-Host "引擎已准备：$destination"
   Write-Host '在 backend/.env 设置 WAIFU2X_ENABLED=1，重启后端后使用。'
 } finally {

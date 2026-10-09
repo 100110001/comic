@@ -2,3 +2,8 @@ app/windows/flutter/generated_plugin_registrant.cc text eol=lf
 app/windows/flutter/generated_plugin_registrant.h text eol=lf
 app/windows/flutter/generated_plugins.cmake text eol=lf
 backend/**/*.ts text eol=lf
+
+backend/tools/waifu2x/*.exe binary
+backend/tools/waifu2x/*.dll binary
+backend/tools/waifu2x/**/*.bin binary
+backend/tools/waifu2x/**/*.param -text
