@@ -27,6 +27,48 @@ class _DelayedApiClient extends ApiClient {
 }
 
 void main() {
+  test('默认超分窗口随翻页推进，关闭后仍请求原图且不提交增强', () async {
+    final client = _WindowUpscaleClient();
+    final container = ProviderContainer(
+      overrides: [
+        apiClientProvider.overrideWithValue(client),
+        superResolutionDefaultProvider.overrideWith(
+          () => SuperResolutionDefaultNotifier(initial: true),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    container.listen(superResolutionProvider, (_, _) {});
+    final images = List.generate(
+      4,
+      (index) => ImageItem(
+        id: index + 1,
+        filename: '${index + 1}.jpg',
+        pageNumber: index,
+        url: 'http://example.test/${index + 1}.jpg?v=20-30',
+      ),
+    );
+    final reader = container.read(superResolutionProvider.notifier);
+    reader.setWindow(images.take(3).toList());
+    await container.pump();
+    expect(client.windows, [
+      [1, 2, 3],
+    ]);
+    reader.setWindow(images.skip(1).take(3).toList());
+    await container.pump();
+    expect(client.windows.last, [2, 3, 4]);
+    expect(
+      container.read(superResolutionProvider).results[images.last.url]?.status,
+      'ready',
+    );
+    reader.setEnabled(false);
+    reader.setWindow(images.skip(1).take(3).toList());
+    await container.pump();
+    expect(client.windows.last, [2, 3, 4]);
+    expect(client.choices, [true, true, false]);
+    expect(container.read(superResolutionDefaultProvider), isTrue);
+  });
+
   test('超分默认值持久化，阅读器临时关闭不修改设置，重进恢复默认', () async {
     SharedPreferences.setMockInitialValues({});
     final saved = ProviderContainer();
@@ -263,5 +305,35 @@ class _DelayedUpscaleClient extends ApiClient {
           )
           .toList(),
     );
+  }
+}
+
+class _WindowUpscaleClient extends ApiClient {
+  _WindowUpscaleClient() : super(baseUrl: 'http://example.test', generation: 0);
+  final windows = <List<int>>[];
+  final choices = <bool>[];
+  @override
+  Future<List<ImageResolution>> resolveImages(
+    List<ImageItem> images, {
+    required bool upscale,
+  }) async {
+    windows.add(images.map((image) => image.id).toList());
+    choices.add(upscale);
+    return images
+        .map(
+          (image) => ImageResolution(
+            imageId: image.id,
+            originalUrl: image.url,
+            superResolution: upscale
+                ? SuperResolutionJob(
+                    key: 'a' * 64,
+                    imageId: image.id,
+                    status: 'ready',
+                    url: 'http://example.test/enhanced-${image.id}.webp',
+                  )
+                : null,
+          ),
+        )
+        .toList();
   }
 }

@@ -89,7 +89,8 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
         .toList();
     if (pending.isEmpty) return;
     final client = _client;
-    unawaited(_submit(client, pending, generation));
+    // 提交完整窗口，让后端保持当前页、后两页的优先级；已有任务和缓存由后端复用。
+    unawaited(_submit(client, images, generation));
   }
 
   bool _current(int generation) =>
