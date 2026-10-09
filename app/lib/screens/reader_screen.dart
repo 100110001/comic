@@ -14,6 +14,8 @@ import '../services/api_client.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
+import '../providers/super_resolution_provider.dart';
+import '../widgets/enhanced_image.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../utils/display_image_provider.dart';
@@ -290,6 +292,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
+    ref.read(superResolutionProvider.notifier).resetChapter();
     setState(() {
       _chapterId = chapterId;
       _loading = true;
@@ -376,6 +379,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 显示与相邻页预加载使用同一尺寸缓存，布局确定前不预加载原图。
   void _precacheAround(int page) {
     if (_images.isEmpty || _imageViewport == null) return;
+    ref
+        .read(superResolutionProvider.notifier)
+        .setWindow(_images.skip(page).take(3).toList());
     for (var i = page - 1; i <= page + 2; i++) {
       if (i < 0 || i >= _images.length) continue;
       unawaited(
@@ -385,6 +391,74 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           onError: (error, stack) {},
         ),
       );
+    }
+  }
+
+  ImageProvider<Object>? _enhancedProvider(ImageItem image) {
+    final sr = ref.read(superResolutionProvider);
+    final url = sr.enabled ? sr.results[image.url]?.url : null;
+    if (url == null || _imageViewport == null) return null;
+    return displayImageProvider(
+      url,
+      logicalSize: _imageViewport!,
+      devicePixelRatio: _imagePixelRatio,
+      fit: _desktopImages ? BoxFit.contain : BoxFit.fitWidth,
+    );
+  }
+
+  VoidCallback _enhancedFailure(ImageItem image) {
+    final controller = ref.read(superResolutionProvider.notifier);
+    final generation = controller.generation;
+    final expected = ref.read(superResolutionProvider).results[image.url];
+    return () => controller.imageFailed(
+      image.url,
+      generation: generation,
+      expected: expected,
+    );
+  }
+
+  void _toggleSuperResolution() {
+    final enabled = ref.read(superResolutionProvider).enabled;
+    ref.read(superResolutionProvider.notifier).setEnabled(!enabled);
+    if (!enabled) _precacheAround(_currentPage);
+    _onActivity();
+  }
+
+  Future<void> _superResolutionAction(String action) async {
+    final controller = ref.read(superResolutionProvider.notifier);
+    if (action == 'toggle') {
+      _toggleSuperResolution();
+      return;
+    }
+    if (action == 'sync') {
+      await _saveProgress();
+      return;
+    }
+    if (action == 'retry') {
+      if (_images.isEmpty) return;
+      for (final image in _images.skip(_currentPage).take(3)) {
+        await _enhancedProvider(image)?.evict();
+      }
+      if (!mounted) return;
+      controller.setWindow(
+        _images.skip(_currentPage).take(3).toList(),
+        retry: true,
+      );
+    } else {
+      try {
+        await controller.clearCache();
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('超分缓存已清空，已切回原图')));
+        }
+      } catch (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(userMessageFor(error, fallback: '缓存清理失败'))),
+          );
+        }
+      }
     }
   }
 
@@ -616,6 +690,17 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }
       _buildExtents(width);
     }
+    final sr = ref.watch(superResolutionProvider);
+    final srJob = _images.isEmpty
+        ? null
+        : sr.results[_images[_currentPage].url];
+    final srHint = !sr.enabled
+        ? '开启超分 2×'
+        : srJob?.status == 'failed'
+        ? (srJob?.error ?? '超分失败，继续使用原图')
+        : srJob?.status == 'ready'
+        ? '超分 2× 已就绪，点击显示原图'
+        : '超分 2× 处理中，点击关闭';
     final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
     final Widget scaffold = Scaffold(
@@ -663,7 +748,52 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   ),
                 ),
                 actions: [
-                  if (pending != null)
+                  PopupMenuButton<String>(
+                    tooltip: srHint,
+                    style: IconButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: Icon(
+                      Icons.auto_awesome,
+                      color: sr.enabled
+                          ? Theme.of(context).colorScheme.primary
+                          : c.text1,
+                    ),
+                    onSelected: _superResolutionAction,
+                    itemBuilder: (_) => [
+                      if (sr.enabled)
+                        PopupMenuItem(
+                          enabled: false,
+                          child: Text(
+                            srJob?.status == 'failed'
+                                ? (srJob?.error ?? '超分失败，继续使用原图')
+                                : srJob?.status == 'ready'
+                                ? '超分 2× 已就绪'
+                                : '超分 2× 处理中',
+                          ),
+                        ),
+                      PopupMenuItem(
+                        value: 'toggle',
+                        enabled: _images.isNotEmpty,
+                        child: Text(sr.enabled ? '关闭超分 2×' : '开启超分 2×'),
+                      ),
+                      PopupMenuItem(
+                        value: 'retry',
+                        enabled: sr.enabled,
+                        child: const Text('重试超分'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'clear',
+                        child: Text('清空超分缓存'),
+                      ),
+                      if (pending != null && width < 500)
+                        const PopupMenuItem(
+                          value: 'sync',
+                          child: Text('进度已存本机，点击同步'),
+                        ),
+                    ],
+                  ),
+                  if (pending != null && width >= 500)
                     IconButton(
                       icon: Icon(Icons.cloud_upload_outlined, color: c.text1),
                       tooltip: '进度已存本机，点击同步',
@@ -807,11 +937,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           // ignore: deprecated_member_use
           cacheExtent: 800,
           itemCount: _images.length,
-          itemBuilder: (ctx, i) => _LazyImage(
-            key: ValueKey(_images[i].url),
-            provider: _imageProvider(_images[i]),
-            height: _estimatedHeight(_images[i], width),
-          ),
+          itemBuilder: (ctx, i) {
+            final image = _images[i];
+            return _LazyImage(
+              key: ValueKey(_images[i].url),
+              provider: _imageProvider(_images[i]),
+              enhanced: _enhancedProvider(_images[i]),
+              onEnhancedError: _enhancedFailure(image),
+              height: _estimatedHeight(_images[i], width),
+            );
+          },
         );
       },
     );
@@ -819,6 +954,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Widget _buildPagedBody(BuildContext context) {
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
+    final image = _images[page];
     final c = context.appColors;
     return Listener(
       onPointerSignal: (event) {
@@ -839,18 +975,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 return Container(
                   color: c.readerBg,
                   alignment: Alignment.center,
-                  child: Image(
-                    image: _imageProvider(_images[page]),
-                    key: ValueKey('page-img-$page-$_imageRetryTick'),
+                  child: EnhancedImage(
+                    enhanced: _enhancedProvider(_images[page]),
                     fit: BoxFit.contain,
-                    loadingBuilder: (_, child, progress) {
-                      if (progress == null) return child;
-                      return const Center(child: CircularProgressIndicator());
-                    },
-                    errorBuilder: (_, _, _) => GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _retryCurrentImage,
-                      child: const _ImageRetryBox(),
+                    onError: _enhancedFailure(image),
+                    original: Image(
+                      image: _imageProvider(_images[page]),
+                      key: ValueKey('page-img-$page-$_imageRetryTick'),
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(child: CircularProgressIndicator());
+                      },
+                      errorBuilder: (_, _, _) => GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: _retryCurrentImage,
+                        child: const _ImageRetryBox(),
+                      ),
                     ),
                   ),
                 );
@@ -896,7 +1037,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 class _LazyImage extends StatefulWidget {
   final ImageProvider<Object> provider;
   final double height;
-  const _LazyImage({super.key, required this.provider, required this.height});
+  final ImageProvider<Object>? enhanced;
+  final VoidCallback onEnhancedError;
+  const _LazyImage({
+    super.key,
+    required this.provider,
+    required this.height,
+    this.enhanced,
+    required this.onEnhancedError,
+  });
 
   @override
   State<_LazyImage> createState() => _LazyImageState();
@@ -924,20 +1073,25 @@ class _LazyImageState extends State<_LazyImage> {
       child: ClipRect(
         child: !_visible
             ? _loadingBox()
-            : Image(
-                image: widget.provider,
-                key: ValueKey(_retryTick),
-                width: double.infinity,
-                height: widget.height,
+            : EnhancedImage(
+                enhanced: widget.enhanced,
                 fit: BoxFit.fitWidth,
-                loadingBuilder: (_, child, progress) {
-                  if (progress == null) return child;
-                  return _loadingBox(progress: progress);
-                },
-                errorBuilder: (_, _, _) => GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _retry,
-                  child: const _ImageRetryBox(),
+                onError: widget.onEnhancedError,
+                original: Image(
+                  image: widget.provider,
+                  key: ValueKey(_retryTick),
+                  width: double.infinity,
+                  height: widget.height,
+                  fit: BoxFit.fitWidth,
+                  loadingBuilder: (_, child, progress) {
+                    if (progress == null) return child;
+                    return _loadingBox(progress: progress);
+                  },
+                  errorBuilder: (_, _, _) => GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _retry,
+                    child: const _ImageRetryBox(),
+                  ),
                 ),
               ),
       ),

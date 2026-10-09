@@ -9,6 +9,7 @@ import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/image_item.dart';
+import '../models/super_resolution_job.dart';
 import '../models/reading_progress_entry.dart';
 import '../utils/user_error.dart';
 
@@ -265,6 +266,59 @@ class ApiClient {
           .map((item) => ImageItem.fromJson(item, serverUrl: baseUrl))
           .toList(),
     );
+  }
+
+  Future<List<SuperResolutionJob>> requestSuperResolution(
+    List<ImageItem> images,
+  ) async {
+    final data = await _request(
+      'POST',
+      '/api/super-resolution/jobs',
+      body: {
+        'images': images
+            .map(
+              (image) => {
+                'id': image.id,
+                'version': Uri.parse(image.url).queryParameters['v'],
+              },
+            )
+            .toList(),
+      },
+    );
+    return _parse(
+      () => (data['data'] as List)
+          .map(
+            (item) => SuperResolutionJob.fromJson(
+              item as Map<String, dynamic>,
+              baseUrl,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<List<SuperResolutionJob>> getSuperResolutionJobs(
+    List<String> keys,
+  ) async {
+    final path = Uri(
+      path: '/api/super-resolution/jobs',
+      queryParameters: {'keys': keys.join(',')},
+    ).toString();
+    final data = await _request('GET', path);
+    return _parse(
+      () => (data['data'] as List)
+          .map(
+            (item) => SuperResolutionJob.fromJson(
+              item as Map<String, dynamic>,
+              baseUrl,
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Future<void> clearSuperResolutionCache() async {
+    await _request('DELETE', '/api/super-resolution/cache');
   }
 
   Future<List<ReadingProgressEntry>> getRecent() async {
