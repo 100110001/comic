@@ -22,7 +22,7 @@ origin: specs/changes/2026-10-09-backend-page-polish/define.md
 
 ## 实现单元
 
-### U1. 统一后台工作台并完善操作反馈
+### U1. 已完成：统一后台工作台并完善操作反馈
 
 - 依赖：无。
 - 文件：backend/public/index.html、backend/public/super-resolution-monitor.html、backend/public/admin.css。
@@ -37,3 +37,4 @@ origin: specs/changes/2026-10-09-backend-page-polish/define.md
 ## 范围边界
 
 不调整服务端 API、数据库、推理服务或 Flutter 产品功能；不引入前端框架。
+

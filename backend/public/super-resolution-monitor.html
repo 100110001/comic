@@ -1,30 +1,816 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>漫画超分监视</title>
-<style>
-*{box-sizing:border-box}body{margin:0;background:#10141b;color:#e8edf5;font:14px/1.5 system-ui,sans-serif}button,input,select{font:inherit}button,select,input[type=search]{background:#212a38;color:inherit;border:1px solid #3b485a;border-radius:7px;padding:8px 12px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}button:hover:not(:disabled){border-color:#8ca6ff}header{padding:22px 28px;border-bottom:1px solid #2b3443;display:flex;gap:18px;align-items:center;flex-wrap:wrap}h1{font-size:23px;margin:0}header p{color:#96a5bb;margin:3px 0}.stats{display:flex;gap:12px;margin-left:auto}.stat{min-width:80px;padding:8px 14px;background:#1a2230;border-radius:9px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:#aab7c9}main{display:grid;grid-template-columns:350px minmax(0,1fr);height:calc(100vh - 130px)}aside{border-right:1px solid #2b3443;display:flex;flex-direction:column;min-height:0}.filters{padding:16px;display:flex;gap:8px;flex-wrap:wrap}.filters input{width:100%}.requests{overflow:auto;padding:0 10px 20px}.request{display:block;text-align:left;width:100%;margin-bottom:7px;background:#181f2b;border:1px solid transparent}.request.active{background:#253553;border-color:#829cff}.request strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.request small{color:#a9b6c9}.tag{display:inline-block;font-size:12px;margin-right:8px;color:#a6bbff}.tag.ready{color:#86e2b5}.tag.failed{color:#ff9b9b}.workspace{min-width:0;display:flex;flex-direction:column;overflow:hidden}.detail{padding:18px 24px;border-bottom:1px solid #2b3443}.detail h2{font-size:17px;margin:0 0 5px;word-break:break-all}.detail p{margin:0;color:#aab7c9}.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:13px}.tools label{display:flex;gap:8px;align-items:center}input[type=range]{accent-color:#97adff}.canvas{flex:1;min-height:180px;overflow:auto;padding:16px;background:repeating-conic-gradient(#171e29 0% 25%,#1c2532 0% 50%) 50%/20px 20px}.stage{position:relative;margin:auto;overflow:hidden;background:#fff}.stage img{display:block;width:100%;height:100%;object-fit:contain}.stage .enhanced{position:absolute;inset:0;clip-path:inset(0 50% 0 0)}.divider{position:absolute;top:0;bottom:0;width:14px;left:50%;background:#8daaff55;border-left:2px solid #8daaff;cursor:ew-resize;touch-action:none}.labels{position:absolute;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;pointer-events:none}.labels span{background:#10141bcc;color:white;border-radius:5px;padding:4px 9px}.message{color:#adbcd0;padding:25px;text-align:center}.notice{color:#ffbd89!important;margin-top:8px!important}a{color:#a6bbff}.links{margin-top:8px;display:flex;gap:15px}.footer{padding:8px 24px;font-size:12px;color:#9aaac0;border-top:1px solid #2b3443}.connection{color:#a5b9d5;margin:0;font-size:12px}#progress{width:130px}#empty{margin:auto;padding:30px;text-align:center;color:#aab7c9}
-@media(max-width:800px){header{padding:16px}main{height:auto;grid-template-columns:1fr}aside{max-height:310px;border-right:0;border-bottom:1px solid #2b3443}.workspace{min-height:600px}.canvas{height:420px;flex:auto}.stats{margin-left:0;flex-wrap:wrap}.stat{min-width:65px}}
-</style></head><body>
-<header><div><h1>超分监视</h1><p>观察阅读请求，对照原图与 waifu2x 2× 结果</p><p id="connection" class="connection" role="status">正在连接后端…</p></div><div class="stats"><div class="stat"><b id="total">0</b><span>累计请求</span></div><div class="stat"><b id="queued">0</b><span>排队任务</span></div><div class="stat"><b id="running">0</b><span>正在处理</span></div></div><button id="refresh">立即刷新</button></header>
-<main><aside><div class="filters"><input id="search" type="search" placeholder="搜索文件名或图片 ID" aria-label="搜索请求"><select id="filter" aria-label="筛选状态"><option value="all">全部状态</option><option value="submitting">提交中</option><option value="queued">排队中</option><option value="running">处理中</option><option value="ready">已完成</option><option value="failed">失败</option></select><label><input id="auto" type="checkbox" checked> 自动刷新</label></div><div id="requests" class="requests"></div></aside>
-<section class="workspace"><div id="empty">从左侧选择请求，查看图片对比。<br>在阅读器开启超分后，请求会自动出现在这里。</div><div id="detail" class="detail" hidden><h2 id="filename"></h2><p id="meta"></p><p id="error" class="notice" role="status"></p><div class="tools"><button id="compare">拖动对比</button><button id="original">原图</button><button id="enhanced">超分图</button><label>分割位置 <input id="progress" type="range" min="0" max="100" value="50"></label><label>缩放 <select id="zoom"><option value="fit">适应窗口</option><option value="1">原图 100%</option><option value="2">原图 200%</option><option value="4">原图 400%</option></select></label></div><div class="links"><a id="originalLink" target="_blank" rel="noopener">打开原图</a><a id="enhancedLink" target="_blank" rel="noopener">打开超分图</a></div></div><div id="canvas" class="canvas" hidden><div id="stage" class="stage"><img id="base" alt="原图"><div id="layer" class="enhanced"><img id="upscaled" alt="超分图"></div><div id="divider" class="divider"></div><div class="labels"><span id="leftLabel">超分 2×</span><span id="rightLabel">原图</span></div></div></div><div class="footer">记录最近 500 次超分提交，累计数覆盖本次运行；后端重启后清空。状态表示历史处理结果，缓存可能失效；原图为当前文件，不保存历史快照。</div></section></main>
-<script>
-'use strict';
-const $=id=>document.getElementById(id);
-const names={submitting:'提交中',queued:'排队中',running:'处理中',ready:'已完成',failed:'失败'};
-const kinds={cache:'缓存命中',shared:'共享任务',inference:'新建处理'};
-let records=[],selected=null,signature='',mode='compare',available=false,busy=false;
-const text=(id,value)=>{$(id).textContent=value};
-function safeUrl(value){if(!value)return null;try{const url=new URL(value,location.origin);if(url.origin!==location.origin||!url.pathname.startsWith('/static/')&&!url.pathname.startsWith('/api/super-resolution/files/'))return null;return url.href}catch{return null}}
-function list(){const scroll=$('requests').scrollTop;const query=$('search').value.trim().toLowerCase();const visible=records.filter(r=>($('filter').value==='all'||r.status===$('filter').value)&&(`${r.filename} ${r.imageId}`).toLowerCase().includes(query));const fragment=document.createDocumentFragment();for(const record of visible){const b=document.createElement('button');b.className='request'+(record.id===selected?' active':'');const title=document.createElement('strong');title.textContent=`#${record.id} · ${record.filename}`;const tag=document.createElement('span');tag.className='tag '+record.status;tag.textContent=names[record.status]||record.status;const small=document.createElement('small');small.textContent=`图片 ${record.imageId} · ${new Date(record.requestedAt).toLocaleTimeString()} · ${kinds[record.kind]||(record.status==='failed'?'提交失败':'正在提交')}`;b.append(title,tag,small);b.onclick=()=>{selected=record.id;signature='';list();detail()};fragment.append(b)}if(!visible.length){const message=document.createElement('div');message.className='message';message.textContent=records.length?'没有匹配的请求':'尚无超分请求。在阅读器开启超分后可观察处理过程。';fragment.append(message)}$('requests').replaceChildren(fragment);$('requests').scrollTop=scroll}
-function size(){const base=$('base');if(!base.naturalWidth)return;const factor=$('zoom').value;const width=factor==='fit'?Math.max(1,$('canvas').clientWidth-32):base.naturalWidth*Number(factor);$('stage').style.width=width+'px';$('stage').style.height=width*base.naturalHeight/base.naturalWidth+'px'}
-function view(){const split=Number($('progress').value);$('layer').hidden=!available||mode==='original';$('divider').hidden=!available||mode!=='compare';$('layer').style.clipPath=mode==='enhanced'?'none':`inset(0 ${100-split}% 0 0)`;$('divider').style.left=split+'%';$('leftLabel').textContent=available&&mode!=='original'?'超分 2×':'原图';$('rightLabel').hidden=!available||mode!=='compare';$('progress').disabled=!available||mode!=='compare';$('compare').disabled=!available;$('enhanced').disabled=!available}
-function detail(){const r=records.find(item=>item.id===selected);if(!r){if(selected!==null){selected=null;signature=''}$('empty').hidden=false;$('detail').hidden=true;$('canvas').hidden=true;return}text('filename',`#${r.id} · ${r.filename}`);text('meta',`图片 ${r.imageId} · ${names[r.status]||r.status} · ${kinds[r.kind]||(r.status==='failed'?'提交失败':'提交中')} · ${(r.elapsedMs/1000).toFixed(2)} 秒 · ${r.width&&r.height?`${r.width} × ${r.height} → ${r.width*2} × ${r.height*2}`:'尺寸待确认'}`);const next=`${r.id}:${r.status}:${r.url||''}:${r.originalUrl||''}`;if(next===signature)return;signature=next;$('empty').hidden=true;$('detail').hidden=false;$('canvas').hidden=false;text('error',r.error||(['queued','running','submitting'].includes(r.status)?'先显示原图，超分完成后自动提供对比。':''));const original=safeUrl(r.originalUrl),enhanced=r.status==='ready'?safeUrl(r.url):null;available=false;view();$('originalLink').hidden=!original;$('enhancedLink').hidden=!enhanced;if(original){$('originalLink').href=original;$('base').src=original}else{$('base').removeAttribute('src');text('error','原图地址不可用')}if(enhanced){$('enhancedLink').href=enhanced;$('upscaled').src=enhanced}else{$('upscaled').removeAttribute('src')}}
-$('base').onload=size;$('base').onerror=()=>text('error','原图无法加载，可能已替换或移除。');$('upscaled').onload=()=>{const r=records.find(item=>item.id===selected);if(!r||$('upscaled').currentSrc!==safeUrl(r.url))return;available=true;view()};$('upscaled').onerror=()=>{available=false;view();text('error','超分图无法加载，缓存可能已清理；原图仍可查看。')};
-for(const name of ['original','enhanced','compare'])$(name).onclick=()=>{mode=name;view()};$('progress').oninput=view;
-let dragging=false;
-function drag(event){if(!dragging)return;const bounds=$('stage').getBoundingClientRect();$('progress').value=Math.max(0,Math.min(100,(event.clientX-bounds.left)/bounds.width*100));view()}
-$('divider').onpointerdown=event=>{dragging=true;$('divider').setPointerCapture(event.pointerId);drag(event)};
-$('divider').onpointermove=drag;$('divider').onpointerup=()=>{dragging=false};$('divider').onpointercancel=()=>{dragging=false};$('zoom').onchange=size;window.addEventListener('resize',size);$('search').oninput=list;$('filter').onchange=list;
-async function refresh(){if(busy)return;busy=true;try{const response=await fetch('/api/super-resolution/monitor',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const json=await response.json();if(json.code!==0||!Array.isArray(json.data?.requests))throw Error('监视接口响应异常');records=json.data.requests;text('total',json.data.total);text('queued',json.data.queued);text('running',json.data.running);text('connection',`${json.data.enabled?'后端超分已启用':'后端超分已禁用'} · ${new Date().toLocaleTimeString()} 更新 · 保留最近 ${json.data.limit} 条`);if(selected===null&&records.length)selected=records[0].id;list();detail()}catch(error){text('connection','刷新失败：'+error.message+'，请确认后端已更新并启动。')}finally{busy=false}}
-$('refresh').onclick=refresh;setInterval(()=>{if($('auto').checked&&!document.hidden)refresh()},2000);refresh();
-</script></body></html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>超分监视 · 漫画后台</title>
+    <link rel="stylesheet" href="/admin.css" />
+    <style>
+      header.app-header {
+        min-height: 68px;
+        padding: 12px 20px;
+      }
+      body {
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+      .monitor-summary {
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+        background: var(--panel);
+        border-bottom: 1px solid var(--line);
+      }
+      .monitor-summary h2 {
+        margin: 0;
+        font-size: 20px;
+      }
+      .monitor-summary p {
+        margin: 3px 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .stats {
+        display: flex;
+        gap: 10px;
+        margin-left: auto;
+      }
+      .stat {
+        padding: 6px 12px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: 10px;
+        min-width: 84px;
+      }
+      .stat b {
+        display: block;
+        font-size: 20px;
+        color: #c8d8ff;
+      }
+      .stat span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .connection.status-err {
+        color: var(--red);
+      }
+      #refresh {
+        min-width: 100px;
+      }
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        flex: 1;
+        min-height: 0;
+      }
+      aside {
+        min-width: 0;
+        min-height: 0;
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        display: flex;
+        flex-direction: column;
+      }
+      .filters {
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .filters input[type="search"] {
+        flex: 1;
+        min-width: 180px;
+      }
+      .filters label {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .requests {
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
+      }
+      .request-table {
+        width: 100%;
+        min-width: 660px;
+        border-collapse: collapse;
+        font-size: 12px;
+        text-align: left;
+      }
+      .request-table caption {
+        text-align: left;
+        padding: 0 16px 8px;
+        color: var(--muted);
+      }
+      .request-table th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #182335;
+        color: var(--muted);
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .request-table th,
+      .request-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--line);
+      }
+      .request {
+        cursor: pointer;
+      }
+      .request:hover {
+        background: #1c2a40;
+      }
+      .request.active {
+        background: #243553;
+      }
+      .request.active td:first-child {
+        box-shadow: inset 3px 0 var(--accent);
+      }
+      .request small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .request-select {
+        background: transparent;
+        border: 0;
+        border-radius: 4px;
+        padding: 0;
+        text-align: left;
+        color: var(--text);
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: block;
+      }
+      .request-select[aria-pressed="true"] {
+        background: transparent;
+        color: #d4e0ff;
+      }
+      .request-table td:not(:nth-child(2)) {
+        white-space: nowrap;
+      }
+      .tag {
+        display: inline-block;
+        border-radius: 5px;
+        padding: 2px 7px;
+        background: #273b60;
+        color: #b7cbff;
+        font-size: 11px;
+      }
+      .tag.ready {
+        background: #1d3c33;
+        color: var(--green);
+      }
+      .tag.failed {
+        background: #452730;
+        color: var(--red);
+      }
+      .workspace {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .preview-heading {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .preview-heading h2 {
+        font-size: 15px;
+        margin: 0;
+      }
+      .preview-heading p {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 3px 0 0;
+      }
+      .detail {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+      }
+      .detail h2 {
+        font-size: 14px;
+        margin: 0 0 6px;
+        overflow-wrap: anywhere;
+      }
+      .detail p {
+        font-size: 12px;
+        margin: 0;
+        color: var(--muted);
+      }
+      .tools {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 12px;
+      }
+      .tools button {
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+      .tools label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .tools select {
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+      #progress {
+        width: 120px;
+      }
+      .canvas {
+        flex: 1;
+        min-height: 140px;
+        overflow: auto;
+        padding: 16px;
+        background: repeating-conic-gradient(#131d2b 0% 25%, #182335 0% 50%)
+          50%/20px 20px;
+      }
+      .stage {
+        position: relative;
+        margin: auto;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: 0 8px 25px #0004;
+      }
+      .stage img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .stage .enhanced {
+        position: absolute;
+        inset: 0;
+        clip-path: inset(0 50% 0 0);
+      }
+      .divider {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 14px;
+        left: 50%;
+        background: #8daaff55;
+        border-left: 2px solid #8daaff;
+        cursor: ew-resize;
+        touch-action: none;
+      }
+      .labels {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        right: 10px;
+        display: flex;
+        justify-content: space-between;
+        pointer-events: none;
+      }
+      .labels span {
+        background: #10141bcc;
+        color: white;
+        border-radius: 5px;
+        padding: 3px 7px;
+        font-size: 11px;
+      }
+      .message {
+        color: var(--muted);
+        padding: 25px;
+        text-align: center;
+      }
+      .notice {
+        color: #ffbd89 !important;
+        margin-top: 8px !important;
+      }
+      .notice:empty {
+        display: none;
+      }
+      .links {
+        margin-top: 10px;
+        display: flex;
+        gap: 15px;
+      }
+      .links a {
+        font-size: 12px;
+        text-decoration: none;
+      }
+      .links a:hover {
+        text-decoration: underline;
+      }
+      .footer {
+        padding: 10px 20px;
+        font-size: 11px;
+        line-height: 1.7;
+        color: var(--muted);
+        background: var(--panel);
+        border-top: 1px solid var(--line);
+      }
+      #empty {
+        margin: auto;
+        padding: 30px;
+        text-align: center;
+        color: var(--muted);
+        line-height: 2;
+      }
+      @media (max-width: 1100px) and (min-width: 801px) {
+        main {
+          grid-template-columns: minmax(0, 1fr) 320px;
+        }
+        .filters {
+          padding: 14px;
+        }
+        .request-table th,
+        .request-table td {
+          padding: 10px;
+        }
+        .request-table {
+          min-width: 600px;
+        }
+      }
+      @media (max-width: 800px) {
+        body {
+          height: auto;
+          min-height: 100dvh;
+        }
+        main {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .monitor-summary {
+          padding: 16px;
+          gap: 12px;
+        }
+        .monitor-summary > div:first-child {
+          width: 100%;
+        }
+        .stats {
+          margin-left: 0;
+        }
+        .stat {
+          min-width: 75px;
+          padding: 8px 12px;
+        }
+        .stat b {
+          font-size: 21px;
+        }
+        aside {
+          height: 350px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .filters {
+          padding: 14px;
+        }
+        .workspace {
+          min-height: 0;
+        }
+        .canvas {
+          flex: none;
+          height: 300px;
+        }
+        .detail,
+        .preview-heading {
+          padding: 14px 16px;
+        }
+        .footer {
+          padding: 12px 16px;
+        }
+        #empty {
+          min-height: 180px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">C</span>
+        <div>
+          <h1>漫画后台</h1>
+          <p>接口调试与图像处理监视</p>
+        </div>
+      </div>
+      <nav class="page-nav" aria-label="后台导航">
+        <a href="/">API 调试</a
+        ><a href="/super-resolution-monitor.html" aria-current="page"
+          >超分监视</a
+        >
+      </nav>
+    </header>
+    <section class="monitor-summary" aria-label="处理概况">
+      <div>
+        <h2>超分监视</h2>
+        <p>观察阅读请求，对照原图与 waifu2x 2× 结果</p>
+        <p id="connection" class="connection" role="status">正在连接后端…</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="total">0</b><span>累计请求</span></div>
+        <div class="stat"><b id="queued">0</b><span>排队任务</span></div>
+        <div class="stat"><b id="running">0</b><span>正在处理</span></div>
+      </div>
+      <button id="refresh" class="primary">立即刷新</button>
+    </section>
+    <main>
+      <aside>
+        <div class="filters">
+          <input
+            id="search"
+            type="search"
+            placeholder="搜索文件名或图片 ID"
+            aria-label="搜索请求"
+          /><select id="filter" aria-label="筛选状态">
+            <option value="all">全部状态</option>
+            <option value="submitting">提交中</option>
+            <option value="queued">排队中</option>
+            <option value="running">处理中</option>
+            <option value="ready">已完成</option>
+            <option value="failed">失败</option></select
+          ><label><input id="auto" type="checkbox" checked /> 自动刷新</label>
+        </div>
+        <div id="request-scroll" class="requests">
+          <table class="request-table">
+            <caption>
+              最近请求 · 点击文件名查看对比
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">序号</th>
+                <th scope="col">文件 / 图片 ID</th>
+                <th scope="col">状态</th>
+                <th scope="col">处理类型</th>
+                <th scope="col">耗时</th>
+                <th scope="col">请求时间</th>
+              </tr>
+            </thead>
+            <tbody id="requests"></tbody>
+          </table>
+        </div>
+      </aside>
+      <section class="workspace" aria-label="图片预览">
+        <div class="preview-heading">
+          <h2>图片对比</h2>
+          <p>选择表格中的请求，预览原图与超分结果。</p>
+        </div>
+        <div id="empty">
+          从请求表格选择一行，查看图片对比。<br />在阅读器开启超分后，请求会自动出现在这里。
+        </div>
+        <div id="detail" class="detail" hidden>
+          <h2 id="filename"></h2>
+          <p id="meta"></p>
+          <p id="error" class="notice" role="status"></p>
+          <div class="tools">
+            <button id="compare">拖动对比</button
+            ><button id="original">原图</button
+            ><button id="enhanced">超分图</button
+            ><label
+              >分割位置
+              <input
+                id="progress"
+                type="range"
+                min="0"
+                max="100"
+                value="50" /></label
+            ><label
+              >缩放
+              <select id="zoom">
+                <option value="fit">适应窗口</option>
+                <option value="1">原图 100%</option>
+                <option value="2">原图 200%</option>
+                <option value="4">原图 400%</option>
+              </select></label
+            >
+          </div>
+          <div class="links">
+            <a id="originalLink" target="_blank" rel="noopener">打开原图</a
+            ><a id="enhancedLink" target="_blank" rel="noopener">打开超分图</a>
+          </div>
+        </div>
+        <div id="canvas" class="canvas" hidden>
+          <div id="stage" class="stage">
+            <img id="base" alt="原图" />
+            <div id="layer" class="enhanced">
+              <img id="upscaled" alt="超分图" />
+            </div>
+            <div id="divider" class="divider"></div>
+            <div class="labels">
+              <span id="leftLabel">超分 2×</span
+              ><span id="rightLabel">原图</span>
+            </div>
+          </div>
+        </div>
+        <div class="footer">
+          记录最近 500
+          次超分提交，累计数覆盖本次运行；后端重启后清空。状态表示历史处理结果，缓存可能失效；原图为当前文件，不保存历史快照。
+        </div>
+      </section>
+    </main>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const names = {
+        submitting: "提交中",
+        queued: "排队中",
+        running: "处理中",
+        ready: "已完成",
+        failed: "失败",
+      };
+      const kinds = {
+        cache: "缓存命中",
+        shared: "共享任务",
+        inference: "新建处理",
+      };
+      let records = [],
+        selected = null,
+        signature = "",
+        mode = "compare",
+        available = false,
+        busy = false;
+      const text = (id, value) => {
+        $(id).textContent = value;
+      };
+      function safeUrl(value) {
+        if (!value) return null;
+        try {
+          const url = new URL(value, location.origin);
+          if (
+            url.origin !== location.origin ||
+            (!url.pathname.startsWith("/static/") &&
+              !url.pathname.startsWith("/api/super-resolution/files/"))
+          )
+            return null;
+          return url.href;
+        } catch {
+          return null;
+        }
+      }
+      function list() {
+        const focused = document.activeElement?.closest(".request")?.dataset.id;
+        const scroll = $("request-scroll").scrollTop;
+        const query = $("search").value.trim().toLowerCase();
+        const visible = records.filter(
+          (r) =>
+            ($("filter").value === "all" || r.status === $("filter").value) &&
+            `${r.filename} ${r.imageId}`.toLowerCase().includes(query),
+        );
+        const fragment = document.createDocumentFragment();
+        for (const record of visible) {
+          const row = document.createElement("tr");
+          row.className = "request" + (record.id === selected ? " active" : "");
+          row.dataset.id = String(record.id);
+          const cell = (value) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            row.append(td);
+            return td;
+          };
+          cell("#" + record.id);
+          const file = cell("");
+          const button = document.createElement("button");
+          button.className = "request-select";
+          button.textContent = record.filename;
+          button.title = record.filename;
+          button.setAttribute("aria-pressed", String(record.id === selected));
+          const image = document.createElement("small");
+          image.textContent = "图片 " + record.imageId;
+          file.append(button, image);
+          const status = cell("");
+          const tag = document.createElement("span");
+          tag.className = "tag " + record.status;
+          tag.textContent = names[record.status] || record.status;
+          status.append(tag);
+          cell(
+            kinds[record.kind] ||
+              (record.status === "failed" ? "提交失败" : "正在提交"),
+          );
+          cell((record.elapsedMs / 1000).toFixed(2) + " 秒");
+          cell(new Date(record.requestedAt).toLocaleTimeString());
+          row.onclick = () => {
+            selected = record.id;
+            signature = "";
+            list();
+            detail();
+          };
+          fragment.append(row);
+        }
+        if (!visible.length) {
+          const row = document.createElement("tr");
+          const message = document.createElement("td");
+          message.colSpan = 6;
+          message.className = "message";
+          message.textContent = records.length
+            ? "没有匹配的请求"
+            : "尚无超分请求。在阅读器开启超分后可观察处理过程。";
+          row.append(message);
+          fragment.append(row);
+        }
+        $("requests").replaceChildren(fragment);
+        $("request-scroll").scrollTop = scroll;
+        if (focused) {
+          const target = Array.from($("requests").children).find(
+            (row) => row.dataset.id === focused,
+          );
+          target?.querySelector("button")?.focus({ preventScroll: true });
+        }
+      }
+      function size() {
+        const base = $("base");
+        if (!base.naturalWidth) return;
+        const factor = $("zoom").value;
+        const width =
+          factor === "fit"
+            ? Math.max(
+                1,
+                Math.min(
+                  $("canvas").clientWidth - 32,
+                  (($("canvas").clientHeight - 32) * base.naturalWidth) /
+                    base.naturalHeight,
+                ),
+              )
+            : base.naturalWidth * Number(factor);
+        $("stage").style.width = width + "px";
+        $("stage").style.height =
+          (width * base.naturalHeight) / base.naturalWidth + "px";
+      }
+      function view() {
+        for (const name of ["original", "enhanced", "compare"])
+          $(name).setAttribute("aria-pressed", String(mode === name));
+        const split = Number($("progress").value);
+        $("layer").hidden = !available || mode === "original";
+        $("divider").hidden = !available || mode !== "compare";
+        $("layer").style.clipPath =
+          mode === "enhanced" ? "none" : `inset(0 ${100 - split}% 0 0)`;
+        $("divider").style.left = split + "%";
+        $("leftLabel").textContent =
+          available && mode !== "original" ? "超分 2×" : "原图";
+        $("rightLabel").hidden = !available || mode !== "compare";
+        $("progress").disabled = !available || mode !== "compare";
+        $("compare").disabled = !available;
+        $("enhanced").disabled = !available;
+      }
+      function detail() {
+        const r = records.find((item) => item.id === selected);
+        if (!r) {
+          if (selected !== null) {
+            selected = null;
+            signature = "";
+          }
+          $("empty").hidden = false;
+          $("detail").hidden = true;
+          $("canvas").hidden = true;
+          return;
+        }
+        text("filename", `#${r.id} · ${r.filename}`);
+        text(
+          "meta",
+          `图片 ${r.imageId} · ${names[r.status] || r.status} · ${kinds[r.kind] || (r.status === "failed" ? "提交失败" : "提交中")} · ${(r.elapsedMs / 1000).toFixed(2)} 秒 · ${r.width && r.height ? `${r.width} × ${r.height} → ${r.width * 2} × ${r.height * 2}` : "尺寸待确认"}`,
+        );
+        const next = `${r.id}:${r.status}:${r.url || ""}:${r.originalUrl || ""}`;
+        if (next === signature) return;
+        signature = next;
+        $("empty").hidden = true;
+        $("detail").hidden = false;
+        $("canvas").hidden = false;
+        text(
+          "error",
+          r.error ||
+            (["queued", "running", "submitting"].includes(r.status)
+              ? "先显示原图，超分完成后自动提供对比。"
+              : ""),
+        );
+        const original = safeUrl(r.originalUrl),
+          enhanced = r.status === "ready" ? safeUrl(r.url) : null;
+        available = false;
+        view();
+        $("originalLink").hidden = !original;
+        $("enhancedLink").hidden = !enhanced;
+        if (original) {
+          $("originalLink").href = original;
+          $("base").src = original;
+        } else {
+          $("base").removeAttribute("src");
+          text("error", "原图地址不可用");
+        }
+        if (enhanced) {
+          $("enhancedLink").href = enhanced;
+          $("upscaled").src = enhanced;
+        } else {
+          $("upscaled").removeAttribute("src");
+        }
+      }
+      $("base").onload = size;
+      $("base").onerror = () =>
+        text("error", "原图无法加载，可能已替换或移除。");
+      $("upscaled").onload = () => {
+        const r = records.find((item) => item.id === selected);
+        if (!r || $("upscaled").currentSrc !== safeUrl(r.url)) return;
+        available = true;
+        view();
+      };
+      $("upscaled").onerror = () => {
+        available = false;
+        view();
+        text("error", "超分图无法加载，缓存可能已清理；原图仍可查看。");
+      };
+      for (const name of ["original", "enhanced", "compare"])
+        $(name).onclick = () => {
+          mode = name;
+          view();
+        };
+      $("progress").oninput = view;
+      let dragging = false;
+      function drag(event) {
+        if (!dragging) return;
+        const bounds = $("stage").getBoundingClientRect();
+        $("progress").value = Math.max(
+          0,
+          Math.min(100, ((event.clientX - bounds.left) / bounds.width) * 100),
+        );
+        view();
+      }
+      $("divider").onpointerdown = (event) => {
+        dragging = true;
+        $("divider").setPointerCapture(event.pointerId);
+        drag(event);
+      };
+      $("divider").onpointermove = drag;
+      $("divider").onpointerup = () => {
+        dragging = false;
+      };
+      $("divider").onpointercancel = () => {
+        dragging = false;
+      };
+      $("zoom").onchange = size;
+      window.addEventListener("resize", size);
+      new ResizeObserver(size).observe($("canvas"));
+      $("search").oninput = list;
+      $("filter").onchange = list;
+      async function refresh() {
+        if (busy) return;
+        busy = true;
+        $("refresh").disabled = true;
+        text("refresh", "刷新中…");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          const response = await fetch("/api/super-resolution/monitor", {
+            cache: "no-store",
+            signal: controller.signal,
+          });
+          if (!response.ok) throw Error("HTTP " + response.status);
+          const json = await response.json();
+          if (json.code !== 0 || !Array.isArray(json.data?.requests))
+            throw Error("监视接口响应异常");
+          records = json.data.requests;
+          $("connection").classList.remove("status-err");
+          text("total", json.data.total);
+          text("queued", json.data.queued);
+          text("running", json.data.running);
+          text(
+            "connection",
+            `${json.data.enabled ? "后端超分已启用" : "后端超分已禁用"} · ${new Date().toLocaleTimeString()} 更新 · 保留最近 ${json.data.limit} 条`,
+          );
+          if (selected === null && records.length) selected = records[0].id;
+          list();
+          detail();
+        } catch (error) {
+          $("connection").classList.add("status-err");
+          text(
+            "connection",
+            (error.name === "AbortError"
+              ? "刷新超时"
+              : "刷新失败：" + error.message) +
+              "，保留上次数据，请检查后端后重试。",
+          );
+        } finally {
+          clearTimeout(timeout);
+          busy = false;
+          $("refresh").disabled = false;
+          text("refresh", "立即刷新");
+        }
+      }
+      $("auto").onchange = () => {
+        if ($("auto").checked) refresh();
+      };
+      $("refresh").onclick = refresh;
+      setInterval(() => {
+        if ($("auto").checked && !document.hidden) refresh();
+      }, 2000);
+      refresh();
+    </script>
+  </body>
+</html>
