@@ -139,7 +139,10 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderScreen)),
     );
-    expect(container.read(superResolutionDefaultProvider), isTrue);
+    expect(
+      container.read(superResolutionDefaultProvider),
+      SuperResolutionMode.on,
+    );
     expect(find.text('超分关闭 · 原图'), findsOneWidget);
     client.complete();
     await settleReader(tester);
@@ -561,9 +564,12 @@ void main() {
 
 class _ProgressClient extends ApiClient {
   @override
+  Future<int> getSuperResolutionLookahead() async => 10;
+  @override
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) async => images
       .map(
         (image) => ImageResolution(imageId: image.id, originalUrl: image.url),
@@ -773,6 +779,7 @@ class _UpscaleProgressClient extends _ProgressClient {
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
     required bool upscale,
+    Map<int, int>? priorities,
   }) {
     if (!upscale) {
       return Future.value(

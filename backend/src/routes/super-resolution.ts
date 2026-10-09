@@ -7,7 +7,14 @@ import {
   SuperResolutionError,
 } from "../services/super-resolution";
 
+import { superResolutionPolicy } from "../services/super-resolution-policy";
+
 export const superResolutionRouter: Router = Router();
+
+superResolutionRouter.get("/policy", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  ok(res, await superResolutionPolicy.read());
+});
 
 superResolutionRouter.post("/jobs", async (req, res) => {
   const images = req.body?.images;

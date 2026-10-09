@@ -88,28 +88,54 @@ Future<void> saveWindowBounds(Rect bounds) async {
   );
 }
 
+enum SuperResolutionMode { on, adaptive, off }
+
 const kSuperResolutionDefaultKey = 'superResolutionDefault';
+const kSuperResolutionModeKey = 'superResolutionMode';
 final superResolutionDefaultProvider =
-    NotifierProvider<SuperResolutionDefaultNotifier, bool>(
+    NotifierProvider<SuperResolutionDefaultNotifier, SuperResolutionMode>(
       SuperResolutionDefaultNotifier.new,
     );
 
-class SuperResolutionDefaultNotifier extends Notifier<bool> {
-  SuperResolutionDefaultNotifier({this.initial = false});
-  final bool initial;
+class SuperResolutionDefaultNotifier extends Notifier<SuperResolutionMode> {
+  SuperResolutionDefaultNotifier({
+    bool? initial,
+    SuperResolutionMode? initialMode,
+  }) : initial =
+           initialMode ??
+           (initial == null
+               ? SuperResolutionMode.adaptive
+               : initial
+               ? SuperResolutionMode.on
+               : SuperResolutionMode.off);
+  final SuperResolutionMode initial;
   @override
-  bool build() => initial;
-  Future<void> setEnabled(bool value) async {
+  SuperResolutionMode build() => initial;
+  Future<void> setMode(SuperResolutionMode value) async {
     final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setBool(kSuperResolutionDefaultKey, value)) {
+    if (!await prefs.setString(kSuperResolutionModeKey, value.name)) {
       throw StateError('超分设置保存失败');
     }
     state = value;
   }
+
+  Future<void> setEnabled(bool value) =>
+      setMode(value ? SuperResolutionMode.on : SuperResolutionMode.off);
 }
 
-Future<bool> loadSuperResolutionDefault() async {
+Future<SuperResolutionMode> loadSuperResolutionMode() async {
   final prefs = await SharedPreferences.getInstance();
-  final stored = prefs.get(kSuperResolutionDefaultKey);
-  return stored is bool ? stored : false;
+  final stored = prefs.get(kSuperResolutionModeKey);
+  for (final mode in SuperResolutionMode.values) {
+    if (stored == mode.name) return mode;
+  }
+  final legacy = prefs.get(kSuperResolutionDefaultKey);
+  if (legacy is bool) {
+    return legacy ? SuperResolutionMode.on : SuperResolutionMode.off;
+  }
+  return SuperResolutionMode.adaptive;
 }
+
+/// 兼容旧版布尔接口；新入口使用三种策略。
+Future<bool> loadSuperResolutionDefault() async =>
+    await loadSuperResolutionMode() != SuperResolutionMode.off;

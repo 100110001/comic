@@ -19,6 +19,30 @@ void main() {
     timeout: timeout,
   );
 
+  test('GPU 预处理策略必须是二到十页的整数', () async {
+    for (final value in [4, 0, 11, '4']) {
+      final client = clientWith((request) async {
+        expect(request.url.path, '/api/super-resolution/policy');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': {'lookahead': value},
+          }),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      if (value == 4) {
+        expect(await client.getSuperResolutionLookahead(), 4);
+      } else {
+        await expectLater(
+          client.getSuperResolutionLookahead(),
+          throwsA(isA<UserVisibleException>()),
+        );
+      }
+    }
+  });
+
   test('图片解析显式发送超分选择，原图先返回且失败不丢原图', () async {
     const image = ImageItem(
       id: 1,
