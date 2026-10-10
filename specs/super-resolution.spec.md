@@ -11,7 +11,7 @@ scope: feature
 
 ## 公开契约
 
-- 后端默认启用超分能力；未设置 `WAIFU2X_ENABLED` 或设为 `1` 时启用，设为 `0` 时禁用，其他显式值不启用。阅读器会话继承设置页的三态默认策略，无偏好时自适应。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
+- 后端默认启用超分能力；未设置 `WAIFU2X_ENABLED` 或设为 `1` 时启用，设为 `0` 时禁用，其他显式值不启用。阅读器与设置页共享三态全局策略，任一入口修改后立即同步并持久保存，无偏好时自适应。便携引擎、模型目录、缓存目录、已发布缓存容量和单图超时分别由 `WAIFU2X_EXECUTABLE`、`WAIFU2X_MODEL_DIR`、`WAIFU2X_CACHE_DIR`、`WAIFU2X_CACHE_MB`、`WAIFU2X_TIMEOUT_MS` 配置。
 - 默认使用后端 `tools/waifu2x/` 中的引擎与 `models-cunet`；缓存为 `data/super-resolution`、2048 MiB，单图超时 60000 ms。相对路径以 `backend/` 运行目录为基准。
 - 仓库通过普通 Git 文件内置 Windows 官方便携引擎 `20250915`、运行库、完整 `models-cunet` 与上游许可证，拉取项目后无需下载引擎。`backend/` 下的 `npm run setup:waifu2x` 保留为重新下载与更新入口，验证官方压缩包 SHA256，仅更新这组运行文件，保留中文说明且不修改 `.env`；升级须同步版本、校验值与提交的运行文件。Linux/macOS 手动配置对应引擎。更新引擎或模型需重启后端。
 - 固定 2×、关闭降噪（`-n -1`）、分块大小 256、无损 WebP 输出；输入支持 JPEG、PNG、WebP，最多 2000 万像素，超出或尺寸无效则拒绝处理。
@@ -21,7 +21,7 @@ scope: feature
 - 提交返回任务列表，每项包含 `key`、`imageId`、`status`；状态为 `queued`、`running`、`ready`、`failed`。就绪时包含结果 `url`，失败时包含中文 `error`。
 - `GET /api/super-resolution/jobs?keys=...` 查询最多十一个任务，响应不缓存。未知、被清理或已淘汰的任务返回 `failed`、`imageId=0`，客户端按已绑定键对应原图。
 - `GET /api/super-resolution/files/:key` 返回 WebP；结果 URL 携带缓存代际，图片可缓存一天。文件可能被清理或淘汰，就绪状态不承诺结果永久可下载，客户端须回退原图。
-- `DELETE /api/super-resolution/cache` 停止运行任务、清空队列和任务状态、移除衍生文件并更新缓存代际；发起清空的阅读器关闭超分并回原图。
+- `DELETE /api/super-resolution/cache` 停止运行任务、清空队列和任务状态、移除衍生文件并更新缓存代际；客户端清空前将共享全局超分策略保存为关闭并回原图。
 
 ## 动态前瞻策略
 

@@ -27,6 +27,46 @@ class _DelayedApiClient extends ApiClient {
 }
 
 void main() {
+  test('两入口的阅读偏好串行合并，重启恢复且损坏项独立回退', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final notifier = container.read(readerPreferencesProvider.notifier);
+    await Future.wait([
+      notifier.update((p) => p.copyWith(mode: ReaderMode.doublePage)),
+      notifier.update((p) => p.copyWith(background: ReaderBackground.paper)),
+      notifier.update((p) => p.copyWith(autoHide: false)),
+    ]);
+    final loaded = await loadReaderPreferences();
+    expect(loaded.mode, ReaderMode.doublePage);
+    expect(loaded.background, ReaderBackground.paper);
+    expect(loaded.autoHide, isFalse);
+    final restored = ProviderContainer(
+      overrides: [
+        readerPreferencesProvider.overrideWith(
+          () => ReaderPreferencesNotifier(initial: loaded),
+        ),
+      ],
+    );
+    addTearDown(restored.dispose);
+    expect(restored.read(readerPreferencesProvider).toJson(), loaded.toJson());
+    SharedPreferences.setMockInitialValues({
+      kReaderPreferencesKey:
+          '{"mode":"invalid","background":"gray","autoHide":"invalid"}',
+    });
+    final partial = await loadReaderPreferences();
+    expect(partial.mode, ReaderMode.automatic);
+    expect(partial.background, ReaderBackground.gray);
+    expect(partial.autoHide, isTrue);
+    SharedPreferences.setMockInitialValues({
+      kReaderPreferencesKey: 'invalid json',
+    });
+    expect(
+      (await loadReaderPreferences()).toJson(),
+      const ReaderPreferences().toJson(),
+    );
+  });
+
   test('超分三态保存及旧布尔偏好迁移', () async {
     SharedPreferences.setMockInitialValues({});
     expect(await loadSuperResolutionMode(), SuperResolutionMode.adaptive);
