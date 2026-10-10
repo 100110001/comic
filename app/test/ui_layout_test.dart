@@ -137,6 +137,36 @@ void main() {
     }
   });
 
+  testWidgets('发现页在宽桌面内容区居中且主阅读入口可见', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1800, 924);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [discoveryProvider.overrideWith(_PreviewDiscovery.new)],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.dark),
+          home: const Row(
+            children: [
+              SizedBox(width: 196),
+              Expanded(child: DiscoveryScreen()),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final hero = tester.getRect(find.byKey(const ValueKey('discovery-hero')));
+    expect(hero.center.dx, closeTo((1800 + 196) / 2, 1));
+    final cover = tester.getRect(find.byKey(const ValueKey('current-2')));
+    final title = tester.getRect(find.text('很长的漫画标题需要在矮窗口里完整保持阅读入口'));
+    expect(cover.right, lessThan(title.left));
+    expect(find.text('开始阅读').hitTestable(), findsOneWidget);
+    expect(find.text('下一本').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('发现三卡在窄矮窗口与大字体下可滚动且保留拖拽切换', (tester) async {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetDevicePixelRatio);
