@@ -9,6 +9,7 @@ import 'package:comic/models/image_item.dart';
 import 'package:comic/models/super_resolution_job.dart';
 import 'package:comic/providers/super_resolution_provider.dart';
 import 'package:comic/widgets/enhanced_image.dart';
+import 'package:comic/widgets/reader_progress_bar.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
 import 'package:comic/providers/reading_progress_provider.dart';
@@ -19,6 +20,7 @@ import 'package:comic/services/api_client.dart';
 import 'package:comic/theme.dart';
 import 'package:comic/utils/display_image_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -148,6 +150,172 @@ void main() {
     expect(find.text('共 40 章'), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  Future<void> selectReadingMode(WidgetTester tester, String mode) async {
+    await tester.tap(find.byTooltip('阅读方式'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.ancestor(
+        of: find.text(mode),
+        matching: find.byType(CheckedPopupMenuItem<bool>),
+      ),
+    );
+    await settleReader(tester);
+  }
+
+  testWidgets('手机始终连续阅读且不提供模式切换', (tester) async {
+    await pumpReader(tester);
+    expect(find.byType(ListView), findsOneWidget);
+    expect(find.byTooltip('阅读方式'), findsNothing);
+  });
+
+  testWidgets(
+    '桌面模式切换保留页码，连续滚动与键盘跳转同步本机断点',
+    (tester) async {
+      await pumpReader(tester, width: 1200, initialPage: 2);
+      expect(find.byType(ListView), findsNothing);
+      await selectReadingMode(tester, '连续阅读');
+      final list = tester.widget<ListView>(find.byType(ListView));
+      expect(tester.getSize(find.byType(ListView)).width, 960);
+      expect(list.controller!.offset, closeTo(2 * 1440, 1));
+      expect(find.text('第 3 / 10 页'), findsOneWidget);
+      list.controller!.jumpTo(3 * 1440);
+      await settleReader(tester);
+      expect(find.text('第 4 / 10 页'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      expect(list.controller!.offset, closeTo(4 * 1440, 1));
+      expect(find.text('第 5 / 10 页'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderScreen)),
+      );
+      expect(
+        container
+            .read(readingProgressQueueProvider)
+            .requireValue
+            .single
+            .entry
+            .pageNumber,
+        4,
+      );
+      await selectReadingMode(tester, '单页阅读');
+      expect(find.byType(ListView), findsNothing);
+      expect(find.text('第 5 / 10 页'), findsOneWidget);
+      await selectReadingMode(tester, '连续阅读');
+      expect(
+        tester.widget<ListView>(find.byType(ListView)).controller!.offset,
+        closeTo(4 * 1440, 1),
+      );
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    '连续模式窗口缩放与末页跳转保留章节，滚动到底后才续章',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        initialPage: 2,
+        chapters: [
+          const Chapter(id: 1, title: '第1话', sortOrder: 0),
+          const Chapter(id: 2, title: '第2话', sortOrder: 1),
+        ],
+      );
+      await selectReadingMode(tester, '连续阅读');
+      tester.view.physicalSize = const Size(800, 800);
+      await settleReader(tester);
+      expect(
+        tester.widget<ListView>(find.byType(ListView)).controller!.offset,
+        closeTo(2 * 1200, 1),
+      );
+      expect(find.text('第 3 / 10 页'), findsOneWidget);
+      tester
+          .widget<ReaderProgressBar>(find.byType(ReaderProgressBar))
+          .onSeek(9);
+      await settleReader(tester);
+      expect(find.text('第1话'), findsOneWidget);
+      expect(find.text('第 10 / 10 页'), findsOneWidget);
+      tester.view.physicalSize = const Size(800, 2000);
+      await settleReader(tester);
+      expect(find.text('第1话'), findsOneWidget);
+      expect(find.text('第 10 / 10 页'), findsOneWidget);
+      tester.view.physicalSize = const Size(800, 800);
+      await settleReader(tester);
+      final list = tester.widget<ListView>(find.byType(ListView));
+      list.controller!.jumpTo(list.controller!.position.maxScrollExtent);
+      await settleReader(tester);
+      expect(find.text('第2话'), findsOneWidget);
+      expect(find.text('第 1 / 10 页'), findsOneWidget);
+      expect(
+        tester.widget<ListView>(find.byType(ListView)).controller!.offset,
+        0,
+      );
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    '桌面连续模式超分以阅读宽度判定且隐藏进度条不改变布局',
+    (tester) async {
+      final client = _UpscaleProgressClient();
+      await pumpReader(
+        tester,
+        width: 1200,
+        initialPage: 2,
+        srClient: client,
+        defaultMode: SuperResolutionMode.adaptive,
+      );
+      expect(client.requested, isEmpty);
+      await selectReadingMode(tester, '连续阅读');
+      expect(client.requested.first.id, 2);
+      final list = tester.widget<ListView>(find.byType(ListView));
+      final offset = list.controller!.offset;
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(milliseconds: 250));
+      final progressOpacity = tester.widget<AnimatedOpacity>(
+        find
+            .ancestor(
+              of: find.byType(ReaderProgressBar),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first,
+      );
+      expect(progressOpacity.opacity, 0);
+      expect(list.controller!.offset, offset);
+      client.complete();
+      await settleReader(tester);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    '桌面连续阅读短章节滚轮到底可续章，模式切换本身不续章',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        pageCount: 1,
+        chapters: [
+          const Chapter(id: 1, title: '第1话', sortOrder: 0),
+          const Chapter(id: 2, title: '第2话', sortOrder: 1),
+        ],
+      );
+      tester.view.physicalSize = const Size(1200, 2000);
+      await settleReader(tester);
+      await selectReadingMode(tester, '连续阅读');
+      expect(find.text('第1话'), findsOneWidget);
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byType(ListView)),
+          scrollDelta: const Offset(0, 100),
+        ),
+      );
+      await settleReader(tester);
+      expect(find.text('第2话'), findsOneWidget);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
 
   testWidgets('自适应随 DPR 改变重判，即使原图解码缓存尺寸没有改变', (tester) async {
     final client = _UpscaleProgressClient();
