@@ -441,9 +441,7 @@ Future<void> setAuthorFavorite(
   ref.invalidate(comicDetailProvider(comicId));
 }
 
-Future<bool> openComicDirectory(WidgetRef ref, int comicId) async {
+Future<void> openComicDirectory(WidgetRef ref, int comicId) async {
   final client = ref.read(apiClientProvider);
   await client.openComicDirectory(comicId);
-  return ref.mounted &&
-      ref.read(serverSessionProvider).generation == client.generation;
 }

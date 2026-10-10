@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 
 const execute = promisify(execFile);
@@ -38,7 +38,7 @@ export async function resolveComicDirectory(
     return realDirectory;
   } catch (error) {
     if (error instanceof Error && !("code" in error)) throw error;
-    throw new Error("漫画原文件目录不存在或不可访问");
+    throw new Error("漫画原文件目录不存在或不可访问", { cause: error });
   }
 }
 
@@ -46,18 +46,17 @@ export async function openComicDirectory(directory: string): Promise<void> {
   try {
     switch (process.platform) {
       case "win32":
-        // Explorer 复用现有窗口时也可能返回 1，此时打开请求仍已提交。
-        try {
-          await execute("explorer.exe", [directory], { timeout: 10000 });
-        } catch (error) {
-          if (!(
-            error instanceof Error &&
-            "code" in error &&
-            error.code === 1
-          )) {
-            throw error;
-          }
-        }
+        await new Promise<void>((resolve, reject) => {
+          const child = spawn("explorer.exe", [directory], {
+            detached: true,
+            stdio: "ignore",
+          });
+          child.once("error", reject);
+          child.once("spawn", () => {
+            child.unref();
+            resolve();
+          });
+        });
         break;
       case "darwin":
         await execute("open", [directory], { timeout: 10000 });
@@ -68,7 +67,9 @@ export async function openComicDirectory(directory: string): Promise<void> {
       default:
         throw new Error("unsupported platform");
     }
-  } catch {
-    throw new Error("无法打开目录，请检查后端电脑的桌面环境和文件管理器");
+  } catch (error) {
+    throw new Error("无法打开目录，请检查后端电脑的桌面环境和文件管理器", {
+      cause: error,
+    });
   }
 }

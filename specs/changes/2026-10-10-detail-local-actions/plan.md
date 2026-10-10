@@ -41,3 +41,7 @@ origin: specs/changes/2026-10-10-detail-local-actions/define.md
 
 - 更新 specs/comics-browsing.spec.md：后端目录打开接口、目录来源与失败语义、标题和作者复制。
 - 更新 specs/ui-style.convention.md：收藏在上、阅读在下及目录/复制入口。
+
+## 界面补充
+
+用户追加要求详情页增加色差。U1 使用现有主题令牌增加信息区渐变、话数/页数标签、粉色收藏按钮和章节序号底色；保留响应式滚动，使用真实渲染检查浅深主题与窄屏布局。

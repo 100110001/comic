@@ -29,8 +29,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     final generation = ref.read(serverSessionProvider).generation;
     setState(() => _directoryBusy = true);
     try {
-      final current = await openComicDirectory(ref, widget.comicId);
-      if (mounted && current) {
+      await openComicDirectory(ref, widget.comicId);
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('已请求在后端电脑打开漫画目录')));
@@ -221,10 +221,35 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     children: [
                       SizedBox(
                         width: constraints.maxWidth >= 1000 ? 380 : 320,
-                        child: SingleChildScrollView(child: header),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.alphaBlend(
+                                  c.accent.withValues(alpha: 0.18),
+                                  c.surface2,
+                                ),
+                                c.surface2,
+                              ],
+                            ),
+                          ),
+                          child: SingleChildScrollView(child: header),
+                        ),
                       ),
-                      const VerticalDivider(width: 1),
-                      Expanded(child: chapterList),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(kRadiusCard),
+                            child: ColoredBox(
+                              color: c.surface1,
+                              child: chapterList,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   );
                 }
@@ -348,17 +373,54 @@ class _Header extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          '${comic.chapterCount} 话 · ${comic.imageCount} 页',
-          style: TextStyle(color: c.text2, fontSize: 13),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _stat(
+              context,
+              Icons.auto_stories_outlined,
+              '${comic.chapterCount} 话',
+            ),
+            _stat(
+              context,
+              Icons.photo_library_outlined,
+              '${comic.imageCount} 页',
+            ),
+          ],
         ),
       ],
     );
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(c.accent.withValues(alpha: 0.18), c.surface2),
+            c.surface2,
+          ],
+        ),
+      ),
       padding: EdgeInsets.all(vertical ? 28 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Icon(Icons.book_outlined, size: 18, color: c.accent),
+              const SizedBox(width: 8),
+              Text(
+                '漫画信息',
+                style: TextStyle(
+                  color: c.accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           if (vertical) ...[
             Center(child: cover),
             const SizedBox(height: 24),
@@ -372,11 +434,29 @@ class _Header extends StatelessWidget {
                 Expanded(child: metadata),
               ],
             ),
-          const SizedBox(height: 20),
-          OutlinedButton.icon(
+          const SizedBox(height: 24),
+          Divider(color: c.border),
+          const SizedBox(height: 12),
+          Text(
+            '快捷操作',
+            style: TextStyle(
+              color: c.text2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Color.alphaBlend(
+                c.favorite.withValues(alpha: favorited ? 0.18 : 0.08),
+                c.surface1,
+              ),
+              foregroundColor: favorited ? c.favorite : c.text1,
+            ),
             icon: Icon(
               favorited ? Icons.favorite : Icons.favorite_border,
-              color: favorited ? c.favorite : c.text2,
+              color: c.favorite,
               size: 18,
             ),
             label: Text(favorited ? '已收藏' : '收藏漫画'),
@@ -406,11 +486,34 @@ class _Header extends StatelessWidget {
           Tooltip(
             message: '在运行后端的电脑上打开漫画原文件夹',
             child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: c.accent,
+                backgroundColor: c.accent.withValues(alpha: 0.06),
+              ),
               icon: const Icon(Icons.folder_open_outlined, size: 20),
               label: Text(directoryBusy ? '正在打开…' : '打开本地目录（后端电脑）'),
               onPressed: onOpenDirectory,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(BuildContext context, IconData icon, String label) {
+    final c = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(kRadiusSmall),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: c.accent),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: c.accent, fontSize: 12)),
         ],
       ),
     );
@@ -452,6 +555,12 @@ class _ChapterList extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12, bottom: 20),
               child: Row(
                 children: [
+                  Icon(
+                    Icons.format_list_bulleted_rounded,
+                    color: c.accent,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
                   Text('章节目录', style: Theme.of(ctx).textTheme.titleMedium),
                   const SizedBox(width: 10),
                   Text(
@@ -467,7 +576,7 @@ class _ChapterList extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Material(
-              color: isCurrent ? c.accent.withValues(alpha: 0.10) : c.surface1,
+              color: isCurrent ? c.accent.withValues(alpha: 0.16) : c.surface2,
               borderRadius: BorderRadius.circular(kRadiusButton),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
@@ -476,15 +585,12 @@ class _ChapterList extends StatelessWidget {
                   height: 36,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
+                    color: c.accent.withValues(alpha: isCurrent ? 0.18 : 0.08),
                     borderRadius: BorderRadius.circular(kRadiusThumb),
                   ),
                   child: Text(
                     '$i',
-                    style: TextStyle(
-                      color: isCurrent ? c.accent : c.text2,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: c.accent, fontSize: 12),
                   ),
                 ),
                 title: Text(
