@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import '../theme.dart';
@@ -73,7 +74,10 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                   onDoubleTap: _toggleMaximize,
                   onPanStart: (_) => windowManager.startDragging(),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.only(
+                      left: kReleaseMode ? 16 : 64,
+                      right: 16,
+                    ),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
