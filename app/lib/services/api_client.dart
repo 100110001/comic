@@ -243,6 +243,16 @@ class ApiClient {
     });
   }
 
+  Future<void> openComicDirectory(int id) async {
+    final envelope = await _request('POST', '/api/comics/$id/open-directory');
+    _parse(() {
+      final data = envelope['data'];
+      if (data is! Map || data['comicId'] != id) {
+        throw const FormatException('Invalid directory response');
+      }
+    });
+  }
+
   Future<List<Comic>> getRandomComics({int pageSize = 30}) async {
     final data = await _request('GET', '/api/comics/random?pageSize=$pageSize');
     return _parse(

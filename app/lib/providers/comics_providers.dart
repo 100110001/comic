@@ -440,3 +440,8 @@ Future<void> setAuthorFavorite(
   ref.invalidate(favoriteAuthorsProvider);
   ref.invalidate(comicDetailProvider(comicId));
 }
+
+Future<void> openComicDirectory(WidgetRef ref, int comicId) async {
+  final client = ref.read(apiClientProvider);
+  await client.openComicDirectory(comicId);
+}

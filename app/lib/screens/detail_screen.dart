@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../providers/server_provider.dart';
 import '../providers/reading_progress_provider.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
@@ -20,6 +22,41 @@ class DetailScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailScreenState extends ConsumerState<DetailScreen> {
+  bool _directoryBusy = false;
+
+  Future<void> _openDirectory() async {
+    if (_directoryBusy) return;
+    final generation = ref.read(serverSessionProvider).generation;
+    setState(() => _directoryBusy = true);
+    try {
+      await openComicDirectory(ref, widget.comicId);
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已请求在后端电脑打开漫画目录')));
+      }
+    } catch (error) {
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        _showError(error, '打开漫画目录失败');
+      }
+    } finally {
+      if (mounted) setState(() => _directoryBusy = false);
+    }
+  }
+
+  Future<void> _copyText(String text, String label) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已复制$label')));
+      }
+    } catch (error) {
+      if (mounted) _showError(error, '复制$label失败');
+    }
+  }
+
   bool _favoriteBusy = false;
   bool _authorFavoriteBusy = false;
 
@@ -149,6 +186,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       builder: (_) => SearchScreen(initialKeyword: author),
                     ),
                   ),
+                  onOpenDirectory: _directoryBusy ? null : _openDirectory,
+                  directoryBusy: _directoryBusy,
+                  onCopyTitle: () => _copyText(detail.comic.title, '漫画标题'),
+                  onCopyAuthor: () => _copyText(detail.comic.author!, '作者名'),
                   progress: progress,
                   onContinue: progress == null
                       ? detail.chapters.isEmpty
@@ -180,10 +221,35 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     children: [
                       SizedBox(
                         width: constraints.maxWidth >= 1000 ? 380 : 320,
-                        child: SingleChildScrollView(child: header),
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                Color.alphaBlend(
+                                  c.accent.withValues(alpha: 0.18),
+                                  c.surface2,
+                                ),
+                                c.surface2,
+                              ],
+                            ),
+                          ),
+                          child: SingleChildScrollView(child: header),
+                        ),
                       ),
-                      const VerticalDivider(width: 1),
-                      Expanded(child: chapterList),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(kRadiusCard),
+                            child: ColoredBox(
+                              color: c.surface1,
+                              child: chapterList,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   );
                 }
@@ -214,6 +280,10 @@ class _Header extends StatelessWidget {
   final void Function(String author)? onAuthorTap;
   final ({int chapterId, int pageNumber})? progress;
   final VoidCallback? onContinue;
+  final VoidCallback? onOpenDirectory;
+  final bool directoryBusy;
+  final VoidCallback onCopyTitle;
+  final VoidCallback onCopyAuthor;
 
   const _Header({
     required this.vertical,
@@ -225,6 +295,10 @@ class _Header extends StatelessWidget {
     this.onAuthorTap,
     this.progress,
     this.onContinue,
+    this.onOpenDirectory,
+    required this.directoryBusy,
+    required this.onCopyTitle,
+    required this.onCopyAuthor,
   });
 
   @override
@@ -247,8 +321,23 @@ class _Header extends StatelessWidget {
     final metadata = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(comic.title, style: Theme.of(context).textTheme.titleLarge),
-        if (comic.author != null) ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                comic.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            IconButton(
+              tooltip: '复制漫画标题',
+              icon: const Icon(Icons.copy_outlined, size: 18),
+              onPressed: onCopyTitle,
+            ),
+          ],
+        ),
+        if (comic.author?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 8),
           Row(
             children: [
@@ -267,6 +356,11 @@ class _Header extends StatelessWidget {
                 ),
               ),
               IconButton(
+                tooltip: '复制作者名',
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                onPressed: onCopyAuthor,
+              ),
+              IconButton(
                 tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
                 icon: Icon(
                   authorFavorited ? Icons.star : Icons.star_border,
@@ -279,17 +373,54 @@ class _Header extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 8),
-        Text(
-          '${comic.chapterCount} 话 · ${comic.imageCount} 页',
-          style: TextStyle(color: c.text2, fontSize: 13),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _stat(
+              context,
+              Icons.auto_stories_outlined,
+              '${comic.chapterCount} 话',
+            ),
+            _stat(
+              context,
+              Icons.photo_library_outlined,
+              '${comic.imageCount} 页',
+            ),
+          ],
         ),
       ],
     );
-    return Padding(
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(c.accent.withValues(alpha: 0.18), c.surface2),
+            c.surface2,
+          ],
+        ),
+      ),
       padding: EdgeInsets.all(vertical ? 28 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          Row(
+            children: [
+              Icon(Icons.book_outlined, size: 18, color: c.accent),
+              const SizedBox(width: 8),
+              Text(
+                '漫画信息',
+                style: TextStyle(
+                  color: c.accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
           if (vertical) ...[
             Center(child: cover),
             const SizedBox(height: 24),
@@ -303,7 +434,35 @@ class _Header extends StatelessWidget {
                 Expanded(child: metadata),
               ],
             ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          Divider(color: c.border),
+          const SizedBox(height: 12),
+          Text(
+            '快捷操作',
+            style: TextStyle(
+              color: c.text2,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          FilledButton.tonalIcon(
+            style: FilledButton.styleFrom(
+              backgroundColor: Color.alphaBlend(
+                c.favorite.withValues(alpha: favorited ? 0.18 : 0.08),
+                c.surface1,
+              ),
+              foregroundColor: favorited ? c.favorite : c.text1,
+            ),
+            icon: Icon(
+              favorited ? Icons.favorite : Icons.favorite_border,
+              color: c.favorite,
+              size: 18,
+            ),
+            label: Text(favorited ? '已收藏' : '收藏漫画'),
+            onPressed: onToggleFavorite,
+          ),
+          const SizedBox(height: 10),
           FilledButton.icon(
             icon: const Icon(Icons.menu_book_outlined, size: 20),
             label: Text(
@@ -324,15 +483,37 @@ class _Header extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            icon: Icon(
-              favorited ? Icons.favorite : Icons.favorite_border,
-              color: favorited ? c.favorite : c.text2,
-              size: 18,
+          Tooltip(
+            message: '在运行后端的电脑上打开漫画原文件夹',
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: c.accent,
+                backgroundColor: c.accent.withValues(alpha: 0.06),
+              ),
+              icon: const Icon(Icons.folder_open_outlined, size: 20),
+              label: Text(directoryBusy ? '正在打开…' : '打开本地目录（后端电脑）'),
+              onPressed: onOpenDirectory,
             ),
-            label: Text(favorited ? '已收藏' : '收藏漫画'),
-            onPressed: onToggleFavorite,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(BuildContext context, IconData icon, String label) {
+    final c = context.appColors;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(kRadiusSmall),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: c.accent),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(color: c.accent, fontSize: 12)),
         ],
       ),
     );
@@ -374,6 +555,12 @@ class _ChapterList extends StatelessWidget {
               padding: const EdgeInsets.only(top: 12, bottom: 20),
               child: Row(
                 children: [
+                  Icon(
+                    Icons.format_list_bulleted_rounded,
+                    color: c.accent,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
                   Text('章节目录', style: Theme.of(ctx).textTheme.titleMedium),
                   const SizedBox(width: 10),
                   Text(
@@ -389,7 +576,7 @@ class _ChapterList extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Material(
-              color: isCurrent ? c.accent.withValues(alpha: 0.10) : c.surface1,
+              color: isCurrent ? c.accent.withValues(alpha: 0.16) : c.surface2,
               borderRadius: BorderRadius.circular(kRadiusButton),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
@@ -398,15 +585,12 @@ class _ChapterList extends StatelessWidget {
                   height: 36,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.transparent,
+                    color: c.accent.withValues(alpha: isCurrent ? 0.18 : 0.08),
                     borderRadius: BorderRadius.circular(kRadiusThumb),
                   ),
                   child: Text(
                     '$i',
-                    style: TextStyle(
-                      color: isCurrent ? c.accent : c.text2,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: c.accent, fontSize: 12),
                   ),
                 ),
                 title: Text(
