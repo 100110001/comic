@@ -780,7 +780,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       _currentChapter?.title ?? _title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: c.text1,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -790,7 +790,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       srStatus,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: sr.enabled
                             ? Theme.of(context).colorScheme.primary
                             : c.text2,

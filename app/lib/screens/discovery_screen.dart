@@ -173,7 +173,41 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                       '${comic.chapterCount} 话 · ${comic.imageCount} 页',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 24),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        OutlinedButton.icon(
+                          onPressed: s.canGoPrev
+                              ? () => _switchTo(
+                                  () => ref
+                                      .read(discoveryProvider.notifier)
+                                      .prev(),
+                                  next: false,
+                                )
+                              : null,
+                          icon: const Icon(Icons.chevron_left, size: 18),
+                          label: const Text('上一本'),
+                        ),
+                        FilledButton.icon(
+                          onPressed: () => _openReader(comic),
+                          icon: const Icon(Icons.menu_book_outlined, size: 18),
+                          label: const Text('开始阅读'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _switchTo(
+                            () => ref.read(discoveryProvider.notifier).next(),
+                            next: true,
+                          ),
+                          icon: const Icon(Icons.chevron_right, size: 18),
+                          label: const Text('下一本'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
                     Text(
                       '序列第 ${s.index + 1} / ${s.total} 本',
                       style: Theme.of(context).textTheme.bodySmall,

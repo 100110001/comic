@@ -16,6 +16,7 @@ Future<bool> saveServerUrl(WidgetRef ref, String input) async {
   ref.invalidate(discoveryProvider);
   ref.invalidate(favoritesProvider);
   ref.invalidate(favoriteAuthorsProvider);
+  ref.invalidate(favoriteAuthorBooksProvider);
   ref.invalidate(recentReadingProvider);
   ref.invalidate(comicDetailProvider);
   ref.invalidate(chapterImagesProvider);

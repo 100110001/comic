@@ -3,6 +3,8 @@ import 'package:comic/screens/discovery_screen.dart';
 import 'package:comic/widgets/reading_lists.dart';
 import 'package:comic/models/chapter.dart';
 import 'package:comic/models/comic.dart';
+import 'package:comic/models/favorite_author.dart';
+import 'package:comic/screens/search_screen.dart';
 import 'package:comic/models/reading_progress_entry.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
@@ -56,6 +58,85 @@ class _PreviewDiscovery extends DiscoveryNotifier {
 }
 
 void main() {
+  testWidgets('收藏封面网格与作者作品卡片在窄屏和双倍字体下可导航', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    for (final width in [320.0, 950.0]) {
+      tester.view.physicalSize = Size(width, 800);
+      for (final scale in [1.0, 2.0]) {
+        final container = ProviderContainer(
+          overrides: [
+            favoritesProvider.overrideWith(
+              (ref) async => const [
+                Comic(id: 1, title: '收藏作品', author: '测试作者', favorited: true),
+              ],
+            ),
+            favoriteAuthorsProvider.overrideWith(
+              (ref) async => const [
+                FavoriteAuthor(author: '测试作者', comicCount: 2),
+              ],
+            ),
+            favoriteAuthorBooksProvider.overrideWith(
+              (ref, author) async => const [
+                Comic(id: 1, title: '作者作品', author: '测试作者'),
+              ],
+            ),
+            comicDetailProvider.overrideWith(
+              (ref, id) async => const ComicDetail(
+                comic: Comic(id: 1, title: '漫画详情'),
+                chapters: [],
+                favorited: true,
+                authorFavorited: true,
+              ),
+            ),
+            progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          ],
+        );
+        Widget app(Widget child) => UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.dark),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
+              child: child!,
+            ),
+            home: Scaffold(body: child),
+          ),
+        );
+        await tester.pumpWidget(app(const FavoritesList()));
+        await tester.pumpAndSettle();
+        expect(find.byType(ComicGrid), findsOneWidget);
+        expect(find.byType(ComicCard), findsOneWidget);
+        expect(
+          tester.widget<ComicCard>(find.byType(ComicCard)).comic.favorited,
+          isTrue,
+        );
+        await tester.tap(find.text('收藏作品'));
+        await tester.pumpAndSettle();
+        expect(find.byType(DetailScreen), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpWidget(app(const FavoriteAuthorsList()));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('作者作品'), findsOneWidget);
+        expect(find.text('2 部作品'), findsOneWidget);
+        await tester.tap(find.text('查看全部作品'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<SearchScreen>(find.byType(SearchScreen)).initialKeyword,
+          '测试作者',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        container.dispose();
+      }
+    }
+  });
+
   testWidgets('发现三卡在窄矮窗口与大字体下可滚动且保留拖拽切换', (tester) async {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetDevicePixelRatio);

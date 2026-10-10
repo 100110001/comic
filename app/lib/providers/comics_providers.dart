@@ -17,6 +17,18 @@ final favoriteAuthorsProvider = FutureProvider<List<FavoriteAuthor>>(
   (ref) => ref.watch(apiClientProvider).getFavoriteAuthors(),
 );
 
+/// 作者卡片只展示该作者的真实作品，不把标题命中的其他漫画当成其作品。
+final favoriteAuthorBooksProvider = FutureProvider.autoDispose
+    .family<List<Comic>, String>((ref, author) async {
+      final result = await ref
+          .watch(apiClientProvider)
+          .getComics(keyword: author, pageSize: 8);
+      return result.list
+          .where((comic) => comic.author == author)
+          .take(2)
+          .toList();
+    });
+
 final recentReadingProvider = FutureProvider<List<ReadingProgressEntry>>(
   (ref) => ref.watch(apiClientProvider).getRecent(),
 );

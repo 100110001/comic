@@ -11,6 +11,7 @@ import '../screens/search_screen.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import 'status_views.dart';
+import 'comic_grid.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
@@ -44,10 +45,17 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
               ? const EmptyListView(message: '暂无最近阅读')
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: items.length,
+                  itemCount: items.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
                   itemBuilder: (ctx, i) {
-                    final e = items[i];
+                    if (i == 0) {
+                      return _CollectionHeading(
+                        title: '最近读过',
+                        count: '${items.length} 本',
+                        note: '最近阅读优先',
+                      );
+                    }
+                    final e = items[i - 1];
                     return _EntryTile(
                       coverUrl: e.comic.coverUrl,
                       title: e.comic.title,
@@ -98,25 +106,31 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
                 )
               : items.isEmpty
               ? const EmptyListView(message: '暂无收藏')
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (ctx, i) {
-                    final comic = items[i];
-                    return _EntryTile(
-                      coverUrl: comic.coverUrl,
-                      title: comic.title,
-                      author: comic.author,
-                      subtitle: '${comic.chapterCount}话 · ${comic.imageCount}P',
-                      onTap: () => Navigator.push(
-                        ctx,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(comicId: comic.id),
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 8, 28, 20),
+                      child: _CollectionHeading(
+                        title: '收藏的漫画',
+                        count: '${items.length} 本',
+                        note: '按收藏时间',
+                      ),
+                    ),
+                    Expanded(
+                      child: ComicGrid(
+                        comics: items
+                            .map((comic) => comic.withFavorited(true))
+                            .toList(),
+                        loading: false,
+                        onTap: (comic) => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailScreen(comicId: comic.id),
+                          ),
                         ),
                       ),
-                    );
-                  },
+                    ),
+                  ],
                 ),
         ),
       ),
@@ -155,59 +169,41 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                 )
               : items.isEmpty
               ? const EmptyListView(message: '暂无收藏作者')
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (ctx, i) {
-                    final item = items[i];
-                    return Material(
-                      color: context.appColors.surface1,
-                      borderRadius: BorderRadius.circular(kRadiusCard),
-                      clipBehavior: Clip.antiAlias,
-                      child: ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: context.appColors.star.withValues(
-                              alpha: 0.08,
-                            ),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.person_outline,
-                            color: context.appColors.star,
-                            size: 20,
-                          ),
-                        ),
-                        title: Text(
-                          item.author,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: context.appColors.text1,
-                            fontSize: 14,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${item.comicCount} 部作品',
-                          style: TextStyle(
-                            color: context.appColors.text2,
-                            fontSize: 12,
-                          ),
-                        ),
-                        trailing: Icon(
-                          Icons.chevron_right,
-                          color: context.appColors.text2,
-                        ),
-                        onTap: () => Navigator.push(
-                          ctx,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                SearchScreen(initialKeyword: item.author),
-                          ),
-                        ),
-                      ),
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns =
+                        constraints.maxWidth >= 640 &&
+                            MediaQuery.textScalerOf(context).scale(14) <= 20
+                        ? 2
+                        : 1;
+                    final rows = (items.length / columns).ceil();
+                    return ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                      itemCount: rows + 1,
+                      separatorBuilder: (_, _) => const SizedBox(height: 16),
+                      itemBuilder: (context, row) {
+                        if (row == 0) {
+                          return _CollectionHeading(
+                            title: '关注的创作者',
+                            count: '${items.length} 位',
+                            note: '按收藏时间',
+                          );
+                        }
+                        final start = (row - 1) * columns;
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (var col = 0; col < columns; col++) ...[
+                              if (col > 0) const SizedBox(width: 16),
+                              Expanded(
+                                child: start + col < items.length
+                                    ? _AuthorCard(author: items[start + col])
+                                    : const SizedBox.shrink(),
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     );
                   },
                 ),
@@ -248,8 +244,8 @@ class _EntryTile extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(kRadiusThumb),
                 child: SizedBox(
-                  width: 60,
-                  height: 80,
+                  width: 76,
+                  height: 76 * 4 / 3,
                   child: coverUrl != null
                       ? DisplayNetworkImage(
                           coverUrl!,
@@ -270,7 +266,7 @@ class _EntryTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: c.text1,
-                        fontSize: 15,
+                        fontSize: 17,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -284,11 +280,21 @@ class _EntryTile extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: c.text2, fontSize: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: c.accent.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(kRadiusSmall),
+                      ),
+                      child: Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: c.accent, fontSize: 12),
+                      ),
                     ),
                   ],
                 ),
@@ -306,7 +312,158 @@ class _EntryTile extends StatelessWidget {
     final c = context.appColors;
     return Container(
       color: c.surface2,
-      child: Icon(Icons.image_not_supported, color: c.text2),
+      child: Icon(Icons.auto_stories_outlined, color: c.text2),
+    );
+  }
+}
+
+class _CollectionHeading extends StatelessWidget {
+  const _CollectionHeading({
+    required this.title,
+    required this.count,
+    required this.note,
+  });
+  final String title;
+  final String count;
+  final String note;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: double.infinity,
+    child: Wrap(
+      alignment: WrapAlignment.spaceBetween,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 16,
+      runSpacing: 8,
+      children: [
+        Text(
+          '$title · $count',
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+        ),
+        Text(note, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
+}
+
+class _AuthorCard extends ConsumerWidget {
+  const _AuthorCard({required this.author});
+  final FavoriteAuthor author;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.appColors;
+    final books = ref.watch(favoriteAuthorBooksProvider(author.author));
+    void openWorks() => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SearchScreen(initialKeyword: author.author),
+      ),
+    );
+    return Material(
+      color: c.surface1,
+      borderRadius: BorderRadius.circular(kRadiusCard),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: c.accent.withValues(alpha: 0.10),
+                  child: Icon(Icons.person_outline, color: c.accent, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Tooltip(
+                        message: author.author,
+                        child: Text(
+                          author.author,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${author.comicCount} 部作品',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.star_outline, color: c.star, size: 18),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (books.isLoading && !books.hasValue)
+              const SizedBox(
+                height: 96,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else if (books.hasError && !books.hasValue)
+              TextButton.icon(
+                onPressed: () =>
+                    ref.invalidate(favoriteAuthorBooksProvider(author.author)),
+                icon: const Icon(Icons.refresh, size: 16),
+                label: const Text('封面加载失败，重试'),
+              )
+            else if (books.value?.isNotEmpty ?? false)
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final comic in books.value!)
+                    Tooltip(
+                      message: comic.title,
+                      child: SizedBox(
+                        width: 72,
+                        height: 96,
+                        child: Material(
+                          color: c.surface2,
+                          borderRadius: BorderRadius.circular(kRadiusThumb),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(comicId: comic.id),
+                              ),
+                            ),
+                            child: comic.coverUrl == null
+                                ? Icon(
+                                    Icons.auto_stories_outlined,
+                                    color: c.text2,
+                                  )
+                                : DisplayNetworkImage(
+                                    comic.coverUrl!,
+                                    errorBuilder: (_, _, _) => Icon(
+                                      Icons.auto_stories_outlined,
+                                      color: c.text2,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            const SizedBox(height: 18),
+            OutlinedButton.icon(
+              onPressed: openWorks,
+              icon: const Icon(Icons.north_east, size: 16),
+              label: const Text('查看全部作品'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
