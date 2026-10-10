@@ -256,7 +256,7 @@ void main() {
     );
   });
 
-  testWidgets('小屏和放大字体下两行标题与作者不溢出', (tester) async {
+  testWidgets('小屏和放大字体下单行标题与作者不溢出', (tester) async {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
@@ -276,7 +276,7 @@ void main() {
                   comics: [
                     Comic(
                       id: 1,
-                      title: '这是一个需要显示两行而且可能被截断的漫画标题',
+                      title: '这是一个仅显示单行而且可能被截断的漫画标题',
                       author: '很长很长的作者名称',
                     ),
                     Comic(id: 2, title: '没有作者的漫画'),
@@ -290,6 +290,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: '宽度 $width，字体 $scale');
+        final title = tester.widget<Text>(find.text('这是一个仅显示单行而且可能被截断的漫画标题'));
+        expect(title.maxLines, 1);
+        expect(title.overflow, TextOverflow.ellipsis);
+        expect(find.byTooltip('这是一个仅显示单行而且可能被截断的漫画标题'), findsOneWidget);
       }
     }
   });

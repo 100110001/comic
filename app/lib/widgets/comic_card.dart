@@ -8,10 +8,10 @@ class ComicCard extends StatefulWidget {
   final VoidCallback? onTap;
   const ComicCard({super.key, required this.comic, this.onTap});
 
-  /// 与网格共享文字区高度，预留两行标题和一行作者。
+  /// 与网格共享文字区高度，预留单行标题和单行作者。
   static double textAreaHeight(TextScaler scaler) =>
       20 +
-      (scaler.scale(14) * 1.4).ceilToDouble() * 2 +
+      (scaler.scale(14) * 1.4).ceilToDouble() +
       6 +
       (scaler.scale(12) * 1.4).ceilToDouble();
 
@@ -121,15 +121,18 @@ class _ComicCardState extends State<ComicCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          comic.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: c.text1,
-                            fontSize: 14,
-                            height: 1.4,
-                            fontWeight: FontWeight.w500,
+                        Tooltip(
+                          message: comic.title,
+                          child: Text(
+                            comic.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: c.text1,
+                              fontSize: 14,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                         const Spacer(),

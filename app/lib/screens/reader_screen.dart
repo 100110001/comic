@@ -589,31 +589,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   void _openMobileDirectory() {
     if (_chapters.isEmpty) return;
-    final c = context.appColors;
-    showModalBottomSheet(
+    showModalBottomSheet<void>(
       context: context,
-      backgroundColor: c.surface1,
-      builder: (ctx) => SafeArea(
-        child: ListView.builder(
-          itemCount: _chapters.length,
-          itemBuilder: (ctx, i) {
-            final selected = i == _chapterIndex;
-            return ListTile(
-              selected: selected,
-              title: Text(
-                _chapters[i].title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: selected ? c.accent : c.text1,
-                  fontSize: 13,
-                ),
-              ),
-              onTap: () {
-                Navigator.pop(ctx);
-                _goToChapter(i);
-              },
-            );
+      isScrollControlled: true,
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.sizeOf(ctx).height * 0.7,
+        child: ChapterDirectory(
+          chapters: _chapters,
+          currentIndex: _chapterIndex,
+          onSelect: (i) {
+            Navigator.pop(ctx);
+            _goToChapter(i);
           },
         ),
       ),

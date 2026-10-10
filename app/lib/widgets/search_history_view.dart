@@ -4,6 +4,7 @@ import '../providers/search_history_provider.dart';
 import '../providers/server_provider.dart';
 import '../utils/user_error.dart';
 import 'status_views.dart';
+import '../theme.dart';
 
 void showSearchHistory(
   BuildContext context, {
@@ -66,7 +67,7 @@ class _SearchHistoryViewState extends ConsumerState<SearchHistoryView> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
+          padding: const EdgeInsets.fromLTRB(24, 12, 16, 12),
           child: Row(
             children: [
               Expanded(
@@ -102,17 +103,22 @@ class _SearchHistoryViewState extends ConsumerState<SearchHistoryView> {
               ? const StatusView(icon: Icons.search, message: '输入关键字搜索漫画或作者')
               : ListView.builder(
                   itemCount: words.length,
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
                   itemBuilder: (context, index) {
                     final word = words[index];
                     return ListTile(
-                      leading: const Icon(Icons.history, size: 20),
+                      leading: Icon(
+                        Icons.history,
+                        size: 20,
+                        color: context.appColors.text2,
+                      ),
                       title: Tooltip(
                         message: word,
                         child: Text(
                           word,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
                       onTap: () {
@@ -122,7 +128,11 @@ class _SearchHistoryViewState extends ConsumerState<SearchHistoryView> {
                       },
                       trailing: IconButton(
                         tooltip: '删除历史：$word',
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: Icon(
+                          Icons.close,
+                          size: 18,
+                          color: context.appColors.text2,
+                        ),
                         onPressed: _busy
                             ? null
                             : () => _change(

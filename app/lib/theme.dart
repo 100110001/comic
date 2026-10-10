@@ -271,9 +271,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: c.accent,
-        foregroundColor: brightness == Brightness.dark
-            ? Colors.black
-            : Colors.white,
+        foregroundColor: scheme.onPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         textStyle: TextStyle(
           fontSize: 14,
@@ -296,6 +294,50 @@ ThemeData buildAppTheme(Brightness brightness) {
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
       ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: c.accent,
+        textStyle: textTheme.labelLarge,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusButton),
+        ),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 4,
+      textStyle: textTheme.bodyMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusCard),
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: c.surface1,
+      modalBackgroundColor: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
+      showDragHandle: true,
+      dragHandleColor: c.text2.withValues(alpha: 0.35),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusFloat)),
+      ),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: c.text1,
+        borderRadius: BorderRadius.circular(kRadiusSmall),
+      ),
+      textStyle: textTheme.bodySmall?.copyWith(color: c.bg),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
@@ -368,8 +410,8 @@ ThemeData buildAppTheme(Brightness brightness) {
       unselectedLabelColor: c.text2,
       indicatorColor: c.accent,
       dividerColor: Colors.transparent,
-      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: const TextStyle(fontSize: 14),
+      labelStyle: textTheme.labelLarge,
+      unselectedLabelStyle: textTheme.bodyMedium,
     ),
     dividerTheme: DividerThemeData(
       color: c.borderStrong,

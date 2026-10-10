@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme.dart';
 
 class EnhancedImage extends StatelessWidget {
   const EnhancedImage({
@@ -38,12 +39,12 @@ class EnhancedImage extends StatelessWidget {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(4),
+                              borderRadius: BorderRadius.circular(kRadiusSmall),
                             ),
                             child: const Padding(
                               padding: EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 3,
+                                horizontal: 8,
+                                vertical: 4,
                               ),
                               child: Text(
                                 '2× 超分',

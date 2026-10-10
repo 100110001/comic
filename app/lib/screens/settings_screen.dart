@@ -242,7 +242,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               selectedColor: c.surface1,
               backgroundColor: Colors.transparent,
               side: BorderSide.none,
-              labelStyle: TextStyle(
+              labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
                 color: selected == option.key ? c.accent : c.text2,
               ),
               onSelected: onChanged == null
@@ -438,45 +438,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Comic',
-                    style: TextStyle(
-                      color: c.text1,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+        FutureBuilder<String>(
+          future: _loadVersion(),
+          builder: (context, snap) => _settingRow(
+            title: 'Comic',
+            description: '当前版本 v${snap.data ?? '…'}',
+            control: kIsWeb
+                ? const SizedBox.shrink()
+                : FilledButton.tonal(
+                    onPressed:
+                        _status == _UpdateStatus.checking ||
+                            _status == _UpdateStatus.downloading
+                        ? null
+                        : _checkUpdate,
+                    child: Text(
+                      _status == _UpdateStatus.checking ? '检查中…' : '检查更新',
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FutureBuilder<String>(
-                    future: _loadVersion(),
-                    builder: (context, snap) => Text(
-                      '当前版本 v${snap.data ?? '…'}',
-                      style: TextStyle(color: c.text2, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (!kIsWeb)
-              FilledButton.tonal(
-                onPressed:
-                    _status == _UpdateStatus.checking ||
-                        _status == _UpdateStatus.downloading
-                    ? null
-                    : _checkUpdate,
-                child: Text(
-                  _status == _UpdateStatus.checking ? '检查中…' : '检查更新',
-                ),
-              ),
-          ],
+          ),
         ),
-        const SizedBox(height: 12),
         ..._buildUpdateStatus(c),
       ],
     );
