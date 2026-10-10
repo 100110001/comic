@@ -70,7 +70,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final superResolutionDefault = ref.watch(superResolutionDefaultProvider);
     final serverSession = ref.watch(serverSessionProvider);
     final c = context.appColors;
-    // 桌面侧栏嵌入时无需标题；手机端推入时保留返回箭头。
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
       appBar: canPop ? AppBar(title: const Text('设置')) : null,
@@ -78,226 +77,179 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 800),
           child: ListView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(
+              MediaQuery.sizeOf(context).width < 480 ? 16 : 28,
+            ),
             children: [
               if (!canPop) ...[
                 Text('设置', style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
-                  '按你的习惯，调整阅读体验',
-                  style: TextStyle(color: c.text2, fontSize: 13),
+                  '让 Comic 更适合你的阅读习惯',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 28),
               ],
-              Text(
-                '服务器',
-                style: TextStyle(
-                  color: c.text2,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: c.surface2,
-                  borderRadius: BorderRadius.circular(kRadiusCard),
-                  border: Border.all(color: c.border),
-                ),
-                child: _buildServerSection(c, serverSession),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                '外观',
-                style: TextStyle(
-                  color: c.text2,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: c.surface2,
-                  borderRadius: BorderRadius.circular(kRadiusCard),
-                  border: Border.all(color: c.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '主题模式',
-                      style: TextStyle(
-                        color: c.text1,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '控制 App 整体配色：浅色、深色，或跟随系统自动切换',
-                      style: TextStyle(color: c.text2, fontSize: 13),
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final mode in ThemeMode.values)
-                          ChoiceChip(
-                            avatar: Icon(
-                              switch (mode) {
-                                ThemeMode.light => Icons.light_mode_outlined,
-                                ThemeMode.dark => Icons.dark_mode_outlined,
-                                ThemeMode.system =>
-                                  Icons.brightness_auto_outlined,
-                              },
-                              size: 18,
-                              color: themeMode == mode ? c.accent : c.text2,
-                            ),
-                            label: Text(switch (mode) {
-                              ThemeMode.light => '浅色',
-                              ThemeMode.dark => '深色',
-                              ThemeMode.system => '跟随系统',
-                            }),
-                            selected: themeMode == mode,
-                            showCheckmark: false,
-                            selectedColor: c.accent.withValues(alpha: 0.12),
-                            labelStyle: TextStyle(
-                              color: themeMode == mode ? c.accent : c.text1,
-                            ),
-                            onSelected: (_) => ref
-                                .read(themeModeProvider.notifier)
-                                .setMode(mode),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                '阅读',
-                style: TextStyle(
-                  color: c.text2,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: c.surface2,
-                  borderRadius: BorderRadius.circular(kRadiusCard),
-                  border: Border.all(color: c.border),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '超分默认策略',
-                        style: TextStyle(
-                          color: c.text1,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final mode in SuperResolutionMode.values)
-                            ChoiceChip(
-                              label: Text(switch (mode) {
-                                SuperResolutionMode.on => '开启',
-                                SuperResolutionMode.adaptive => '自适应',
-                                SuperResolutionMode.off => '关闭',
-                              }),
-                              selected: superResolutionDefault == mode,
-                              onSelected: _savingSuperResolution
-                                  ? null
-                                  : (_) => _saveSuperResolutionDefault(mode),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '开启：固定 2× 增强；自适应：原图像素不足时增强；关闭：原图。后续预处理根据 GPU 压力调整，最多十页。阅读器可临时开关。',
-                        style: TextStyle(color: c.text2, fontSize: 13),
-                      ),
-                    ],
+              _settingsGroup('阅读与外观', [
+                _settingRow(
+                  title: '主题模式',
+                  description: '选择舒适的阅读配色',
+                  control: _choices(
+                    const {
+                      ThemeMode.system: '跟随系统',
+                      ThemeMode.light: '浅色',
+                      ThemeMode.dark: '深色',
+                    },
+                    themeMode,
+                    (mode) =>
+                        ref.read(themeModeProvider.notifier).setMode(mode),
                   ),
                 ),
-              ),
-              if (defaultTargetPlatform == TargetPlatform.windows) ...[
-                const SizedBox(height: 24),
-                Text(
-                  '窗口',
-                  style: TextStyle(
-                    color: c.text2,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
+                const Divider(),
+                _settingRow(
+                  title: '超分默认策略',
+                  description: switch (superResolutionDefault) {
+                    SuperResolutionMode.on => '始终使用 2× 增强，阅读器可临时关闭',
+                    SuperResolutionMode.adaptive => '原图清晰度不足时自动增强',
+                    SuperResolutionMode.off => '保持原图显示，阅读器可临时开启',
+                  },
+                  control: _choices(
+                    const {
+                      SuperResolutionMode.on: '开启',
+                      SuperResolutionMode.adaptive: '自适应',
+                      SuperResolutionMode.off: '关闭',
+                    },
+                    superResolutionDefault,
+                    _savingSuperResolution ? null : _saveSuperResolutionDefault,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: c.surface2,
-                    borderRadius: BorderRadius.circular(kRadiusCard),
-                    border: Border.all(color: c.border),
-                  ),
-                  child: SwitchListTile(
+                if (defaultTargetPlatform == TargetPlatform.windows) ...[
+                  const Divider(),
+                  SwitchListTile(
                     value: closeToTray,
                     onChanged: (value) => ref
                         .read(closeToTrayProvider.notifier)
                         .setEnabled(value),
-                    title: Text(
-                      '关闭窗口时最小化到系统托盘',
-                      style: TextStyle(
-                        color: c.text1,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    title: const Text('关闭后留在系统托盘'),
                     subtitle: Text(
-                      '开启：点右上角 X 退到系统托盘继续运行；关闭：点右上角 X 直接退出',
-                      style: TextStyle(color: c.text2, fontSize: 13),
+                      closeToTray ? '关闭窗口后继续运行，便于下次阅读' : '关闭窗口时直接退出应用',
                     ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
+                ],
+              ]),
+              _settingsGroup('漫画服务器', [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: _buildServerSection(c, serverSession),
                 ),
-              ],
-              const SizedBox(height: 24),
-              Text(
-                '关于',
-                style: TextStyle(
-                  color: c.text2,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.4,
+              ]),
+              _settingsGroup('关于', [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: _buildAboutSection(c),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: c.surface2,
-                  borderRadius: BorderRadius.circular(kRadiusCard),
-                  border: Border.all(color: c.border),
-                ),
-                child: _buildAboutSection(c),
-              ),
+              ]),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _settingsGroup(String title, List<Widget> children) => Padding(
+    padding: const EdgeInsets.only(bottom: 24),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: context.appColors.surface1,
+            borderRadius: BorderRadius.circular(kRadiusCard),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: children,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _settingRow({
+    required String title,
+    required String description,
+    required Widget control,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final label = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 5),
+            Text(description, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        );
+        if (constraints.maxWidth >= 560 &&
+            MediaQuery.textScalerOf(context).scale(14) <= 18) {
+          return Row(
+            children: [
+              Expanded(child: label),
+              const SizedBox(width: 24),
+              control,
+            ],
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [label, const SizedBox(height: 14), control],
+        );
+      },
+    ),
+  );
+
+  Widget _choices<T>(
+    Map<T, String> labels,
+    T selected,
+    ValueChanged<T>? onChanged,
+  ) {
+    final c = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: c.surface2,
+        borderRadius: BorderRadius.circular(kRadiusButton),
+      ),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        children: [
+          for (final option in labels.entries)
+            ChoiceChip(
+              label: Text(option.value),
+              selected: selected == option.key,
+              showCheckmark: false,
+              selectedColor: c.surface1,
+              backgroundColor: Colors.transparent,
+              side: BorderSide.none,
+              labelStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: selected == option.key ? c.accent : c.text2,
+              ),
+              onSelected: onChanged == null
+                  ? null
+                  : (_) => onChanged(option.key),
+            ),
+        ],
       ),
     );
   }
@@ -327,7 +279,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '漫画服务器地址',
+          '服务器地址',
           style: TextStyle(
             color: c.text1,
             fontSize: 15,
@@ -340,50 +292,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: TextStyle(color: c.text2, fontSize: 13),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _serverController,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          enableSuggestions: false,
-          decoration: const InputDecoration(
-            labelText: '服务器地址',
-            hintText: 'http://192.168.1.100:8888',
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _serverTestStatus == _ServerTestStatus.testing
-                  ? null
-                  : _testServerConnection,
-              icon: _serverTestStatus == _ServerTestStatus.testing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(
-                _serverTestStatus == _ServerTestStatus.testing
-                    ? '测试中…'
-                    : '测试连接',
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final field = TextField(
+              controller: _serverController,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                hintText: 'http://192.168.1.100:8888',
               ),
-            ),
-            FilledButton.icon(
-              onPressed: _serverSaving ? null : _saveServerAddress,
-              icon: _serverSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined, size: 18),
-              label: Text(_serverSaving ? '保存中…' : '保存'),
-            ),
-          ],
+            );
+            final actions = Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _serverTestStatus == _ServerTestStatus.testing
+                      ? null
+                      : _testServerConnection,
+                  icon: _serverTestStatus == _ServerTestStatus.testing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering, size: 18),
+                  label: Text(
+                    _serverTestStatus == _ServerTestStatus.testing
+                        ? '测试中…'
+                        : '测试连接',
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _serverSaving ? null : _saveServerAddress,
+                  icon: _serverSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined, size: 18),
+                  label: Text(_serverSaving ? '保存中…' : '保存'),
+                ),
+              ],
+            );
+            if (constraints.maxWidth >= 560 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 18) {
+              return Row(
+                children: [
+                  Expanded(child: field),
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [field, const SizedBox(height: 12), actions],
+            );
+          },
         ),
         if (_serverTestMessage != null) ...[
           const SizedBox(height: 10),
@@ -470,45 +438,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Comic',
-                    style: TextStyle(
-                      color: c.text1,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+        FutureBuilder<String>(
+          future: _loadVersion(),
+          builder: (context, snap) => _settingRow(
+            title: 'Comic',
+            description: '当前版本 v${snap.data ?? '…'}',
+            control: kIsWeb
+                ? const SizedBox.shrink()
+                : FilledButton.tonal(
+                    onPressed:
+                        _status == _UpdateStatus.checking ||
+                            _status == _UpdateStatus.downloading
+                        ? null
+                        : _checkUpdate,
+                    child: Text(
+                      _status == _UpdateStatus.checking ? '检查中…' : '检查更新',
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  FutureBuilder<String>(
-                    future: _loadVersion(),
-                    builder: (context, snap) => Text(
-                      '当前版本 v${snap.data ?? '…'}',
-                      style: TextStyle(color: c.text2, fontSize: 13),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (!kIsWeb)
-              FilledButton.tonal(
-                onPressed:
-                    _status == _UpdateStatus.checking ||
-                        _status == _UpdateStatus.downloading
-                    ? null
-                    : _checkUpdate,
-                child: Text(
-                  _status == _UpdateStatus.checking ? '检查中…' : '检查更新',
-                ),
-              ),
-          ],
+          ),
         ),
-        const SizedBox(height: 12),
         ..._buildUpdateStatus(c),
       ],
     );

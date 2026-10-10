@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 // ---- 圆角令牌（浅/深共用） ----
 const kRadiusSmall = 6.0;
 const kRadiusThumb = 8.0;
-const kRadiusButton = 12.0;
-const kRadiusCard = 14.0;
-const kRadiusFloat = 18.0;
+const kRadiusButton = 8.0;
+const kRadiusCard = 12.0;
+const kRadiusFloat = 14.0;
 
 /// 双套颜色令牌：组件通过 `context.appColors.*` 取色。
 @immutable
@@ -41,35 +41,35 @@ class AppColors extends ThemeExtension<AppColors> {
   });
 
   static const dark = AppColors(
-    bg: Color(0xFF0d1117),
-    surface1: Color(0xFF161b22),
-    surface2: Color(0xFF1c2128),
-    border: Color(0xFF30363d),
-    borderStrong: Color(0xFF21262d),
-    accent: Color(0xFF58a6ff),
-    text1: Color(0xFFe6edf3),
-    text2: Color(0xFF8b949e),
+    bg: Color(0xFF13161c),
+    surface1: Color(0xFF1c2027),
+    surface2: Color(0xFF272d37),
+    border: Color(0xFF2b303a),
+    borderStrong: Color(0xFF1c2027),
+    accent: Color(0xFFadc0ff),
+    text1: Color(0xFFeff0f3),
+    text2: Color(0xFFa3aab7),
     favorite: Color(0xFFf778ba),
     star: Color(0xFFf5c542),
     readerBg: Colors.black,
-    readerBar: Color(0xFF161b22),
-    navBg: Color(0xFF21262d),
+    readerBar: Color(0xFF1c2027),
+    navBg: Color(0xFF1c2027),
   );
 
   static const light = AppColors(
-    bg: Color(0xFFf3f5f9),
+    bg: Color(0xFFf7f8fa),
     surface1: Color(0xFFffffff),
     surface2: Color(0xFFffffff),
-    border: Color(0xFFe0e5ed),
-    borderStrong: Color(0xFFe8ecf2),
-    accent: Color(0xFF0969da),
-    text1: Color(0xFF1f2328),
-    text2: Color(0xFF57606a),
+    border: Color(0xFFe8ebef),
+    borderStrong: Color(0xFFe8ebef),
+    accent: Color(0xFF365ecd),
+    text1: Color(0xFF292e35),
+    text2: Color(0xFF6b7380),
     favorite: Color(0xFFd03592),
     star: Color(0xFF9a6700),
     readerBg: Color(0xFFf6f8fa),
     readerBar: Color(0xFFffffff),
-    navBg: Color(0xFFedf1f7),
+    navBg: Color(0xFFffffff),
   );
 
   @override
@@ -145,7 +145,9 @@ ThemeData buildAppTheme(Brightness brightness) {
   final scheme = ColorScheme(
     brightness: brightness,
     primary: c.accent,
-    onPrimary: brightness == Brightness.dark ? Colors.black : Colors.white,
+    onPrimary: brightness == Brightness.dark
+        ? const Color(0xFF192748)
+        : Colors.white,
     secondary: c.accent,
     onSecondary: brightness == Brightness.dark ? Colors.black : Colors.white,
     secondaryContainer: c.surface2,
@@ -161,10 +163,10 @@ ThemeData buildAppTheme(Brightness brightness) {
   );
   final textTheme = TextTheme(
     titleLarge: TextStyle(
-      fontSize: 24,
+      fontSize: 28,
       fontWeight: FontWeight.w600,
       color: c.text1,
-      letterSpacing: 0.2,
+      letterSpacing: 0,
       fontFamilyFallback: cjkFallback,
     ),
     titleMedium: TextStyle(
@@ -202,13 +204,15 @@ ThemeData buildAppTheme(Brightness brightness) {
     labelSmall: TextStyle(
       fontSize: 11,
       color: c.text2,
-      letterSpacing: 0.2,
+      letterSpacing: 0,
       fontFamilyFallback: cjkFallback,
     ),
   );
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: cjkFallback.first,
+    fontFamilyFallback: cjkFallback,
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: c.bg,
@@ -230,12 +234,11 @@ ThemeData buildAppTheme(Brightness brightness) {
       centerTitle: false,
     ),
     cardTheme: CardThemeData(
-      color: c.surface2,
+      color: c.surface1,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusCard),
-        side: BorderSide(color: c.border),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -268,11 +271,14 @@ ThemeData buildAppTheme(Brightness brightness) {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: c.accent,
-        foregroundColor: brightness == Brightness.dark
-            ? Colors.black
-            : Colors.white,
+        foregroundColor: scheme.onPrimary,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          fontFamily: cjkFallback.first,
+          fontFamilyFallback: cjkFallback,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
@@ -281,16 +287,61 @@ ThemeData buildAppTheme(Brightness brightness) {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: c.text1,
-        side: BorderSide(color: c.border),
+        backgroundColor: c.surface2,
+        side: BorderSide.none,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
       ),
     ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: c.accent,
+        textStyle: textTheme.labelLarge,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(kRadiusButton),
+        ),
+      ),
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 4,
+      textStyle: textTheme.bodyMedium,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusCard),
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: c.surface1,
+      modalBackgroundColor: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      modalElevation: 0,
+      showDragHandle: true,
+      dragHandleColor: c.text2.withValues(alpha: 0.35),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kRadiusFloat)),
+      ),
+    ),
+    drawerTheme: DrawerThemeData(
+      backgroundColor: c.surface1,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(),
+    ),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: c.text1,
+        borderRadius: BorderRadius.circular(kRadiusSmall),
+      ),
+      textStyle: textTheme.bodySmall?.copyWith(color: c.bg),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: c.surface2,
+      fillColor: c.surface1,
       hintStyle: TextStyle(color: c.text2),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
@@ -304,6 +355,29 @@ ThemeData buildAppTheme(Brightness brightness) {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(kRadiusButton),
         borderSide: BorderSide(color: c.accent, width: 1.5),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: c.surface2,
+      selectedColor: c.surface1,
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusSmall),
+      ),
+      labelStyle: TextStyle(
+        color: c.text2,
+        fontSize: 13,
+        fontFamily: cjkFallback.first,
+        fontFamilyFallback: cjkFallback,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      showCheckmark: false,
+    ),
+    switchTheme: SwitchThemeData(
+      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      thumbColor: WidgetStateProperty.resolveWith(
+        (states) =>
+            states.contains(WidgetState.selected) ? scheme.onPrimary : c.text2,
       ),
     ),
     sliderTheme: SliderThemeData(
@@ -336,8 +410,8 @@ ThemeData buildAppTheme(Brightness brightness) {
       unselectedLabelColor: c.text2,
       indicatorColor: c.accent,
       dividerColor: Colors.transparent,
-      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: const TextStyle(fontSize: 14),
+      labelStyle: textTheme.labelLarge,
+      unselectedLabelStyle: textTheme.bodyMedium,
     ),
     dividerTheme: DividerThemeData(
       color: c.borderStrong,

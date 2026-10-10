@@ -47,7 +47,7 @@ class _MineScreenState extends ConsumerState<MineScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('我的'),
+        title: const Text('我的书库'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -60,6 +60,9 @@ class _MineScreenState extends ConsumerState<MineScreen>
         ],
         bottom: TabBar(
           controller: _controller,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           tabs: const [
             Tab(text: '最近阅读'),
             Tab(text: '收藏'),

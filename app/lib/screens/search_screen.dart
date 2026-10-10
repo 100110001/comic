@@ -120,6 +120,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 8,
         actions: [
           IconButton(
             tooltip: '清空搜索',
@@ -144,45 +145,77 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             hintText: '搜索漫画、作者…',
             hintStyle: TextStyle(color: c.text2),
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 12,
+            ),
             isDense: true,
             prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
           ),
           onSubmitted: _search,
         ),
       ),
-      body: _showHistory
-          ? SearchHistoryView(onSelected: _chooseKeyword)
-          : RefreshIndicator(
-              onRefresh: () => _search(keyword, remember: false),
-              child: hasError && comics.isEmpty
-                  ? StatusView(
-                      icon: Icons.cloud_off,
-                      message: userMessageFor(
-                        searchAsync.error ?? state?.error,
-                        fallback: '搜索失败',
-                      ),
-                      actionLabel: '重试',
-                      onAction: () => _search(keyword, remember: false),
-                    )
-                  : loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : comics.isEmpty
-                  ? const EmptyListView(message: '没有找到相关漫画')
-                  : ComicGrid(
-                      controller: _scrollController,
-                      comics: comics,
-                      loading:
-                          searchAsync.isLoading ||
-                          (state?.isRefreshing ?? false) ||
-                          (state?.isLoadingMore ?? false),
-                      onTap: (comic) => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DetailScreen(comicId: comic.id),
-                        ),
-                      ),
-                    ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _showHistory ? '搜索' : '搜索结果',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _showHistory
+                      ? '找到下一本想读的漫画'
+                      : '「$keyword」 · ${state?.total ?? 0} 本漫画',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
+          ),
+          Expanded(
+            child: _showHistory
+                ? SearchHistoryView(onSelected: _chooseKeyword)
+                : RefreshIndicator(
+                    onRefresh: () => _search(keyword, remember: false),
+                    child: hasError && comics.isEmpty
+                        ? StatusView(
+                            icon: Icons.cloud_off,
+                            message: userMessageFor(
+                              searchAsync.error ?? state?.error,
+                              fallback: '搜索失败',
+                            ),
+                            actionLabel: '重试',
+                            onAction: () => _search(keyword, remember: false),
+                          )
+                        : loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : comics.isEmpty
+                        ? const EmptyListView(message: '没有找到相关漫画')
+                        : ComicGrid(
+                            controller: _scrollController,
+                            comics: comics,
+                            loading:
+                                searchAsync.isLoading ||
+                                (state?.isRefreshing ?? false) ||
+                                (state?.isLoadingMore ?? false),
+                            onTap: (comic) => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(comicId: comic.id),
+                              ),
+                            ),
+                          ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

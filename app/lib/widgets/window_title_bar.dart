@@ -60,12 +60,9 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Material(
-      color: c.navBg,
-      child: Container(
+      color: c.bg,
+      child: SizedBox(
         height: 32,
-        decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: c.borderStrong)),
-        ),
         child: Row(
           children: [
             Expanded(
@@ -82,9 +79,9 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
                       child: Text(
                         'Comic',
                         style: TextStyle(
-                          color: c.text1,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          color: c.text2,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -140,9 +137,7 @@ class _TitleBarButtonState extends State<_TitleBarButton> {
         });
       },
       child: InkWell(
-        hoverColor: widget.danger
-            ? const Color(0xFFe81123)
-            : Colors.white.withValues(alpha: 0.08),
+        hoverColor: widget.danger ? const Color(0xFFe81123) : c.surface2,
         onTap: widget.onTap,
         child: Listener(
           onPointerDown: (_) => setState(() => _pressed = true),

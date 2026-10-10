@@ -122,6 +122,33 @@ void main() {
     await settleReader(tester);
   }
 
+  testWidgets('手机目录可滚动换章并关闭面板', (tester) async {
+    final chapters = List.generate(
+      40,
+      (i) => Chapter(id: i + 1, title: '第${i + 1}话', sortOrder: i),
+    );
+    await pumpReader(tester, width: 320, chapters: chapters);
+    await tester.tap(find.byTooltip('目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('共 40 章'), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('第40话'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('第40话'));
+    await settleReader(tester);
+    expect(find.text('第40话'), findsOneWidget);
+    expect(find.text('共 40 章'), findsNothing);
+    await tester.tap(find.byTooltip('目录'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('关闭目录'));
+    await tester.pumpAndSettle();
+    expect(find.text('共 40 章'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('自适应随 DPR 改变重判，即使原图解码缓存尺寸没有改变', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(

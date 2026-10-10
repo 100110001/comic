@@ -53,7 +53,7 @@ class ComicGrid extends StatelessWidget {
             }
             final spacing = constraints.maxWidth < 600 ? 10.0 : 20.0;
             final padding = constraints.maxWidth < 600 ? 16.0 : 28.0;
-            // 与卡片共享文字高度，系统放大字体后仍容纳两行标题和作者。
+            // 与卡片共享文字高度，系统放大字体后仍容纳单行标题和作者。
             final cardWidth =
                 (constraints.maxWidth - padding * 2 - spacing * (columns - 1)) /
                 columns;

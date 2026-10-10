@@ -74,6 +74,67 @@ void main() {
     return container.read(randomLibraryProvider.notifier);
   }
 
+  test('作者封面只展示精确作者作品且不改变搜索查询', () async {
+    final subscription = container.listen(
+      favoriteAuthorBooksProvider('作者'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    final ready = container.read(favoriteAuthorBooksProvider('作者').future);
+    expect(client.requests.single.keyword, '作者');
+    client.requests.single.result.complete((
+      list: const [
+        Comic(id: 1, title: '标题命中作者', author: '其他人'),
+        Comic(id: 2, title: '作品一', author: '作者'),
+        Comic(id: 3, title: '作品二', author: '作者'),
+        Comic(id: 4, title: '作品三', author: '作者'),
+      ],
+      total: 4,
+    ));
+    expect((await ready).map((comic) => comic.id), [2, 3]);
+    expect(container.read(searchProvider).requireValue.keyword, '');
+  });
+
+  test('作者封面查询切换服务器后淘汰旧响应', () async {
+    SharedPreferences.setMockInitialValues({});
+    final clients = <_DelayedClient>[];
+    final isolated = ProviderContainer(
+      overrides: [
+        apiClientFactoryProvider.overrideWithValue(({
+          required baseUrl,
+          required generation,
+        }) {
+          final next = _DelayedClient(generation: generation);
+          clients.add(next);
+          return next;
+        }),
+      ],
+    );
+    addTearDown(isolated.dispose);
+    final subscription = isolated.listen(
+      favoriteAuthorBooksProvider('作者'),
+      (_, _) {},
+    );
+    addTearDown(subscription.close);
+    await isolated.read(serverSessionProvider.notifier).save('http://new.test');
+    await isolated.pump();
+    final ready = isolated.read(favoriteAuthorBooksProvider('作者').future);
+    clients.last.requests.single.result.complete((
+      list: const [Comic(id: 100, title: '新作品', author: '作者')],
+      total: 1,
+    ));
+    await ready;
+    clients.first.requests.single.result.complete((
+      list: const [Comic(id: 1, title: '旧作品', author: '作者')],
+      total: 1,
+    ));
+    await isolated.pump();
+    expect(
+      isolated.read(favoriteAuthorBooksProvider('作者')).requireValue.single.id,
+      100,
+    );
+  });
+
   test('新搜索先返回时忽略旧搜索的成功与失败', () async {
     final notifier = container.read(searchProvider.notifier);
     final old = notifier.search('旧');

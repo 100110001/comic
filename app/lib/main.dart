@@ -238,25 +238,25 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Container(
-      width: 216,
+      width: 196,
       color: c.navBg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+            padding: const EdgeInsets.fromLTRB(20, 32, 16, 36),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: c.accent,
+                    color: c.accent.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(kRadiusButton),
                   ),
                   child: Icon(
                     Icons.auto_stories_rounded,
-                    color: Theme.of(context).colorScheme.onPrimary,
-                    size: 24,
+                    color: c.accent,
+                    size: 22,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -271,11 +271,11 @@ class _DesktopSidebar extends StatelessWidget {
                         style: TextStyle(
                           color: c.text1,
                           fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       Text(
-                        '你的漫画书库',
+                        '私人漫画书库',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(color: c.text2, fontSize: 11),
@@ -357,24 +357,24 @@ class _SideNavItemState extends State<_SideNavItem> {
   Widget build(BuildContext context) {
     final c = context.appColors;
     final selected = widget.selected;
-    final fg = selected ? c.accent : c.text1;
+    final fg = selected ? c.accent : c.text2;
     return Semantics(
       button: true,
       selected: selected,
       child: Pressable(
         onTap: widget.onTap,
-        hoverColor: selected ? Colors.transparent : c.border,
+        hoverColor: selected ? Colors.transparent : c.surface2,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 160),
           curve: Curves.easeOut,
           decoration: BoxDecoration(
             color: selected
-                ? c.accent.withValues(alpha: 0.15)
+                ? c.accent.withValues(alpha: 0.12)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(kRadiusButton),
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
             child: Row(
               children: [
                 Icon(
@@ -383,12 +383,14 @@ class _SideNavItemState extends State<_SideNavItem> {
                   color: fg,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    color: fg,
-                    fontSize: 14,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                Expanded(
+                  child: Text(
+                    widget.label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 14,
+                      fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                    ),
                   ),
                 ),
               ],

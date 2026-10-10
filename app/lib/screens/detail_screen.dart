@@ -179,7 +179,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
-                        width: 360,
+                        width: constraints.maxWidth >= 1000 ? 380 : 320,
                         child: SingleChildScrollView(child: header),
                       ),
                       const VerticalDivider(width: 1),
@@ -231,10 +231,10 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.appColors;
     final cover = ClipRRect(
-      borderRadius: BorderRadius.circular(kRadiusCard),
+      borderRadius: BorderRadius.circular(kRadiusThumb),
       child: SizedBox(
-        width: vertical ? 160 : 96,
-        height: vertical ? 214 : 128,
+        width: vertical ? 200 : 96,
+        height: vertical ? 200 * 4 / 3 : 128,
         child: comic.coverUrl != null
             ? DisplayNetworkImage(
                 comic.coverUrl!,
@@ -285,14 +285,8 @@ class _Header extends StatelessWidget {
         ),
       ],
     );
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: c.surface1,
-        borderRadius: BorderRadius.circular(kRadiusFloat),
-        border: Border.all(color: c.border),
-      ),
+    return Padding(
+      padding: EdgeInsets.all(vertical ? 28 : 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -311,7 +305,7 @@ class _Header extends StatelessWidget {
             ),
           const SizedBox(height: 20),
           FilledButton.icon(
-            icon: const Icon(Icons.play_arrow_rounded, size: 22),
+            icon: const Icon(Icons.menu_book_outlined, size: 20),
             label: Text(
               progress != null
                   ? '继续阅读'
@@ -393,7 +387,7 @@ class _ChapterList extends StatelessWidget {
           final ch = chapters[i - 1];
           final isCurrent = ch.id == currentChapterId;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Material(
               color: isCurrent ? c.accent.withValues(alpha: 0.10) : c.surface1,
               borderRadius: BorderRadius.circular(kRadiusButton),
@@ -404,7 +398,7 @@ class _ChapterList extends StatelessWidget {
                   height: 36,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: c.bg,
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(kRadiusThumb),
                   ),
                   child: Text(

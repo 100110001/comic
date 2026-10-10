@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +9,6 @@ import '../providers/discovery_providers.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
-import '../widgets/pressable.dart';
 import 'reader_screen.dart';
 
 /// 发现：随机阅读入口。一次展示一本漫画，拖拽（触摸滑动/鼠标按住拖动）
@@ -109,8 +110,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final async = ref.watch(discoveryProvider);
     final state = async.value;
     final comic = state?.current;
-    final c = context.appColors;
-
     final Widget body;
     if (async.isLoading && comic == null) {
       body = const Center(child: CircularProgressIndicator());
@@ -125,85 +124,181 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
       body = const StatusView(icon: Icons.menu_book_outlined, message: '书库为空');
     } else {
       final s = state!;
-      body = Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: AnimatedContainer(
-                duration: _dragging
-                    ? Duration.zero
-                    : const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                transform: Matrix4.translationValues(_dragX, 0, 0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildFan(
-                      comic,
-                      s.prev,
-                      s.next,
-                      _coverWidth(MediaQuery.of(context).size.width),
-                    ),
-                    const SizedBox(height: 14),
-                    Text(
-                      comic.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: c.text1,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (comic.author != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        comic.author!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: c.text2, fontSize: 13),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Text(
-                      '${comic.chapterCount}话 · ${comic.imageCount}P',
-                      style: TextStyle(color: c.accent, fontSize: 12),
-                    ),
-                  ],
+      body = LayoutBuilder(
+        builder: (context, constraints) {
+          final wide =
+              constraints.maxWidth >= 900 &&
+              MediaQuery.textScalerOf(context).scale(14) <= 22;
+          final heroWidth = math.min(constraints.maxWidth - 48, 1040.0);
+          final widthFit = wide
+              ? (heroWidth - 360 - 64) / 1.7
+              : (constraints.maxWidth - 48) / 1.8;
+          final heightFit =
+              ((constraints.maxHeight - (wide ? 120 : 300)) * 0.75).clamp(
+                160.0,
+                350.0,
+              );
+          final coverWidth = math.min(widthFit, heightFit).clamp(100.0, 350.0);
+          final fan = AnimatedContainer(
+            duration: _dragging
+                ? Duration.zero
+                : const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            transform: Matrix4.translationValues(_dragX, 0, 0),
+            child: _buildFan(comic, s.prev, s.next, coverWidth),
+          );
+          final information = _buildInformation(comic, s, wide: wide);
+          return SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: constraints.maxWidth,
+                minHeight: constraints.maxHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 48),
+                child: Center(
+                  child: SizedBox(
+                    width: heroWidth,
+                    child: wide
+                        ? Row(
+                            key: const ValueKey('discovery-hero'),
+                            children: [
+                              Expanded(child: Center(child: fan)),
+                              const SizedBox(width: 64),
+                              SizedBox(width: 360, child: information),
+                            ],
+                          )
+                        : Column(
+                            key: const ValueKey('discovery-hero'),
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              fan,
+                              const SizedBox(height: 32),
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  maxWidth: 440,
+                                ),
+                                child: information,
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
-          ),
-          Text(
-            '序列第 ${s.index + 1} / ${s.total} 本',
-            style: TextStyle(color: c.text2, fontSize: 12),
-          ),
-          const SizedBox(height: 6),
-          Text('拖拽切换 · 点击阅读', style: TextStyle(color: c.text2, fontSize: 12)),
-          const SizedBox(height: 24),
-        ],
+          );
+        },
       );
     }
 
     return Scaffold(
-      floatingActionButton: Pressable(
-        radius: BorderRadius.circular(28),
-        hoverColor: Colors.transparent,
-        child: FloatingActionButton.small(
-          tooltip: '换一批',
-          backgroundColor: c.accent,
-          foregroundColor: Theme.of(context).colorScheme.onPrimary,
-          onPressed: _refresh,
-          child: const Icon(Icons.refresh),
-        ),
+      appBar: AppBar(
+        title: const Text('发现'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: TextButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.shuffle_rounded, size: 18),
+              label: const Text('换一批'),
+            ),
+          ),
+        ],
       ),
       body: body,
     );
   }
 
-  double _coverWidth(double width) =>
-      width > 720 ? 300.0 : (width - 150).clamp(170.0, 300.0).toDouble();
+  Widget _buildInformation(
+    Comic comic,
+    DiscoveryState state, {
+    required bool wide,
+  }) {
+    final theme = Theme.of(context).textTheme;
+    final c = context.appColors;
+    return Column(
+      crossAxisAlignment: wide
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text('随机推荐', style: theme.labelLarge?.copyWith(color: c.accent)),
+        const SizedBox(height: 16),
+        Tooltip(
+          message: comic.title,
+          child: Text(
+            comic.title,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            textAlign: wide ? TextAlign.left : TextAlign.center,
+            style: theme.headlineMedium?.copyWith(
+              fontSize: wide ? 34 : 26,
+              fontWeight: FontWeight.w700,
+              height: 1.25,
+            ),
+          ),
+        ),
+        if (comic.author?.isNotEmpty == true) ...[
+          const SizedBox(height: 14),
+          Text(
+            comic.author!,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: wide ? TextAlign.left : TextAlign.center,
+            style: theme.bodyLarge?.copyWith(color: c.text2),
+          ),
+        ],
+        const SizedBox(height: 20),
+        Text(
+          '${comic.chapterCount} 话   ·   ${comic.imageCount} 页',
+          style: theme.bodyMedium?.copyWith(color: c.text2),
+        ),
+        const SizedBox(height: 32),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(180, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+          ),
+          onPressed: () => _openReader(comic),
+          icon: const Icon(Icons.menu_book_outlined, size: 20),
+          label: const Text('开始阅读'),
+        ),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          alignment: wide ? WrapAlignment.start : WrapAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: state.canGoPrev
+                  ? () => _switchTo(
+                      () => ref.read(discoveryProvider.notifier).prev(),
+                      next: false,
+                    )
+                  : null,
+              icon: const Icon(Icons.chevron_left, size: 18),
+              label: const Text('上一本'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _switchTo(
+                () => ref.read(discoveryProvider.notifier).next(),
+                next: true,
+              ),
+              icon: const Icon(Icons.chevron_right, size: 18),
+              label: const Text('下一本'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        Text(
+          '序列第 ${state.index + 1} / ${state.total} 本',
+          style: theme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        Text('拖拽切换 · 点击封面阅读', style: theme.bodySmall),
+      ],
+    );
+  }
 
   /// 鸡爪结构：中间当前本大卡，左右两侧露出上一本/下一本的封面小卡并向外倾斜。
   Widget _buildFan(Comic comic, Comic? prev, Comic? next, double coverWidth) {
@@ -227,7 +322,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                   next: false,
                 ),
                 child: Transform.rotate(
-                  angle: -0.14,
+                  angle: -0.10,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
                     child: KeyedSubtree(
@@ -248,7 +343,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
                   next: true,
                 ),
                 child: Transform.rotate(
-                  angle: 0.14,
+                  angle: 0.10,
                   child: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 250),
                     child: KeyedSubtree(
@@ -298,17 +393,17 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final c = context.appColors;
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(kRadiusFloat),
+        borderRadius: BorderRadius.circular(kRadiusThumb),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.35),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(kRadiusFloat),
+        borderRadius: BorderRadius.circular(kRadiusThumb),
         child: Container(
           width: coverWidth,
           height: coverWidth * 4 / 3,
@@ -328,7 +423,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
   Widget _miniCover(Comic comic, double width, double height) {
     final c = context.appColors;
     return Opacity(
-      opacity: 0.6,
+      opacity: 0.45,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(kRadiusThumb),
         child: Container(
