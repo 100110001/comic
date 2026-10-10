@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,23 +63,51 @@ class ComicApp extends ConsumerWidget {
       theme: buildAppTheme(Brightness.light),
       darkTheme: buildAppTheme(Brightness.dark),
       themeMode: themeMode,
-      builder: (context, child) => Listener(
-        behavior: HitTestBehavior.translucent,
-        // 鼠标侧键（后退键）触发页面返回
-        onPointerDown: (event) {
-          if (event.buttons & kBackMouseButton != 0) {
-            _navigatorKey.currentState?.maybePop();
-          }
-        },
-        child: isWindowsPlatform
+      builder: (context, child) {
+        final content = isWindowsPlatform
             ? Column(
                 children: [
                   const WindowTitleBar(),
                   Expanded(child: child!),
                 ],
               )
-            : child!,
-      ),
+            : child!;
+        return Listener(
+          behavior: HitTestBehavior.translucent,
+          // 鼠标侧键（后退键）触发页面返回
+          onPointerDown: (event) {
+            if (event.buttons & kBackMouseButton != 0) {
+              _navigatorKey.currentState?.maybePop();
+            }
+          },
+          child: kReleaseMode
+              ? content
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    content,
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: SafeArea(
+                          child: Banner(
+                            message: 'DEVELOP',
+                            location: BannerLocation.topStart,
+                            color: context.appColors.accent,
+                            textStyle: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
       home: const _AdaptiveShell(),
     );
   }
