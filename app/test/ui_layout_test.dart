@@ -483,7 +483,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     final button = tester.widget<FilledButton>(
-      find.byWidgetPredicate((widget) => widget is FilledButton),
+      find.ancestor(
+        of: find.text('暂无章节'),
+        matching: find.byWidgetPredicate((widget) => widget is FilledButton),
+      ),
     );
     expect(button.onPressed, isNull);
     expect(tester.takeException(), isNull);
@@ -530,6 +533,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('上次读到第 ${validChapter ? 8 : 4} 页'), findsOneWidget);
+      await tester.ensureVisible(find.text('继续阅读'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('继续阅读'));
       await tester.pumpAndSettle();
       final reader = tester.widget<ReaderScreen>(find.byType(ReaderScreen));
