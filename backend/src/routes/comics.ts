@@ -2,6 +2,11 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { db } from "../db/knex";
 import { ok, fail } from "../utils/response";
+import { config } from "../config";
+import {
+  openComicDirectory,
+  resolveComicDirectory,
+} from "../services/comic-directory";
 
 export function comicQuery() {
   return db("comics")
@@ -121,6 +126,37 @@ comicsRouter.get("/:id", async (req: Request, res: Response) => {
     fail(res, "Failed to fetch comic", 1, 500);
   }
 });
+
+// 打开后端电脑上的漫画原文件目录，只接收漫画 ID。
+comicsRouter.post(
+  "/:id/open-directory",
+  async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return fail(res, "漫画 ID 无效");
+    try {
+      const comic = await db("comics")
+        .select("cover_path")
+        .where({ id })
+        .first();
+      if (!comic) return fail(res, "漫画不存在", 1, 404);
+      const directory = await resolveComicDirectory(
+        config.comicRoot,
+        comic.cover_path,
+      );
+      await openComicDirectory(directory);
+      ok(res, { comicId: id });
+    } catch (error) {
+      fail(
+        res,
+        error instanceof Error && !("code" in error)
+          ? error.message
+          : "打开漫画原文件目录失败",
+        1,
+        500,
+      );
+    }
+  },
+);
 
 // 更新阅读进度（每本漫画只保留一条最新记录）
 comicsRouter.put("/:id/progress", async (req: Request, res: Response) => {

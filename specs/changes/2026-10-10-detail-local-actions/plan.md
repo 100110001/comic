@@ -26,7 +26,7 @@ origin: specs/changes/2026-10-10-detail-local-actions/define.md
 
 ## 实施单元
 
-### U1. 详情操作与后端目录打开
+### U1. 已实现：详情操作与后端目录打开
 
 - **依赖：** 无。
 - **文件：** app/lib/screens/detail_screen.dart、app/lib/providers/comics_providers.dart、app/lib/services/api_client.dart、backend/src/routes/comics.ts、backend/src/services/comic-directory.ts。

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
 import '../providers/comics_providers.dart';
+import '../providers/server_provider.dart';
 import '../providers/reading_progress_provider.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
@@ -20,6 +22,41 @@ class DetailScreen extends ConsumerStatefulWidget {
 }
 
 class _DetailScreenState extends ConsumerState<DetailScreen> {
+  bool _directoryBusy = false;
+
+  Future<void> _openDirectory() async {
+    if (_directoryBusy) return;
+    final generation = ref.read(serverSessionProvider).generation;
+    setState(() => _directoryBusy = true);
+    try {
+      final current = await openComicDirectory(ref, widget.comicId);
+      if (mounted && current) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已请求在后端电脑打开漫画目录')));
+      }
+    } catch (error) {
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        _showError(error, '打开漫画目录失败');
+      }
+    } finally {
+      if (mounted) setState(() => _directoryBusy = false);
+    }
+  }
+
+  Future<void> _copyText(String text, String label) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('已复制$label')));
+      }
+    } catch (error) {
+      if (mounted) _showError(error, '复制$label失败');
+    }
+  }
+
   bool _favoriteBusy = false;
   bool _authorFavoriteBusy = false;
 
@@ -149,6 +186,10 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                       builder: (_) => SearchScreen(initialKeyword: author),
                     ),
                   ),
+                  onOpenDirectory: _directoryBusy ? null : _openDirectory,
+                  directoryBusy: _directoryBusy,
+                  onCopyTitle: () => _copyText(detail.comic.title, '漫画标题'),
+                  onCopyAuthor: () => _copyText(detail.comic.author!, '作者名'),
                   progress: progress,
                   onContinue: progress == null
                       ? detail.chapters.isEmpty
@@ -214,6 +255,10 @@ class _Header extends StatelessWidget {
   final void Function(String author)? onAuthorTap;
   final ({int chapterId, int pageNumber})? progress;
   final VoidCallback? onContinue;
+  final VoidCallback? onOpenDirectory;
+  final bool directoryBusy;
+  final VoidCallback onCopyTitle;
+  final VoidCallback onCopyAuthor;
 
   const _Header({
     required this.vertical,
@@ -225,6 +270,10 @@ class _Header extends StatelessWidget {
     this.onAuthorTap,
     this.progress,
     this.onContinue,
+    this.onOpenDirectory,
+    required this.directoryBusy,
+    required this.onCopyTitle,
+    required this.onCopyAuthor,
   });
 
   @override
@@ -247,8 +296,23 @@ class _Header extends StatelessWidget {
     final metadata = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(comic.title, style: Theme.of(context).textTheme.titleLarge),
-        if (comic.author != null) ...[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                comic.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            IconButton(
+              tooltip: '复制漫画标题',
+              icon: const Icon(Icons.copy_outlined, size: 18),
+              onPressed: onCopyTitle,
+            ),
+          ],
+        ),
+        if (comic.author?.trim().isNotEmpty == true) ...[
           const SizedBox(height: 8),
           Row(
             children: [
@@ -265,6 +329,11 @@ class _Header extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: '复制作者名',
+                icon: const Icon(Icons.copy_outlined, size: 18),
+                onPressed: onCopyAuthor,
               ),
               IconButton(
                 tooltip: authorFavorited ? '取消收藏作者' : '收藏作者',
@@ -304,6 +373,16 @@ class _Header extends StatelessWidget {
               ],
             ),
           const SizedBox(height: 20),
+          OutlinedButton.icon(
+            icon: Icon(
+              favorited ? Icons.favorite : Icons.favorite_border,
+              color: favorited ? c.favorite : c.text2,
+              size: 18,
+            ),
+            label: Text(favorited ? '已收藏' : '收藏漫画'),
+            onPressed: onToggleFavorite,
+          ),
+          const SizedBox(height: 10),
           FilledButton.icon(
             icon: const Icon(Icons.menu_book_outlined, size: 20),
             label: Text(
@@ -324,14 +403,13 @@ class _Header extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            icon: Icon(
-              favorited ? Icons.favorite : Icons.favorite_border,
-              color: favorited ? c.favorite : c.text2,
-              size: 18,
+          Tooltip(
+            message: '在运行后端的电脑上打开漫画原文件夹',
+            child: TextButton.icon(
+              icon: const Icon(Icons.folder_open_outlined, size: 20),
+              label: Text(directoryBusy ? '正在打开…' : '打开本地目录（后端电脑）'),
+              onPressed: onOpenDirectory,
             ),
-            label: Text(favorited ? '已收藏' : '收藏漫画'),
-            onPressed: onToggleFavorite,
           ),
         ],
       ),
