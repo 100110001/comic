@@ -22,7 +22,7 @@ origin: specs/changes/2026-10-10-reader-continuous/define.md
 
 ## 实施单元
 
-### U1. 桌面连续模式与定位
+### U1. 已完成：桌面连续模式与定位
 
 - 文件：app/lib/screens/reader_screen.dart、app/test/reader_screen_test.dart。
 - 对应：R1–R4。
@@ -37,3 +37,4 @@ origin: specs/changes/2026-10-10-reader-continuous/define.md
 ## 边界
 
 不引入依赖、不修改后端协议、不为手机增加模式选择。整个循环依照用户偏好在同一分支完成，最终创建目标 master 的 PR。
+

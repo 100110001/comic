@@ -76,6 +76,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Size? _imageViewport;
   double _imagePixelRatio = 1;
   bool _desktopImages = false;
+  bool _desktopContinuous = false;
+  bool _scrollReading = false;
   ImageProvider<Object>? _imageLayoutSignature;
   Object? _superResolutionLayoutSignature;
   int _imageLayoutGeneration = 0;
@@ -208,6 +210,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _goToPage(int page) {
     if (_images.isEmpty) return;
     final target = page.clamp(0, _images.length - 1).toInt();
+    if (_scrollReading) {
+      _jumpToPage(target);
+      return;
+    }
     setState(() => _currentPage = target);
     _precacheAround(target);
     _recordPosition();
@@ -323,12 +329,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 initialPage < images.length
             ? initialPage
             : 0;
-        _pendingJumpPage =
-            initialPage != null &&
-                initialPage > 0 &&
-                initialPage < images.length
-            ? initialPage
-            : null;
+        _pendingJumpPage = _currentPage;
         _loading = false;
       });
       _precacheAround(_currentPage);
@@ -537,9 +538,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     final max = _scrollController.position.maxScrollExtent;
-    _scrollController.jumpTo(_extents[target].clamp(0.0, max));
-    if (max >= _extents[target]) {
+    final contentHeight =
+        _extents.last + _estimatedHeight(_images.last, _extentWidth!);
+    final targetOffset = _extents[target].clamp(
+      0.0,
+      math.max(0.0, contentHeight - _imageViewport!.height),
+    );
+    _scrollController.jumpTo(targetOffset.clamp(0.0, max).toDouble());
+    if (max >= targetOffset) {
       _initialJumping = false;
+      _recordPosition();
       return;
     }
     if (_jumpAttempts < 120) {
@@ -553,7 +561,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   void _onScroll() {
-    if (_initialJumping || _extents.isEmpty || !_scrollController.hasClients) {
+    if (!_scrollReading ||
+        _loading ||
+        _initialJumping ||
+        _extents.isEmpty ||
+        !_scrollController.hasClients) {
       return;
     }
     final offset = _scrollController.offset;
@@ -565,16 +577,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         break;
       }
     }
+    final atEnd = offset >= _scrollController.position.maxScrollExtent - 1;
+    if (atEnd) page = _images.length - 1;
     if (page != _currentPage) {
       setState(() => _currentPage = page);
       _precacheAround(page);
       _recordPosition();
     }
     // 滚动接近本章底部时自动续章
-    if (_hasNext &&
-        !_initialJumping &&
-        !_loading &&
-        offset >= _scrollController.position.maxScrollExtent - 200) {
+    final desktop = isDesktopAt(MediaQuery.sizeOf(context).width);
+    if ((_hasNext || (desktop && widget.onNextComic != null)) &&
+        (desktop
+            ? atEnd
+            : offset >= _scrollController.position.maxScrollExtent - 200)) {
       _autoContinue();
     }
   }
@@ -582,9 +597,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _jumpToPage(int page) {
     if (!_scrollController.hasClients || _extents.isEmpty) return;
     if (page < 0 || page >= _extents.length) return;
-    final max = _scrollController.position.maxScrollExtent;
-    _scrollController.jumpTo(_extents[page].clamp(0.0, max));
+    setState(() => _currentPage = page);
+    _initialJumping = true;
+    _jumpAttempts = 0;
+    final generation = ++_jumpGeneration;
+    _performInitialJump(page, generation);
     _precacheAround(page);
+    _recordPosition();
+  }
+
+  void _setDesktopContinuous(bool continuous) {
+    if (_desktopContinuous == continuous) return;
+    setState(() => _desktopContinuous = continuous);
+    _onActivity();
   }
 
   void _openMobileDirectory() {
@@ -701,16 +726,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final desktop = isDesktopAt(width);
-    if (!desktop &&
-        !_loading &&
-        _images.isNotEmpty &&
-        (_extentWidth != width || _desktopImages)) {
-      if (_extentWidth != null || _desktopImages) {
-        _pendingJumpPage = _currentPage;
-        _jumpGeneration++;
-        _jumpAttempts = 0;
-      }
-      _buildExtents(width);
+    final continuous = !desktop || _desktopContinuous;
+    if (_scrollReading != continuous) {
+      _scrollReading = continuous;
+      _extentWidth = null;
+      if (!_loading) _jumpGeneration++;
+      _pendingJumpPage = continuous ? _currentPage : null;
+      _initialJumping = continuous;
+      _jumpAttempts = 0;
     }
     final sr = ref.watch(superResolutionProvider);
     final srJob = _images.isEmpty
@@ -807,6 +830,29 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   ),
                 ),
                 actions: [
+                  if (desktop)
+                    PopupMenuButton<bool>(
+                      tooltip: '阅读方式',
+                      initialValue: _desktopContinuous,
+                      icon: Icon(
+                        _desktopContinuous
+                            ? Icons.view_day_outlined
+                            : Icons.photo_outlined,
+                      ),
+                      onSelected: _setDesktopContinuous,
+                      itemBuilder: (_) => [
+                        CheckedPopupMenuItem(
+                          value: false,
+                          checked: !_desktopContinuous,
+                          child: const Text('单页阅读'),
+                        ),
+                        CheckedPopupMenuItem(
+                          value: true,
+                          checked: _desktopContinuous,
+                          child: const Text('连续阅读'),
+                        ),
+                      ],
+                    ),
                   PopupMenuButton<String>(
                     tooltip: srHint,
                     style: IconButton.styleFrom(
@@ -954,7 +1000,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_loadFailed) return _buildLoadError();
     if (_images.isEmpty) return _buildEmptyChapter();
-    return desktop ? _buildPagedBody(context) : _buildMobileBody();
+    return _scrollReading
+        ? _buildContinuousBody(desktop: desktop)
+        : _buildPagedBody(context);
   }
 
   Widget _buildLoadError() {
@@ -975,20 +1023,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _buildMobileBody() {
+  Widget _buildContinuousBody({required bool desktop}) {
     return Stack(
       children: [
-        _buildScrollBody(),
+        _buildScrollBody(desktop: desktop),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           child: SafeArea(
             top: false,
-            child: ReaderProgressBar(
-              currentPage: _currentPage,
-              totalPages: _images.length,
-              onSeek: _jumpToPage,
+            child: AnimatedOpacity(
+              opacity: !desktop || _chromeVisible ? 1 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: IgnorePointer(
+                ignoring: desktop && !_chromeVisible,
+                child: ReaderProgressBar(
+                  currentPage: _currentPage,
+                  totalPages: _images.length,
+                  onSeek: (page) {
+                    _jumpToPage(page);
+                    if (desktop) _onActivity();
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -996,26 +1054,58 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _buildScrollBody() {
+  Widget _buildScrollBody({required bool desktop}) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = constraints.maxWidth;
+        final width = desktop
+            ? math.min(constraints.maxWidth, 960.0)
+            : constraints.maxWidth;
+        if (_extentWidth != width ||
+            _imageViewport?.height != constraints.maxHeight) {
+          if (_extentWidth != null) {
+            _pendingJumpPage = _currentPage;
+            _jumpGeneration++;
+            _jumpAttempts = 0;
+          }
+          _buildExtents(width);
+        }
         _updateImageLayout(Size(width, constraints.maxHeight), desktop: false);
-        return ListView.builder(
-          controller: _scrollController,
-          // ignore: deprecated_member_use
-          cacheExtent: 800,
-          itemCount: _images.length,
-          itemBuilder: (ctx, i) {
-            final image = _images[i];
-            return _LazyImage(
-              key: ValueKey(_images[i].url),
-              provider: _imageProvider(_images[i]),
-              enhanced: _enhancedProvider(_images[i]),
-              onEnhancedError: _enhancedFailure(image),
-              height: _estimatedHeight(_images[i], width),
-            );
-          },
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: width,
+            child: Listener(
+              onPointerSignal: (event) {
+                if (desktop &&
+                    event is PointerScrollEvent &&
+                    event.scrollDelta.dy > 0 &&
+                    !_initialJumping &&
+                    !_loading &&
+                    _scrollController.hasClients &&
+                    _scrollController.offset >=
+                        _scrollController.position.maxScrollExtent - 1) {
+                  _autoContinue();
+                }
+              },
+              child: ListView.builder(
+                controller: _scrollController,
+                padding: EdgeInsets.zero,
+                // ignore: deprecated_member_use
+                cacheExtent: 800,
+                itemCount: _images.length,
+                itemBuilder: (ctx, i) {
+                  final image = _images[i];
+                  return _LazyImage(
+                    key: ValueKey(_images[i].url),
+                    provider: _imageProvider(_images[i]),
+                    enhanced: _enhancedProvider(_images[i]),
+                    onEnhancedError: _enhancedFailure(image),
+                    height: _estimatedHeight(_images[i], width),
+                  );
+                },
+              ),
+            ),
+          ),
         );
       },
     );
