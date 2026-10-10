@@ -1,3 +1,5 @@
+import 'package:comic/screens/settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:comic/models/image_resolution.dart';
 import 'package:comic/providers/settings_provider.dart';
 import 'dart:async';
@@ -47,6 +49,7 @@ void main() {
   });
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     PaintingBinding.instance.imageCache.clear();
     PaintingBinding.instance.imageCache.clearLiveImages();
     _imageRequests.clear();
@@ -64,7 +67,9 @@ void main() {
     bool defaultUpscale = false,
     int pageCount = 10,
     double pixelRatio = 1,
+    double textScale = 1,
     SuperResolutionMode? defaultMode,
+    ReaderPreferences preferences = const ReaderPreferences(),
   }) async {
     final client = srClient ?? _ProgressClient();
     addTearDown(client.close);
@@ -95,6 +100,9 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          readerPreferencesProvider.overrideWith(
+            () => ReaderPreferencesNotifier(initial: preferences),
+          ),
           superResolutionDefaultProvider.overrideWith(
             () => SuperResolutionDefaultNotifier(
               initial: defaultUpscale,
@@ -111,6 +119,12 @@ void main() {
         ],
         child: MaterialApp(
           theme: buildAppTheme(Brightness.dark),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
           home: ReaderScreen(
             comicId: 1,
             chapterId: 1,
@@ -151,22 +165,202 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  Future<void> selectReadingMode(WidgetTester tester, String mode) async {
-    await tester.tap(find.byTooltip('阅读方式'));
+  Future<void> selectReaderOption(WidgetTester tester, String option) async {
+    await tester.tap(find.byTooltip('阅读设置'));
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.ancestor(
-        of: find.text(mode),
-        matching: find.byType(CheckedPopupMenuItem<bool>),
-      ),
-    );
+    final choice = find.widgetWithText(ChoiceChip, option);
+    await tester.ensureVisible(choice);
+    await tester.pumpAndSettle();
+    await tester.tap(choice);
+    await settleReader(tester);
+    await tester.tap(find.byTooltip('关闭阅读设置'));
     await settleReader(tester);
   }
 
-  testWidgets('手机始终连续阅读且不提供模式切换', (tester) async {
+  Future<void> selectReadingMode(WidgetTester tester, String mode) =>
+      selectReaderOption(tester, mode);
+
+  testWidgets('手机阅读设置与设置页双向同步，单页滑动和大字体可用', (tester) async {
+    await pumpReader(tester, width: 320, textScale: 2);
+    expect(tester.takeException(), isNull);
+    expect(find.byType(PopupMenuButton<ReaderMode>), findsNothing);
+    expect(find.byType(PopupMenuButton<String>), findsNothing);
+    await selectReaderOption(tester, '单页阅读');
+    expect(find.byType(ListView), findsNothing);
+    await tester.fling(find.byType(EnhancedImage), const Offset(-220, 0), 1000);
+    await settleReader(tester);
+    expect(find.text('第 2 / 10 页'), findsOneWidget);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    );
+    expect((await loadReaderPreferences()).mode, ReaderMode.single);
+    final navigator = Navigator.of(tester.element(find.byType(ReaderScreen)));
+    unawaited(
+      navigator.push(
+        MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, '单页阅读'))
+          .selected,
+      isTrue,
+    );
+    final gray = find.widgetWithText(ChoiceChip, '灰色');
+    await tester.ensureVisible(gray);
+    await tester.pumpAndSettle();
+    await tester.tap(gray);
+    await tester.pumpAndSettle();
+    expect(
+      container.read(readerPreferencesProvider).background,
+      ReaderBackground.gray,
+    );
+    navigator.pop();
+    await settleReader(tester);
+    final scaffold = tester.widget<Scaffold>(
+      find
+          .descendant(
+            of: find.byType(ReaderScreen),
+            matching: find.byType(Scaffold),
+          )
+          .first,
+    );
+    expect(scaffold.backgroundColor, const Color(0xff35383d));
+    await tester.tap(find.byTooltip('阅读设置'));
+    await tester.pumpAndSettle();
+    final grayInReader = find.widgetWithText(ChoiceChip, '灰色');
+    await tester.ensureVisible(grayInReader);
+    await tester.pumpAndSettle();
+    expect(tester.widget<ChoiceChip>(grayInReader).selected, isTrue);
+    expect(find.byTooltip('关闭阅读设置').hitTestable(), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭阅读设置'));
+    await settleReader(tester);
+    expect(find.text('第 2 / 10 页'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    '双页 RTL 排序、奇数尾页和窄屏回退保留全局偏好与断点',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        pageCount: 5,
+        preferences: const ReaderPreferences(
+          mode: ReaderMode.doublePage,
+          direction: ReadingDirection.rightToLeft,
+          autoHide: false,
+        ),
+      );
+      final first = find.byKey(const ValueKey('page-img-0-0'));
+      final second = find.byKey(const ValueKey('page-img-1-0'));
+      expect(
+        tester.getTopLeft(second).dx,
+        lessThan(tester.getTopLeft(first).dx),
+      );
+      expect(tester.getSize(first).width, 600);
+      expect(
+        (tester.widget<Image>(first).image as DisplaySizedNetworkImage).width,
+        768,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await settleReader(tester);
+      expect(find.text('第 3 / 5 页'), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await settleReader(tester);
+      final last = find.byKey(const ValueKey('page-img-4-0'));
+      expect(tester.getTopLeft(last).dx, 600);
+      expect(find.text('第 5 / 5 页'), findsOneWidget);
+      tester.view.physicalSize = const Size(400, 800);
+      await settleReader(tester);
+      expect(tester.getSize(last).width, 400);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ReaderScreen)),
+      );
+      expect(
+        container.read(readerPreferencesProvider).mode,
+        ReaderMode.doublePage,
+      );
+      expect(
+        container
+            .read(readingProgressQueueProvider)
+            .requireValue
+            .single
+            .entry
+            .pageNumber,
+        4,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets(
+    '适应宽度先滚动图内长图，到底后滚轮才翻页',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        preferences: const ReaderPreferences(
+          mode: ReaderMode.single,
+          fit: ReaderFit.fitWidth,
+          autoHide: false,
+        ),
+      );
+      final image = find.byKey(const ValueKey('page-img-0-0'));
+      final position = tester.getCenter(find.byType(EnhancedImage).first);
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: Offset(position.dx, 300),
+          scrollDelta: const Offset(0, 100),
+        ),
+      );
+      await settleReader(tester);
+      expect(find.text('第 1 / 10 页'), findsOneWidget);
+      final scrollable = tester.state<ScrollableState>(
+        find.byType(Scrollable).first,
+      );
+      expect(scrollable.position.pixels, greaterThan(0));
+      scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+      await tester.pump();
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(600, 300),
+          scrollDelta: Offset(0, 100),
+        ),
+      );
+      await settleReader(tester);
+      expect(find.text('第 2 / 10 页'), findsOneWidget);
+      expect(image, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.windows}),
+  );
+
+  testWidgets('手机适应宽度保留横滑翻页，关闭自动隐藏后工具栏常驻', (tester) async {
+    await pumpReader(
+      tester,
+      width: 320,
+      preferences: const ReaderPreferences(
+        mode: ReaderMode.single,
+        fit: ReaderFit.fitWidth,
+        autoHide: false,
+      ),
+    );
+    await tester.fling(find.byType(EnhancedImage), const Offset(-220, 0), 1000);
+    await settleReader(tester);
+    expect(find.text('第 2 / 10 页'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 4));
+    expect(find.byTooltip('阅读设置').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('手机默认连续阅读并提供全局阅读设置', (tester) async {
     await pumpReader(tester);
     expect(find.byType(ListView), findsOneWidget);
     expect(find.byTooltip('阅读方式'), findsNothing);
+    expect(find.byTooltip('阅读设置'), findsOneWidget);
   });
 
   testWidgets(
@@ -353,7 +547,7 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
-  testWidgets('设置默认开启后自动预处理当前及后十页，临时关闭不修改默认', (tester) async {
+  testWidgets('全局开启后预处理当前及后十页，阅读器关闭同步全局策略', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
       tester,
@@ -368,16 +562,13 @@ void main() {
     );
     expect(find.text('超分已开启 · 处理中'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
-    await tester.tap(find.byTooltip('超分 2× 处理中，打开菜单可关闭'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('关闭超分 2×'));
-    await tester.pump();
+    await selectReaderOption(tester, '关闭');
     final container = ProviderScope.containerOf(
       tester.element(find.byType(ReaderScreen)),
     );
     expect(
       container.read(superResolutionDefaultProvider),
-      SuperResolutionMode.on,
+      SuperResolutionMode.off,
     );
     expect(find.text('超分关闭 · 原图'), findsOneWidget);
     client.complete();
@@ -385,10 +576,11 @@ void main() {
     expect(find.text('2× 超分'), findsNothing);
   });
 
-  testWidgets('320px 发现阅读器新增超分入口不溢出', (tester) async {
+  testWidgets('320px 发现阅读器只有一个阅读设置入口且不溢出', (tester) async {
     await pumpReader(tester, width: 320, onNextComic: () async => null);
     expect(tester.takeException(), isNull);
-    expect(find.byTooltip('开启超分 2×'), findsOneWidget);
+    expect(find.byTooltip('阅读设置'), findsOneWidget);
+    expect(find.byType(PopupMenuButton<String>), findsNothing);
   });
 
   testWidgets('超分先保留原图，结果就绪和关闭均不改变手机阅读位置', (tester) async {
@@ -399,10 +591,7 @@ void main() {
     expect(client.requested, isEmpty);
     expect(find.text('超分关闭 · 原图'), findsOneWidget);
     expect(find.text('2× 超分'), findsNothing);
-    await tester.tap(find.byTooltip('开启超分 2×'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('开启超分 2×'));
-    await tester.pump();
+    await selectReaderOption(tester, '开启');
     expect(
       client.requested.map((image) => image.id),
       List.generate(8, (index) => index + 2),
@@ -427,10 +616,7 @@ void main() {
     expect(find.text('第 3 / 10 页'), findsOneWidget);
     expect(find.text('超分 2× 已就绪'), findsOneWidget);
     expect(find.text('2× 超分'), findsWidgets);
-    await tester.tap(find.byTooltip('超分 2× 已就绪，打开菜单可关闭'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('关闭超分 2×'));
-    await tester.pump();
+    await selectReaderOption(tester, '关闭');
     expect(
       tester
           .widgetList<EnhancedImage>(find.byType(EnhancedImage))
@@ -444,10 +630,7 @@ void main() {
     final client = _UpscaleProgressClient();
     await pumpReader(tester, initialPage: 2, srClient: client);
     _failedImageUrls.add('http://example.com/enhanced-2.png');
-    await tester.tap(find.byTooltip('开启超分 2×'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('开启超分 2×'));
-    await tester.pump();
+    await selectReaderOption(tester, '开启');
     client.complete();
     await settleReader(tester);
     final container = ProviderScope.containerOf(
@@ -491,7 +674,7 @@ void main() {
     await pumpReader(tester);
     expect(find.text('第 1 / 10 页'), findsOneWidget);
 
-    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.drag(find.byType(ListView), const Offset(0, -620));
     await settleReader(tester);
 
     expect(find.text('第 2 / 10 页'), findsOneWidget);

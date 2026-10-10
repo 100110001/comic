@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -111,12 +113,22 @@ class SuperResolutionDefaultNotifier extends Notifier<SuperResolutionMode> {
   final SuperResolutionMode initial;
   @override
   SuperResolutionMode build() => initial;
-  Future<void> setMode(SuperResolutionMode value) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!await prefs.setString(kSuperResolutionModeKey, value.name)) {
-      throw StateError('超分设置保存失败');
-    }
-    state = value;
+  Future<void> _pending = Future<void>.value();
+
+  Future<void> setMode(SuperResolutionMode value) {
+    final operation = _pending.then((_) async {
+      if (!ref.mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(kSuperResolutionModeKey, value.name)) {
+        throw StateError('超分设置保存失败');
+      }
+      if (ref.mounted) state = value;
+    });
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return operation;
   }
 
   Future<void> setEnabled(bool value) =>
@@ -139,3 +151,145 @@ Future<SuperResolutionMode> loadSuperResolutionMode() async {
 /// 兼容旧版布尔接口；新入口使用三种策略。
 Future<bool> loadSuperResolutionDefault() async =>
     await loadSuperResolutionMode() != SuperResolutionMode.off;
+
+enum ReaderMode { automatic, single, doublePage, continuous }
+
+enum ReadingDirection { leftToRight, rightToLeft }
+
+enum ReaderFit { contain, fitWidth, original }
+
+enum ReaderBackground { theme, dark, gray, paper }
+
+const readerModeLabels = {
+  ReaderMode.automatic: '跟随设备',
+  ReaderMode.single: '单页阅读',
+  ReaderMode.doublePage: '双页阅读',
+  ReaderMode.continuous: '连续阅读',
+};
+const readingDirectionLabels = {
+  ReadingDirection.leftToRight: '从左到右',
+  ReadingDirection.rightToLeft: '从右到左',
+};
+const readerFitLabels = {
+  ReaderFit.contain: '适应窗口',
+  ReaderFit.fitWidth: '适应宽度',
+  ReaderFit.original: '实际大小',
+};
+const readerBackgroundLabels = {
+  ReaderBackground.theme: '跟随主题',
+  ReaderBackground.dark: '深色',
+  ReaderBackground.gray: '灰色',
+  ReaderBackground.paper: '护眼米色',
+};
+const superResolutionModeLabels = {
+  SuperResolutionMode.on: '开启',
+  SuperResolutionMode.adaptive: '自适应',
+  SuperResolutionMode.off: '关闭',
+};
+
+class ReaderPreferences {
+  const ReaderPreferences({
+    this.mode = ReaderMode.automatic,
+    this.direction = ReadingDirection.leftToRight,
+    this.fit = ReaderFit.contain,
+    this.background = ReaderBackground.theme,
+    this.autoHide = true,
+  });
+
+  final ReaderMode mode;
+  final ReadingDirection direction;
+  final ReaderFit fit;
+  final ReaderBackground background;
+  final bool autoHide;
+
+  ReaderPreferences copyWith({
+    ReaderMode? mode,
+    ReadingDirection? direction,
+    ReaderFit? fit,
+    ReaderBackground? background,
+    bool? autoHide,
+  }) => ReaderPreferences(
+    mode: mode ?? this.mode,
+    direction: direction ?? this.direction,
+    fit: fit ?? this.fit,
+    background: background ?? this.background,
+    autoHide: autoHide ?? this.autoHide,
+  );
+
+  Map<String, Object> toJson() => {
+    'mode': mode.name,
+    'direction': direction.name,
+    'fit': fit.name,
+    'background': background.name,
+    'autoHide': autoHide,
+  };
+
+  factory ReaderPreferences.fromJson(Map<String, dynamic> json) {
+    T value<T extends Enum>(String key, List<T> values, T fallback) => values
+        .firstWhere((value) => value.name == json[key], orElse: () => fallback);
+    return ReaderPreferences(
+      mode: value('mode', ReaderMode.values, ReaderMode.automatic),
+      direction: value(
+        'direction',
+        ReadingDirection.values,
+        ReadingDirection.leftToRight,
+      ),
+      fit: value('fit', ReaderFit.values, ReaderFit.contain),
+      background: value(
+        'background',
+        ReaderBackground.values,
+        ReaderBackground.theme,
+      ),
+      autoHide: json['autoHide'] is bool ? json['autoHide'] as bool : true,
+    );
+  }
+}
+
+const kReaderPreferencesKey = 'readerPreferences.v1';
+final readerPreferencesProvider =
+    NotifierProvider<ReaderPreferencesNotifier, ReaderPreferences>(
+      ReaderPreferencesNotifier.new,
+    );
+
+class ReaderPreferencesNotifier extends Notifier<ReaderPreferences> {
+  ReaderPreferencesNotifier({this.initial = const ReaderPreferences()});
+  final ReaderPreferences initial;
+  Future<void> _pending = Future<void>.value();
+
+  @override
+  ReaderPreferences build() => initial;
+
+  /// 两个入口的变更串行合并，持久化失败不发布新值。
+  Future<void> update(ReaderPreferences Function(ReaderPreferences) change) {
+    final operation = _pending.then((_) async {
+      if (!ref.mounted) return;
+      final next = change(state);
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(
+        kReaderPreferencesKey,
+        jsonEncode(next.toJson()),
+      )) {
+        throw StateError('阅读设置保存失败');
+      }
+      if (ref.mounted) state = next;
+    });
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return operation;
+  }
+}
+
+Future<ReaderPreferences> loadReaderPreferences() async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.get(kReaderPreferencesKey);
+    if (raw is! String) return const ReaderPreferences();
+    final json = jsonDecode(raw);
+    if (json is! Map<String, dynamic>) return const ReaderPreferences();
+    return ReaderPreferences.fromJson(json);
+  } catch (_) {
+    return const ReaderPreferences();
+  }
+}

@@ -20,6 +20,7 @@ import 'widgets/window_title_bar.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await setupCloseToTray();
+  final readerPreferences = await loadReaderPreferences();
   final themeMode = await loadThemeMode();
   final closeToTray = await loadCloseToTray();
   final serverUrl = await loadServerUrl();
@@ -27,6 +28,9 @@ Future<void> main() async {
   runApp(
     ProviderScope(
       overrides: [
+        readerPreferencesProvider.overrideWith(
+          () => ReaderPreferencesNotifier(initial: readerPreferences),
+        ),
         superResolutionDefaultProvider.overrideWith(
           () => SuperResolutionDefaultNotifier(
             initialMode: superResolutionDefault,

@@ -8,6 +8,7 @@ import '../providers/server_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/update_service.dart';
 import '../theme.dart';
+import '../widgets/reader_settings_controls.dart';
 import '../utils/user_error.dart';
 
 enum _UpdateStatus { idle, checking, latest, available, error, downloading }
@@ -28,7 +29,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _lastVerifiedUrl;
   String? _serverSaveMessage;
   bool _serverSaving = false;
-  bool _savingSuperResolution = false;
   int _serverTestSerial = 0;
   _UpdateStatus _status = _UpdateStatus.idle;
   UpdateInfo? _info;
@@ -67,7 +67,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeProvider);
     final closeToTray = ref.watch(closeToTrayProvider);
-    final superResolutionDefault = ref.watch(superResolutionDefaultProvider);
     final serverSession = ref.watch(serverSessionProvider);
     final c = context.appColors;
     final canPop = Navigator.of(context).canPop();
@@ -90,7 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 const SizedBox(height: 28),
               ],
-              _settingsGroup('阅读与外观', [
+              _settingsGroup('外观与窗口', [
                 _settingRow(
                   title: '主题模式',
                   description: '选择舒适的阅读配色',
@@ -103,24 +102,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     themeMode,
                     (mode) =>
                         ref.read(themeModeProvider.notifier).setMode(mode),
-                  ),
-                ),
-                const Divider(),
-                _settingRow(
-                  title: '超分默认策略',
-                  description: switch (superResolutionDefault) {
-                    SuperResolutionMode.on => '始终使用 2× 增强，阅读器可临时关闭',
-                    SuperResolutionMode.adaptive => '原图清晰度不足时自动增强',
-                    SuperResolutionMode.off => '保持原图显示，阅读器可临时开启',
-                  },
-                  control: _choices(
-                    const {
-                      SuperResolutionMode.on: '开启',
-                      SuperResolutionMode.adaptive: '自适应',
-                      SuperResolutionMode.off: '关闭',
-                    },
-                    superResolutionDefault,
-                    _savingSuperResolution ? null : _saveSuperResolutionDefault,
                   ),
                 ),
                 if (defaultTargetPlatform == TargetPlatform.windows) ...[
@@ -137,6 +118,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     contentPadding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ],
+              ]),
+              _settingsGroup('阅读器', [
+                const Padding(
+                  padding: EdgeInsets.only(top: 16),
+                  child: Text('应用于所有漫画，与阅读器内设置同步'),
+                ),
+                const ReaderSettingsControls(),
               ]),
               _settingsGroup('漫画服务器', [
                 Padding(
@@ -252,21 +240,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _saveSuperResolutionDefault(SuperResolutionMode value) async {
-    setState(() => _savingSuperResolution = true);
-    try {
-      await ref.read(superResolutionDefaultProvider.notifier).setMode(value);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('超分设置保存失败，请重试')));
-      }
-    } finally {
-      if (mounted) setState(() => _savingSuperResolution = false);
-    }
   }
 
   Widget _buildServerSection(AppColors c, ServerSession session) {

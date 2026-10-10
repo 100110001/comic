@@ -15,6 +15,8 @@ import '../services/api_client.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
+import '../providers/settings_provider.dart';
+import '../widgets/reader_settings_controls.dart';
 import '../providers/super_resolution_provider.dart';
 import '../widgets/enhanced_image.dart';
 import '../theme.dart';
@@ -76,7 +78,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Size? _imageViewport;
   double _imagePixelRatio = 1;
   bool _desktopImages = false;
-  bool _desktopContinuous = false;
+  int _spreadCount = 1;
+  bool _settingsOpen = false;
   bool _scrollReading = false;
   ImageProvider<Object>? _imageLayoutSignature;
   Object? _superResolutionLayoutSignature;
@@ -84,6 +87,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Timer? _hideTimer;
   bool _chromeVisible = true;
   bool _pointerOverChrome = false;
+
+  ReaderPreferences get _preferences => ref.read(readerPreferencesProvider);
+  bool get _rightToLeft =>
+      _preferences.direction == ReadingDirection.rightToLeft;
+  BoxFit get _pageFit => !_desktopImages
+      ? BoxFit.fitWidth
+      : switch (_preferences.fit) {
+          ReaderFit.contain => BoxFit.contain,
+          ReaderFit.fitWidth => BoxFit.fitWidth,
+          ReaderFit.original => BoxFit.none,
+        };
+  Color get _readerBackground => switch (_preferences.background) {
+    ReaderBackground.theme => context.appColors.readerBg,
+    ReaderBackground.dark => Colors.black,
+    ReaderBackground.gray => const Color(0xff35383d),
+    ReaderBackground.paper => const Color(0xffeee8da),
+  };
 
   Chapter? get _currentChapter =>
       _chapters.isEmpty ? null : _chapters[_chapterIndex];
@@ -137,18 +157,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   void _restartHideTimer() {
     _hideTimer?.cancel();
-    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+    if (_preferences.autoHide) {
+      _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+    }
   }
 
   /// 无操作超时后隐藏工具栏；指针停留在工具栏区域时推迟隐藏。
   void _maybeHideChrome() {
     if (!mounted) return;
-    if (_pointerOverChrome) {
+    if (!_preferences.autoHide) return;
+    if (_pointerOverChrome || _settingsOpen) {
       _restartHideTimer();
       return;
     }
-    final desktop = isDesktopAt(MediaQuery.of(context).size.width);
-    if (desktop && _chromeVisible) {
+    if (_chromeVisible) {
       setState(() => _chromeVisible = false);
     }
   }
@@ -190,8 +212,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   void _nextPage() {
     if (_images.isEmpty) return;
-    if (_currentPage < _images.length - 1) {
-      _goToPage(_currentPage + 1);
+    if (_currentPage + _spreadCount < _images.length) {
+      _goToPage(_currentPage + _spreadCount);
     } else {
       _autoContinue();
     }
@@ -200,7 +222,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   void _prevPage() {
     if (_images.isEmpty) return;
     if (_currentPage > 0) {
-      _goToPage(_currentPage - 1);
+      _goToPage(math.max(0, _currentPage - _spreadCount));
     } else {
       _prevChapter();
     }
@@ -222,8 +244,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 桌面形态的键盘翻页与换章绑定；边界行为复用对应操作。
   Map<ShortcutActivator, VoidCallback> _desktopShortcutBindings() {
     return {
-      const SingleActivator(LogicalKeyboardKey.arrowLeft): _prevPage,
-      const SingleActivator(LogicalKeyboardKey.arrowRight): _nextPage,
+      const SingleActivator(LogicalKeyboardKey.arrowLeft): _rightToLeft
+          ? _nextPage
+          : _prevPage,
+      const SingleActivator(LogicalKeyboardKey.arrowRight): _rightToLeft
+          ? _prevPage
+          : _nextPage,
       const SingleActivator(LogicalKeyboardKey.pageUp): _prevChapter,
       const SingleActivator(LogicalKeyboardKey.pageDown): _nextChapter,
       const SingleActivator(LogicalKeyboardKey.space): _nextPage,
@@ -355,7 +381,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     item.url,
     logicalSize: _imageViewport!,
     devicePixelRatio: _imagePixelRatio,
-    fit: _desktopImages ? BoxFit.contain : BoxFit.fitWidth,
+    fit: _pageFit,
   );
 
   void _updateImageLayout(Size size, {required bool desktop}) {
@@ -364,7 +390,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _imagePixelRatio = ratio;
     _desktopImages = desktop;
     final signature = _imageProvider(_images.first);
-    final srLayout = (size, ratio, desktop);
+    final srLayout = (size, ratio, desktop, _pageFit);
     if (signature == _imageLayoutSignature &&
         srLayout == _superResolutionLayoutSignature) {
       return;
@@ -412,10 +438,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     return {
       for (final image in _images.skip(page).take(superResolutionWindowSize))
         image.url:
-            ((_desktopImages &&
-                            image.width != null &&
-                            image.height != null &&
-                            image.height! > 0
+            ((_desktopImages && _pageFit == BoxFit.none && image.width != null
+                        ? image.width! / _imagePixelRatio
+                        : _desktopImages &&
+                              _pageFit == BoxFit.contain &&
+                              image.width != null &&
+                              image.height != null &&
+                              image.height! > 0
                         ? math.min(
                             viewport.width,
                             viewport.height * image.width! / image.height!,
@@ -436,7 +465,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       url,
       logicalSize: _imageViewport!,
       devicePixelRatio: _imagePixelRatio,
-      fit: _desktopImages ? BoxFit.contain : BoxFit.fitWidth,
+      fit: _pageFit,
     );
   }
 
@@ -451,17 +480,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  void _toggleSuperResolution() {
-    final enabled = ref.read(superResolutionProvider).enabled;
-    ref.read(superResolutionProvider.notifier).setEnabled(!enabled);
-    _precacheAround(_currentPage);
-    _onActivity();
-  }
-
   Future<void> _superResolutionAction(String action) async {
     final controller = ref.read(superResolutionProvider.notifier);
-    if (action == 'toggle') {
-      _toggleSuperResolution();
+    if (action == 'prevComic') {
+      await _prevComic();
+      return;
+    }
+    if (action == 'nextComic') {
+      await _nextComic();
       return;
     }
     if (action == 'sync') {
@@ -482,6 +508,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       );
     } else {
       try {
+        await ref
+            .read(superResolutionDefaultProvider.notifier)
+            .setMode(SuperResolutionMode.off);
         await controller.clearCache();
         if (mounted) {
           ScaffoldMessenger.of(
@@ -606,10 +635,154 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _recordPosition();
   }
 
-  void _setDesktopContinuous(bool continuous) {
-    if (_desktopContinuous == continuous) return;
-    setState(() => _desktopContinuous = continuous);
+  Future<void> _openReadingSettings() async {
     _onActivity();
+    _settingsOpen = true;
+    final desktop = isDesktopAt(MediaQuery.sizeOf(context).width);
+    Widget panel(BuildContext ctx) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(ctx).height * 0.85,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '阅读设置',
+                      style: Theme.of(ctx).textTheme.titleMedium,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: '关闭阅读设置',
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Text('应用于所有漫画，与设置页同步'),
+              const SizedBox(height: 8),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const ReaderSettingsControls(compact: true),
+                      const Divider(),
+                      Consumer(
+                        builder: (context, panelRef, _) {
+                          final sr = panelRef.watch(superResolutionProvider);
+                          final pending = panelRef.watch(
+                            localReadingProgressProvider(_comicId),
+                          );
+                          final url = _images.isEmpty
+                              ? null
+                              : _images[_currentPage].url;
+                          final job = sr.results[url];
+                          final status = !sr.enabled
+                              ? '超分关闭 · 原图'
+                              : sr.reasons[url] ??
+                                    job?.error ??
+                                    (job?.status == 'ready'
+                                        ? '超分 2× 已就绪'
+                                        : '超分处理中 · 预处理后 ${sr.lookahead} 页');
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                status,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton.icon(
+                                    onPressed: sr.enabled && _images.isNotEmpty
+                                        ? () => _superResolutionAction('retry')
+                                        : null,
+                                    icon: const Icon(Icons.refresh, size: 18),
+                                    label: const Text('重试超分'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () =>
+                                        _superResolutionAction('clear'),
+                                    icon: const Icon(
+                                      Icons.cleaning_services_outlined,
+                                      size: 18,
+                                    ),
+                                    label: const Text('清空超分缓存'),
+                                  ),
+                                  if (pending != null &&
+                                      MediaQuery.sizeOf(context).width < 500)
+                                    OutlinedButton.icon(
+                                      onPressed: _saveProgress,
+                                      icon: const Icon(
+                                        Icons.cloud_upload_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text('同步阅读进度'),
+                                    ),
+                                  if (MediaQuery.sizeOf(context).width < 500 &&
+                                      widget.onPrevComic != null)
+                                    OutlinedButton(
+                                      onPressed:
+                                          _canPrevComic && !_switchingComic
+                                          ? () {
+                                              Navigator.pop(ctx);
+                                              _prevComic();
+                                            }
+                                          : null,
+                                      child: const Text('上一本'),
+                                    ),
+                                  if (MediaQuery.sizeOf(context).width < 500 &&
+                                      widget.onNextComic != null)
+                                    OutlinedButton(
+                                      onPressed: !_switchingComic
+                                          ? () {
+                                              Navigator.pop(ctx);
+                                              _nextComic();
+                                            }
+                                          : null,
+                                      child: const Text('下一本'),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (desktop) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) =>
+            Dialog(child: SizedBox(width: 440, child: panel(ctx))),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        constraints: const BoxConstraints(maxWidth: 640),
+        builder: panel,
+      );
+    }
+    _settingsOpen = false;
+    if (mounted) _onActivity();
   }
 
   void _openMobileDirectory() {
@@ -726,7 +899,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final desktop = isDesktopAt(width);
-    final continuous = !desktop || _desktopContinuous;
+    final preferences = ref.watch(readerPreferencesProvider);
+    ref.listen(readerPreferencesProvider, (previous, next) {
+      if (previous?.autoHide != next.autoHide) _onActivity();
+    });
+    final continuous =
+        preferences.mode == ReaderMode.continuous ||
+        (preferences.mode == ReaderMode.automatic && !desktop);
+    _spreadCount =
+        !continuous &&
+            preferences.mode == ReaderMode.doublePage &&
+            width >= kDesktopBreakpoint
+        ? 2
+        : 1;
+    if (!desktop && !preferences.autoHide) _chromeVisible = true;
     if (_scrollReading != continuous) {
       _scrollReading = continuous;
       _extentWidth = null;
@@ -742,15 +928,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final srReason = _images.isEmpty
         ? null
         : sr.reasons[_images[_currentPage].url];
-    final srHint = !sr.enabled
-        ? '开启超分 2×'
-        : srReason != null
-        ? '$srReason，打开菜单可关闭'
-        : srJob?.status == 'failed'
-        ? (srJob?.error ?? '超分失败，继续使用原图')
-        : srJob?.status == 'ready'
-        ? '超分 2× 已就绪，打开菜单可关闭'
-        : '超分 2× 处理中，打开菜单可关闭';
     final srStatus = !sr.enabled
         ? '超分关闭 · 原图'
         : srReason != null
@@ -764,8 +941,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : '超分已开启 · 处理中';
     final pending = ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
+    final textScaler = MediaQuery.textScalerOf(context);
+    final toolbarHeight = math.max(
+      kToolbarHeight,
+      textScaler.scale(15) * 1.3 + textScaler.scale(11) * 1.3 + 10,
+    );
     final Widget scaffold = Scaffold(
-      backgroundColor: c.readerBg,
+      backgroundColor: _readerBackground,
       endDrawer: desktop
           ? ChapterDrawer(
               chapters: _chapters,
@@ -777,7 +959,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             )
           : null,
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
+        preferredSize: Size.fromHeight(toolbarHeight),
         child: MouseRegion(
           onEnter: (_) {
             setState(() => _pointerOverChrome = true);
@@ -793,6 +975,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             child: IgnorePointer(
               ignoring: !_chromeVisible,
               child: AppBar(
+                toolbarHeight: toolbarHeight,
                 backgroundColor: c.readerBar,
                 iconTheme: IconThemeData(color: c.text1),
                 title: Column(
@@ -830,79 +1013,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   ),
                 ),
                 actions: [
-                  if (desktop)
-                    PopupMenuButton<bool>(
-                      tooltip: '阅读方式',
-                      initialValue: _desktopContinuous,
-                      icon: Icon(
-                        _desktopContinuous
-                            ? Icons.view_day_outlined
-                            : Icons.photo_outlined,
-                      ),
-                      onSelected: _setDesktopContinuous,
-                      itemBuilder: (_) => [
-                        CheckedPopupMenuItem(
-                          value: false,
-                          checked: !_desktopContinuous,
-                          child: const Text('单页阅读'),
-                        ),
-                        CheckedPopupMenuItem(
-                          value: true,
-                          checked: _desktopContinuous,
-                          child: const Text('连续阅读'),
-                        ),
-                      ],
-                    ),
-                  PopupMenuButton<String>(
-                    tooltip: srHint,
-                    style: IconButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    icon: Icon(
-                      Icons.auto_awesome,
-                      color: sr.enabled
-                          ? Theme.of(context).colorScheme.primary
-                          : c.text1,
-                    ),
-                    onSelected: _superResolutionAction,
-                    itemBuilder: (_) => [
-                      if (sr.enabled)
-                        PopupMenuItem(
-                          enabled: false,
-                          child: Text(
-                            srReason ??
-                                (srJob?.status == 'failed'
-                                    ? (srJob?.error ?? '超分失败，继续使用原图')
-                                    : srJob?.status == 'ready'
-                                    ? '超分 2× 已就绪'
-                                    : '超分 2× 处理中'),
-                          ),
-                        ),
-                      if (sr.enabled)
-                        PopupMenuItem(
-                          enabled: false,
-                          child: Text('预处理：后 ${sr.lookahead} 页'),
-                        ),
-                      PopupMenuItem(
-                        value: 'toggle',
-                        enabled: _images.isNotEmpty,
-                        child: Text(sr.enabled ? '关闭超分 2×' : '开启超分 2×'),
-                      ),
-                      PopupMenuItem(
-                        value: 'retry',
-                        enabled: sr.enabled,
-                        child: const Text('重试超分'),
-                      ),
-                      const PopupMenuItem(
-                        value: 'clear',
-                        child: Text('清空超分缓存'),
-                      ),
-                      if (pending != null && width < 500)
-                        const PopupMenuItem(
-                          value: 'sync',
-                          child: Text('进度已存本机，点击同步'),
-                        ),
-                    ],
+                  IconButton(
+                    tooltip: '阅读设置',
+                    visualDensity: VisualDensity.compact,
+                    icon: const Icon(Icons.tune),
+                    onPressed: _openReadingSettings,
                   ),
                   if (pending != null && width >= 500)
                     IconButton(
@@ -917,7 +1032,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       onPressed: () => _openDirectory(buttonContext),
                     ),
                   ),
-                  if (widget.onPrevComic != null)
+                  if (widget.onPrevComic != null && width >= 500)
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
@@ -931,7 +1046,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                           ? _prevComic
                           : null,
                     ),
-                  if (widget.onNextComic != null)
+                  if (widget.onNextComic != null && width >= 500)
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       icon: Icon(
@@ -976,10 +1091,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _saveProgress();
       },
-      child: desktop
-          ? GestureDetector(
-              onTap: _onActivity,
-              child: CallbackShortcuts(
+      child: GestureDetector(
+        onTap: _onActivity,
+        child: desktop
+            ? CallbackShortcuts(
                 bindings: _desktopShortcutBindings(),
                 child: Focus(
                   autofocus: true,
@@ -989,9 +1104,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   },
                   child: scaffold,
                 ),
-              ),
-            )
-          : scaffold,
+              )
+            : scaffold,
+      ),
     );
   }
 
@@ -1034,16 +1149,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           child: SafeArea(
             top: false,
             child: AnimatedOpacity(
-              opacity: !desktop || _chromeVisible ? 1 : 0,
+              opacity: _chromeVisible ? 1 : 0,
               duration: const Duration(milliseconds: 200),
               child: IgnorePointer(
-                ignoring: desktop && !_chromeVisible,
+                ignoring: !_chromeVisible,
                 child: ReaderProgressBar(
                   currentPage: _currentPage,
                   totalPages: _images.length,
                   onSeek: (page) {
                     _jumpToPage(page);
-                    if (desktop) _onActivity();
+                    _onActivity();
                   },
                 ),
               ),
@@ -1113,80 +1228,162 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Widget _buildPagedBody(BuildContext context) {
     final page = _currentPage.clamp(0, _images.length - 1).toInt();
-    final image = _images[page];
-    final c = context.appColors;
-    return Listener(
-      onPointerSignal: (event) {
-        if (event is PointerScrollEvent) {
-          if (event.scrollDelta.dy > 0) {
-            _nextPage();
-          } else {
-            _prevPage();
-          }
+    final List<int?> pages = [
+      page,
+      if (_spreadCount == 2) page + 1 < _images.length ? page + 1 : null,
+    ];
+    final ordered = _rightToLeft ? pages.reversed.toList() : pages;
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() < 100) return;
+        if ((velocity < 0) != _rightToLeft) {
+          _nextPage();
+        } else {
+          _prevPage();
         }
       },
-      child: Column(
-        children: [
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                _updateImageLayout(constraints.biggest, desktop: true);
-                return Container(
-                  color: c.readerBg,
-                  alignment: Alignment.center,
-                  child: EnhancedImage(
-                    enhanced: _enhancedProvider(_images[page]),
-                    fit: BoxFit.contain,
-                    onError: _enhancedFailure(image),
-                    original: Image(
-                      image: _imageProvider(_images[page]),
-                      key: ValueKey('page-img-$page-$_imageRetryTick'),
-                      fit: BoxFit.contain,
-                      loadingBuilder: (_, child, progress) {
-                        if (progress == null) return child;
-                        return const Center(child: CircularProgressIndicator());
-                      },
-                      errorBuilder: (_, _, _) => GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _retryCurrentImage,
-                        child: const _ImageRetryBox(),
+      child: Listener(
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+            GestureBinding.instance.pointerSignalResolver.register(event, (_) {
+              if (event.scrollDelta.dy > 0) {
+                _nextPage();
+              } else {
+                _prevPage();
+              }
+            });
+          }
+        },
+        child: Column(
+          children: [
+            Expanded(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final slot = Size(
+                    constraints.maxWidth / _spreadCount,
+                    constraints.maxHeight,
+                  );
+                  _updateImageLayout(slot, desktop: true);
+                  return Stack(
+                    children: [
+                      ColoredBox(
+                        color: _readerBackground,
+                        child: Row(
+                          children: [
+                            for (final index in ordered)
+                              SizedBox(
+                                width: slot.width,
+                                height: slot.height,
+                                child: index == null
+                                    ? null
+                                    : _buildPageImage(index, slot),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          AnimatedOpacity(
-            opacity: _chromeVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: !_chromeVisible,
-              child: ReaderProgressBar(
-                currentPage: page,
-                totalPages: _images.length,
-                onSeek: (p) {
-                  _goToPage(p);
-                  _onActivity();
+                      if (_chromeVisible) ...[
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: IconButton.filledTonal(
+                            tooltip: _rightToLeft ? '下一页' : '上一页',
+                            onPressed: _rightToLeft ? _nextPage : _prevPage,
+                            icon: const Icon(Icons.chevron_left),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: IconButton.filledTonal(
+                            tooltip: _rightToLeft ? '上一页' : '下一页',
+                            onPressed: _rightToLeft ? _prevPage : _nextPage,
+                            icon: const Icon(Icons.chevron_right),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
                 },
               ),
             ),
-          ),
-        ],
+            SafeArea(
+              top: false,
+              child: AnimatedOpacity(
+                opacity: _chromeVisible ? 1 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: IgnorePointer(
+                  ignoring: !_chromeVisible,
+                  child: ReaderProgressBar(
+                    currentPage: page,
+                    totalPages: _images.length,
+                    onSeek: (p) {
+                      _goToPage(p);
+                      _onActivity();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  /// 单图重试：清理该 URL 缓存后强制重建当前页图片。
-  Future<void> _retryCurrentImage() async {
-    if (_images.isEmpty || _imageViewport == null) return;
-    final url = _images[_currentPage].url;
+  Widget _buildPageImage(int page, Size slot) {
+    final image = _images[page];
+    final fit = _pageFit;
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    final imageWidth = fit == BoxFit.none
+        ? (image.width ?? slot.width * ratio) / ratio
+        : slot.width;
+    final imageHeight = fit == BoxFit.none
+        ? (image.height ?? slot.height * ratio) / ratio
+        : fit == BoxFit.fitWidth
+        ? _estimatedHeight(image, imageWidth)
+        : slot.height;
+    final content = SizedBox(
+      width: imageWidth,
+      height: imageHeight,
+      child: EnhancedImage(
+        enhanced: _enhancedProvider(image),
+        fit: fit == BoxFit.none ? BoxFit.contain : fit,
+        onError: _enhancedFailure(image),
+        original: Image(
+          image: _imageProvider(image),
+          key: ValueKey('page-img-$page-$_imageRetryTick'),
+          fit: fit == BoxFit.none ? BoxFit.contain : fit,
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : const Center(child: CircularProgressIndicator()),
+          errorBuilder: (_, _, _) => GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => _retryPageImage(page),
+            child: const _ImageRetryBox(),
+          ),
+        ),
+      ),
+    );
+    if (fit == BoxFit.contain) return content;
+    final vertical = SingleChildScrollView(
+      key: ValueKey((page, fit, slot)),
+      child: Align(alignment: Alignment.topCenter, child: content),
+    );
+    if (fit == BoxFit.fitWidth) return vertical;
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: SizedBox(width: math.max(imageWidth, slot.width), child: vertical),
+    );
+  }
+
+  Future<void> _retryPageImage(int page) async {
+    if (page >= _images.length || _imageViewport == null) return;
+    final url = _images[page].url;
     final generation = _jumpGeneration;
-    await _imageProvider(_images[_currentPage]).evict();
+    await _imageProvider(_images[page]).evict();
     if (!mounted ||
         generation != _jumpGeneration ||
-        _images.isEmpty ||
-        _images[_currentPage].url != url) {
+        page >= _images.length ||
+        _images[page].url != url) {
       return;
     }
     setState(() => _imageRetryTick++);

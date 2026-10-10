@@ -67,6 +67,9 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
     _policyTimer?.cancel();
     _policyTimer = null;
     final mode = ref.read(superResolutionDefaultProvider);
+    ref.listen(superResolutionDefaultProvider, (previous, next) {
+      if (previous != next) setMode(next);
+    });
     _preferredMode = mode == SuperResolutionMode.off
         ? SuperResolutionMode.on
         : mode;
@@ -79,16 +82,25 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
     return SuperResolutionState(mode: mode);
   }
 
-  void setEnabled(bool enabled) {
+  void _applyMode(SuperResolutionMode mode) {
     ++_generation;
     _timer?.cancel();
     _signature = '';
     _policyTimer?.cancel();
     _policyTimer = null;
-    state = state.copyWith(
-      mode: enabled ? _preferredMode : SuperResolutionMode.off,
-    );
+    if (mode != SuperResolutionMode.off) _preferredMode = mode;
+    state = state.copyWith(mode: mode, reasons: {});
   }
+
+  void setMode(SuperResolutionMode mode) {
+    _applyMode(mode);
+    if (_candidates.isNotEmpty) {
+      setWindow(_candidates, targetWidths: _targetWidths);
+    }
+  }
+
+  void setEnabled(bool enabled) =>
+      _applyMode(enabled ? _preferredMode : SuperResolutionMode.off);
 
   void resetChapter() {
     ++_generation;
