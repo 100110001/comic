@@ -28,7 +28,7 @@ flowchart LR
 
 ### U1：全局配置与自适应阅读器
 
-状态：实现与门禁完成，待填写 PR 编号。
+状态：实现与门禁完成，PR #66。
 
 - 依赖：无。
 - 文件：app/lib/providers/settings_provider.dart、super_resolution_provider.dart、app/lib/main.dart、app/lib/widgets/reader_settings_controls.dart、app/lib/screens/settings_screen.dart、reader_screen.dart。
