@@ -31,7 +31,6 @@ class StatusView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: c.accent.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
-                border: Border.all(color: c.border),
               ),
               child: Icon(icon, color: c.accent, size: 32),
             ),

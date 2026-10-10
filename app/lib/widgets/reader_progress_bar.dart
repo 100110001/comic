@@ -18,7 +18,7 @@ class ReaderProgressBar extends StatelessWidget {
     final max = totalPages > 1 ? totalPages - 1 : 0;
     final label = Text(
       '第 ${currentPage + 1} / $totalPages 页',
-      style: TextStyle(color: c.text1, fontSize: 12),
+      style: TextStyle(color: c.text2, fontSize: 12),
     );
     if (max <= 0) {
       return Material(
@@ -32,7 +32,7 @@ class ReaderProgressBar extends StatelessWidget {
     return Material(
       color: c.readerBar,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         child: Row(
           children: [
             label,

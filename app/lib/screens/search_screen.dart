@@ -120,6 +120,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 8,
         actions: [
           IconButton(
             tooltip: '清空搜索',
@@ -144,6 +145,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             hintText: '搜索漫画、作者…',
             hintStyle: TextStyle(color: c.text2),
             border: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 12,
+            ),
             isDense: true,
             prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
           ),

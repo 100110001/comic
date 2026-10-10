@@ -793,7 +793,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       _currentChapter?.title ?? _title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: c.text1, fontSize: 15),
+                      style: TextStyle(
+                        color: c.text1,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     Text(
                       srStatus,
@@ -802,7 +806,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       style: TextStyle(
                         color: sr.enabled
                             ? Theme.of(context).colorScheme.primary
-                            : c.text1,
+                            : c.text2,
                         fontSize: 11,
                       ),
                     ),
@@ -887,7 +891,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                         Icons.skip_previous,
                         color: _canPrevComic && !_switchingComic
                             ? c.text1
-                            : const Color(0xFF484f58),
+                            : c.text2.withValues(alpha: 0.45),
                       ),
                       tooltip: '上一本',
                       onPressed: _canPrevComic && !_switchingComic
@@ -900,7 +904,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       icon: Icon(
                         Icons.skip_next,
                         color: _switchingComic
-                            ? const Color(0xFF484f58)
+                            ? c.text2.withValues(alpha: 0.45)
                             : c.text1,
                       ),
                       tooltip: '下一本',
@@ -909,7 +913,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   IconButton(
                     icon: Icon(
                       Icons.chevron_left,
-                      color: _hasPrev ? c.text1 : const Color(0xFF484f58),
+                      color: _hasPrev
+                          ? c.text1
+                          : c.text2.withValues(alpha: 0.45),
                     ),
                     tooltip: '上一章',
                     onPressed: _hasPrev ? _prevChapter : null,
@@ -917,7 +923,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   IconButton(
                     icon: Icon(
                       Icons.chevron_right,
-                      color: _hasNext ? c.text1 : const Color(0xFF484f58),
+                      color: _hasNext
+                          ? c.text1
+                          : c.text2.withValues(alpha: 0.45),
                     ),
                     tooltip: '下一章',
                     onPressed: _hasNext ? _nextChapter : null,
@@ -1200,13 +1208,16 @@ class _ImageRetryBox extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: context.appColors.readerBar,
-      child: const Center(
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.broken_image, color: Colors.grey, size: 48),
-            SizedBox(height: 6),
-            Text('点击重试', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            Icon(Icons.broken_image, color: context.appColors.text2, size: 48),
+            const SizedBox(height: 6),
+            Text(
+              '点击重试',
+              style: TextStyle(color: context.appColors.text2, fontSize: 12),
+            ),
           ],
         ),
       ),

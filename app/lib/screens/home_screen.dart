@@ -191,59 +191,65 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: desktop ? 80 : 64,
+        toolbarHeight: desktop ? 76 : 64,
         titleSpacing: desktop ? 28 : 16,
         title: desktop
-            ? Container(
-                constraints: const BoxConstraints(maxWidth: 420),
-                decoration: BoxDecoration(
-                  color: c.surface2,
-                  borderRadius: BorderRadius.circular(kRadiusButton),
-                  border: Border.all(color: c.border),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  style: TextStyle(color: c.text1, fontSize: 14),
-                  decoration: InputDecoration(
-                    hintText: '搜索漫画、作者…',
-                    hintStyle: TextStyle(color: c.text2),
-                    border: InputBorder.none,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: '搜索历史',
-                          icon: Icon(Icons.history, color: c.text2, size: 20),
-                          onPressed: () => showSearchHistory(
-                            context,
-                            onSelected: _chooseKeyword,
-                          ),
-                        ),
-                        if (_keyword.isNotEmpty)
-                          IconButton(
-                            tooltip: '清空搜索',
-                            icon: Icon(Icons.close, color: c.text2, size: 18),
-                            onPressed: () {
-                              _searchController.clear();
-                              _search('');
-                            },
-                          ),
-                        IconButton(
-                          tooltip: '搜索',
-                          icon: Icon(
-                            Icons.arrow_forward,
-                            color: c.accent,
-                            size: 20,
-                          ),
-                          onPressed: () => _search(_searchController.text),
-                        ),
-                      ],
-                    ),
+            ? Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  decoration: BoxDecoration(
+                    color: c.surface1,
+                    borderRadius: BorderRadius.circular(kRadiusButton),
+                    border: Border.all(color: c.border),
                   ),
-                  onSubmitted: _search,
+                  child: TextField(
+                    controller: _searchController,
+                    style: TextStyle(color: c.text1, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '搜索漫画、作者…',
+                      hintStyle: TextStyle(color: c.text2),
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      prefixIcon: Icon(Icons.search, color: c.text2, size: 20),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: '搜索历史',
+                            icon: Icon(Icons.history, color: c.text2, size: 20),
+                            onPressed: () => showSearchHistory(
+                              context,
+                              onSelected: _chooseKeyword,
+                            ),
+                          ),
+                          if (_keyword.isNotEmpty)
+                            IconButton(
+                              tooltip: '清空搜索',
+                              icon: Icon(Icons.close, color: c.text2, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                _search('');
+                              },
+                            ),
+                          IconButton(
+                            tooltip: '搜索',
+                            icon: Icon(
+                              Icons.arrow_forward,
+                              color: c.accent,
+                              size: 20,
+                            ),
+                            onPressed: () => _search(_searchController.text),
+                          ),
+                        ],
+                      ),
+                    ),
+                    onSubmitted: _search,
+                  ),
                 ),
               )
             : const Text('漫画书库'),
@@ -380,12 +386,11 @@ class _FloatingContinueBar extends StatelessWidget {
     final c = context.appColors;
     return Material(
       color: c.surface1,
-      elevation: 12,
+      elevation: 4,
       clipBehavior: Clip.antiAlias,
       shadowColor: Colors.black.withValues(alpha: 0.18),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusFloat),
-        side: BorderSide(color: c.border),
       ),
       child: InkWell(
         onTap: () async {
@@ -437,7 +442,7 @@ class _FloatingContinueBar extends StatelessWidget {
                       style: TextStyle(
                         color: c.text1,
                         fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),

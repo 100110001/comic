@@ -211,6 +211,8 @@ ThemeData buildAppTheme(Brightness brightness) {
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: cjkFallback.first,
+    fontFamilyFallback: cjkFallback,
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: c.bg,
@@ -273,7 +275,12 @@ ThemeData buildAppTheme(Brightness brightness) {
             ? Colors.black
             : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        textStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          fontFamily: cjkFallback.first,
+          fontFamilyFallback: cjkFallback,
+        ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
         ),
@@ -315,7 +322,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusSmall),
       ),
-      labelStyle: TextStyle(color: c.text2, fontSize: 13),
+      labelStyle: TextStyle(
+        color: c.text2,
+        fontSize: 13,
+        fontFamily: cjkFallback.first,
+        fontFamilyFallback: cjkFallback,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
       showCheckmark: false,
     ),

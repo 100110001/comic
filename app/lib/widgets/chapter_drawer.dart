@@ -23,13 +23,13 @@ class ChapterDrawer extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
               child: Text(
                 '目录',
                 style: TextStyle(
                   color: c.text1,
                   fontSize: 16,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -40,13 +40,17 @@ class ChapterDrawer extends StatelessWidget {
                       child: Text('暂无章节', style: TextStyle(color: c.text2)),
                     )
                   : ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       itemCount: chapters.length,
                       itemBuilder: (ctx, i) {
                         final selected = i == currentIndex;
                         return ListTile(
                           dense: true,
                           selected: selected,
-                          selectedTileColor: c.surface2,
+                          selectedTileColor: c.accent.withValues(alpha: 0.10),
                           title: Text(
                             chapters[i].title,
                             maxLines: 1,

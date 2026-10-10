@@ -26,20 +26,20 @@ origin: specs/changes/2026-10-10-ui-refresh/define.md
 
 ## 实施单元
 
-### U1. 主题、外壳、封面与设置
+### U1. 主题、外壳、封面与设置（已完成）
 
 - 文件：app/lib/theme.dart、app/lib/main.dart、app/lib/widgets/comic_card.dart、app/lib/screens/settings_screen.dart。
 - 方式：统一色值和圆角，弱化侧栏，去封面文字区底框，重组设置。
 - 验证：现有主题、网格、设置持久化与大字体测试。
 
-### U2. 首页、书库、详情、发现及阅读器
+### U2. 首页、书库、详情、发现及阅读器（已完成）
 
 - 依赖：U1。
 - 文件：app/lib/screens/home_screen.dart、search_screen.dart、mine_screen.dart、detail_screen.dart、discovery_screen.dart、reader_screen.dart；app/lib/widgets/reading_lists.dart、chapter_drawer.dart、reader_progress_bar.dart、status_views.dart。
 - 方式：共享主题覆盖，调整页面排版和控件，发现按内容约束布局；业务逻辑保持。
 - 验证：小屏与大字体、空态和错误重试，阅读定位、键盘与超分现有回归。
 
-### U3. 验证与规范收割
+### U3. 验证与规范收割（验证完成，执行收割）
 
 - 依赖：U2。
 - 文件：app/test/ui_layout_test.dart；规范影响中列出的文件。

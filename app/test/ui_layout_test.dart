@@ -1,3 +1,6 @@
+import 'package:comic/providers/discovery_providers.dart';
+import 'package:comic/screens/discovery_screen.dart';
+import 'package:comic/widgets/reading_lists.dart';
 import 'package:comic/models/chapter.dart';
 import 'package:comic/models/comic.dart';
 import 'package:comic/models/reading_progress_entry.dart';
@@ -36,7 +39,121 @@ class _PreviewLibrary extends RandomLibraryNotifier {
   );
 }
 
+class _PreviewDiscovery extends DiscoveryNotifier {
+  @override
+  Future<DiscoveryState> build() async => const DiscoveryState(
+    seed: 1,
+    pageOffset: 1,
+    total: 3,
+    pageSize: 30,
+    index: 1,
+    comics: [
+      Comic(id: 1, title: '第一本'),
+      Comic(id: 2, title: '很长的漫画标题需要在矮窗口里完整保持阅读入口', author: '测试作者'),
+      Comic(id: 3, title: '第三本'),
+    ],
+  );
+}
+
 void main() {
+  testWidgets('发现三卡在窄矮窗口与大字体下可滚动且保留拖拽切换', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    for (final size in [const Size(320, 360), const Size(760, 320)]) {
+      tester.view.physicalSize = size;
+      final container = ProviderContainer(
+        overrides: [discoveryProvider.overrideWith(_PreviewDiscovery.new)],
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: buildAppTheme(Brightness.dark),
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: size,
+                textScaler: const TextScaler.linear(2),
+              ),
+              child: Row(
+                children: [
+                  if (size.width > 720) const SizedBox(width: 196),
+                  const Expanded(child: DiscoveryScreen()),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.text('换一批').hitTestable(), findsOneWidget);
+      final current = find.byWidgetPredicate(
+        (w) => w is GestureDetector && w.onHorizontalDragStart != null,
+      );
+      await tester.ensureVisible(current);
+      await tester.drag(current, const Offset(-140, 0));
+      await tester.pumpAndSettle();
+      expect(container.read(discoveryProvider).value?.current?.id, 3);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+    }
+  });
+
+  testWidgets('书库行在 320px 和双倍字体下保留长标题、阅读位置与详情入口', (tester) async {
+    tester.view.physicalSize = const Size(320, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          recentReadingProvider.overrideWith(
+            (ref) async => const [
+              ReadingProgressEntry(
+                comic: Comic(
+                  id: 1,
+                  title: '需要两行显示的很长漫画标题还有更多文字',
+                  author: '很长很长的作者名字',
+                ),
+                chapterId: 10,
+                chapterTitle: '很长很长的章节名称',
+                pageNumber: 3,
+              ),
+            ],
+          ),
+          comicDetailProvider.overrideWith(
+            (ref, id) async => const ComicDetail(
+              comic: Comic(id: 1, title: '漫画详情'),
+              chapters: [],
+              favorited: false,
+              authorFavorited: false,
+            ),
+          ),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const MediaQuery(
+            data: MediaQueryData(
+              size: Size(320, 700),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Scaffold(body: RecentReadingList()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('很长很长的章节名称 · 第4页'), findsOneWidget);
+    await tester.tap(find.text('需要两行显示的很长漫画标题还有更多文字'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DetailScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('320px 手机首页放大字体后仍能使用刷新和续读', (tester) async {
     tester.view.physicalSize = const Size(320, 568);
     tester.view.devicePixelRatio = 1;

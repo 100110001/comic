@@ -166,9 +166,19 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                       borderRadius: BorderRadius.circular(kRadiusCard),
                       clipBehavior: Clip.antiAlias,
                       child: ListTile(
-                        leading: Icon(
-                          Icons.star,
-                          color: context.appColors.star,
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: context.appColors.star.withValues(
+                              alpha: 0.08,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.person_outline,
+                            color: context.appColors.star,
+                            size: 20,
+                          ),
                         ),
                         title: Text(
                           item.author,
@@ -229,40 +239,65 @@ class _EntryTile extends StatelessWidget {
       color: c.surface1,
       borderRadius: BorderRadius.circular(kRadiusCard),
       clipBehavior: Clip.antiAlias,
-      child: ListTile(
-        minTileHeight: 88,
+      child: InkWell(
         onTap: onTap,
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(kRadiusThumb),
-          child: SizedBox(
-            width: 52,
-            height: 68,
-            child: coverUrl != null
-                ? DisplayNetworkImage(
-                    coverUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _placeholder(context),
-                  )
-                : _placeholder(context),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(kRadiusThumb),
+                child: SizedBox(
+                  width: 60,
+                  height: 80,
+                  child: coverUrl != null
+                      ? DisplayNetworkImage(
+                          coverUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => _placeholder(context),
+                        )
+                      : _placeholder(context),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: c.text1,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    if (author != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        author!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: c.text2, fontSize: 12),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: c.text2, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.chevron_right, color: c.text2, size: 18),
+            ],
           ),
         ),
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: c.text1,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        subtitle: Text(
-          author != null ? '$subtitle · $author' : subtitle,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: c.text2, fontSize: 12),
-        ),
-        trailing: Icon(Icons.chevron_right, color: c.text2),
       ),
     );
   }

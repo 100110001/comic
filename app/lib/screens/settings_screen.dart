@@ -292,49 +292,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           style: TextStyle(color: c.text2, fontSize: 13),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _serverController,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          enableSuggestions: false,
-          decoration: const InputDecoration(
-            hintText: 'http://192.168.1.100:8888',
-          ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _serverTestStatus == _ServerTestStatus.testing
-                  ? null
-                  : _testServerConnection,
-              icon: _serverTestStatus == _ServerTestStatus.testing
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.wifi_tethering, size: 18),
-              label: Text(
-                _serverTestStatus == _ServerTestStatus.testing
-                    ? '测试中…'
-                    : '测试连接',
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final field = TextField(
+              controller: _serverController,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: const InputDecoration(
+                hintText: 'http://192.168.1.100:8888',
               ),
-            ),
-            FilledButton.icon(
-              onPressed: _serverSaving ? null : _saveServerAddress,
-              icon: _serverSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined, size: 18),
-              label: Text(_serverSaving ? '保存中…' : '保存'),
-            ),
-          ],
+            );
+            final actions = Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _serverTestStatus == _ServerTestStatus.testing
+                      ? null
+                      : _testServerConnection,
+                  icon: _serverTestStatus == _ServerTestStatus.testing
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.wifi_tethering, size: 18),
+                  label: Text(
+                    _serverTestStatus == _ServerTestStatus.testing
+                        ? '测试中…'
+                        : '测试连接',
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _serverSaving ? null : _saveServerAddress,
+                  icon: _serverSaving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined, size: 18),
+                  label: Text(_serverSaving ? '保存中…' : '保存'),
+                ),
+              ],
+            );
+            if (constraints.maxWidth >= 560 &&
+                MediaQuery.textScalerOf(context).scale(14) <= 18) {
+              return Row(
+                children: [
+                  Expanded(child: field),
+                  const SizedBox(width: 12),
+                  actions,
+                ],
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [field, const SizedBox(height: 12), actions],
+            );
+          },
         ),
         if (_serverTestMessage != null) ...[
           const SizedBox(height: 10),
