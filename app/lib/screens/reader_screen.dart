@@ -1015,7 +1015,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget _buildPanel(bool desktop) {
     final c = context.appColors;
     final directory = _panel == 'directory';
-    const panelWidth = 420.0;
+    const panelWidth = 460.0;
     final content = Material(
       color: c.surface1,
       elevation: 12,
@@ -1056,12 +1056,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 Flexible(
                   child: SingleChildScrollView(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _navigationContents(desktop),
-                          const SizedBox(height: 24),
+                          const Divider(height: 32),
                           _settingsContents(),
                         ],
                       ),
@@ -1117,13 +1117,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         spacing: 8,
         runSpacing: 8,
         children: [
-          FilledButton.tonalIcon(
+          OutlinedButton.icon(
             icon: const Icon(Icons.format_list_bulleted, size: 18),
             label: const Text('章节目录'),
             onPressed: _openDirectory,
           ),
           if (desktop && isWindowsPlatform)
-            FilledButton.tonalIcon(
+            OutlinedButton.icon(
               icon: const Icon(Icons.fullscreen, size: 18),
               label: Text(_fullscreen ? '退出全屏' : '全屏'),
               onPressed: _toggleFullscreen,
@@ -1206,11 +1206,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const ReaderSettingsControls(compact: true),
+        const SizedBox(height: 4),
         Text(status, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 4),
         Text(
           'waifu2x · 固定 2× · 预处理后 ${sr.lookahead} 页',
           style: Theme.of(context).textTheme.bodySmall,
         ),
+        const SizedBox(height: 12),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -1228,7 +1231,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           ],
         ),
         const Divider(height: 32),
-        Text('自动滚动／翻页', style: Theme.of(context).textTheme.titleMedium),
+        Text('自动滚动／翻页', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         if (_scrollReading) ...[
           Text('滚动速度：${_scrollSpeed.round()} 像素／秒'),
@@ -1255,7 +1258,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           label: const Text('开始自动阅读'),
         ),
         const Divider(height: 32),
-        Text('图片信息', style: Theme.of(context).textTheme.titleMedium),
+        Text('图片信息', style: Theme.of(context).textTheme.titleSmall),
         const SizedBox(height: 12),
         Text(
           image == null

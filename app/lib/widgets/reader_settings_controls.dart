@@ -85,6 +85,7 @@ class _ReaderSettingsControlsState
           ),
         ),
         if (!widget.compact) const Divider(height: 1),
+        if (widget.compact) const Divider(height: 32),
         _row(
           '超分策略',
           switch (sr) {
@@ -106,38 +107,47 @@ class _ReaderSettingsControlsState
     );
   }
 
-  Widget _row(String title, String description, Widget control) => Container(
-    margin: widget.compact ? const EdgeInsets.only(bottom: 12) : null,
-    decoration: widget.compact
-        ? BoxDecoration(
-            color: context.appColors.surface2,
-            borderRadius: BorderRadius.circular(kRadiusCard),
-          )
-        : null,
-    padding: widget.compact
-        ? const EdgeInsets.all(16)
-        : const EdgeInsets.symmetric(vertical: 20),
+  Widget _row(String title, String description, Widget control) => Padding(
+    padding: EdgeInsets.symmetric(vertical: widget.compact ? 8 : 20),
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final label = Column(
+        final label = Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+        );
+        if (widget.compact) {
+          final caption = Tooltip(message: description, child: label);
+          if (constraints.maxWidth >= 360 &&
+              MediaQuery.textScalerOf(context).scale(14) <= 18) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 76, child: caption),
+                const SizedBox(width: 12),
+                Expanded(child: control),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [caption, const SizedBox(height: 6), control],
+          );
+        }
+        final descriptionLabel = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-            ),
+            label,
             const SizedBox(height: 5),
             Text(description, style: Theme.of(context).textTheme.bodySmall),
           ],
         );
-        if (!widget.compact &&
-            constraints.maxWidth >= 600 &&
+        if (constraints.maxWidth >= 600 &&
             MediaQuery.textScalerOf(context).scale(14) <= 18) {
           return Row(
             children: [
-              Expanded(child: label),
+              Expanded(child: descriptionLabel),
               const SizedBox(width: 20),
               Flexible(child: control),
             ],
@@ -145,7 +155,7 @@ class _ReaderSettingsControlsState
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [label, const SizedBox(height: 12), control],
+          children: [descriptionLabel, const SizedBox(height: 12), control],
         );
       },
     ),
@@ -158,12 +168,15 @@ class _ReaderSettingsControlsState
   ) {
     final c = context.appColors;
     return Wrap(
-      spacing: 6,
+      spacing: widget.compact ? 4 : 6,
       runSpacing: 6,
       children: [
         for (final option in labels.entries)
           ChoiceChip(
             label: Text(option.value),
+            labelPadding: widget.compact
+                ? const EdgeInsets.symmetric(horizontal: 6)
+                : null,
             selected: selected == option.key,
             showCheckmark: false,
             selectedColor: c.accent.withValues(alpha: 0.14),

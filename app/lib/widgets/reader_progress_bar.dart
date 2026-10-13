@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../theme.dart';
 
 /// 章内进度；输入框与滑杆共用页码范围，不创建会截获 Esc 的路由。
 class ReaderProgressBar extends StatefulWidget {
@@ -43,9 +42,9 @@ class _ReaderProgressBarState extends State<ReaderProgressBar> {
   Widget build(BuildContext context) {
     final max = widget.totalPages > 1 ? widget.totalPages - 1 : 0;
     return Material(
-      color: context.appColors.readerBar,
+      color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
