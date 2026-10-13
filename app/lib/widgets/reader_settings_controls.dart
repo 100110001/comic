@@ -53,7 +53,7 @@ class _ReaderSettingsControlsState
               (value) => _update((p) => p.copyWith(mode: value)),
             ),
           ),
-          const Divider(height: 1),
+          if (!widget.compact) const Divider(height: 1),
           _row(
             '翻页方向',
             '控制分页顺序、左右滑动与方向键',
@@ -63,7 +63,7 @@ class _ReaderSettingsControlsState
               (value) => _update((p) => p.copyWith(direction: value)),
             ),
           ),
-          const Divider(height: 1),
+          if (!widget.compact) const Divider(height: 1),
           _row(
             '页面适配',
             '用于单页与双页；连续阅读始终适应宽度',
@@ -73,7 +73,7 @@ class _ReaderSettingsControlsState
               (value) => _update((p) => p.copyWith(fit: value)),
             ),
           ),
-          const Divider(height: 1),
+          if (!widget.compact) const Divider(height: 1),
         ],
         _row(
           '阅读背景',
@@ -84,7 +84,7 @@ class _ReaderSettingsControlsState
             (value) => _update((p) => p.copyWith(background: value)),
           ),
         ),
-        const Divider(height: 1),
+        if (!widget.compact) const Divider(height: 1),
         _row(
           '超分策略',
           switch (sr) {
@@ -106,8 +106,17 @@ class _ReaderSettingsControlsState
     );
   }
 
-  Widget _row(String title, String description, Widget control) => Padding(
-    padding: EdgeInsets.symmetric(vertical: widget.compact ? 12 : 20),
+  Widget _row(String title, String description, Widget control) => Container(
+    margin: widget.compact ? const EdgeInsets.only(bottom: 12) : null,
+    decoration: widget.compact
+        ? BoxDecoration(
+            color: context.appColors.surface2,
+            borderRadius: BorderRadius.circular(kRadiusCard),
+          )
+        : null,
+    padding: widget.compact
+        ? const EdgeInsets.all(16)
+        : const EdgeInsets.symmetric(vertical: 20),
     child: LayoutBuilder(
       builder: (context, constraints) {
         final label = Column(

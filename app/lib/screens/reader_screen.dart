@@ -1061,7 +1061,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _navigationContents(desktop),
-                          const Divider(height: 32),
+                          const SizedBox(height: 24),
                           _settingsContents(),
                         ],
                       ),
@@ -1075,8 +1075,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       builder: (context, constraints) {
         return Stack(
           children: [
-            const Positioned.fill(
-              child: ModalBarrier(dismissible: false, color: Colors.black38),
+            Positioned.fill(
+              child: ModalBarrier(
+                dismissible: true,
+                onDismiss: () => _setPanel(null),
+                semanticsLabel: '关闭阅读面板',
+                color: Colors.black38,
+              ),
             ),
             Align(
               alignment: desktop
@@ -1101,26 +1106,36 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget _navigationContents(bool desktop) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      ...[
-        Text(
-          _currentChapter?.title ?? _title,
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        _progressControl(),
-        const Divider(height: 24),
-      ],
-      ListTile(
-        leading: const Icon(Icons.format_list_bulleted),
-        title: const Text('章节目录'),
-        onTap: _openDirectory,
+      Text(
+        _currentChapter?.title ?? _title,
+        style: Theme.of(context).textTheme.titleMedium,
       ),
-      if (desktop && isWindowsPlatform)
-        ListTile(
-          leading: const Icon(Icons.fullscreen),
-          title: Text(_fullscreen ? '退出全屏' : '全屏'),
-          onTap: _toggleFullscreen,
-        ),
+      const SizedBox(height: 8),
+      _progressControl(),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          FilledButton.tonalIcon(
+            icon: const Icon(Icons.format_list_bulleted, size: 18),
+            label: const Text('章节目录'),
+            onPressed: _openDirectory,
+          ),
+          if (desktop && isWindowsPlatform)
+            FilledButton.tonalIcon(
+              icon: const Icon(Icons.fullscreen, size: 18),
+              label: Text(_fullscreen ? '退出全屏' : '全屏'),
+              onPressed: _toggleFullscreen,
+            ),
+          TextButton.icon(
+            icon: const Icon(Icons.arrow_back, size: 18),
+            label: const Text('返回上一页'),
+            onPressed: _exitReader,
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
       Row(
         children: [
           Expanded(
@@ -1171,12 +1186,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             ),
           ],
         ),
-      ListTile(
-        leading: const Icon(Icons.arrow_back),
-        title: const Text('返回上一页'),
-        trailing: desktop ? const Text('Esc') : null,
-        onTap: _exitReader,
-      ),
     ],
   );
 

@@ -357,6 +357,31 @@ void main() {
     expectPage(tester, 2);
   });
 
+  for (final width in [320.0, 1200.0]) {
+    testWidgets(
+      '阅读面板外侧与关闭按钮只收起面板（$width）',
+      (tester) async {
+        await pumpReader(tester, width: width, initialPage: 2);
+        await openReaderSettings(tester);
+        await tester.tap(find.text('阅读设置'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('关闭阅读设置'), findsOneWidget);
+        await tester.tapAt(const Offset(12, 12));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('关闭阅读设置'), findsNothing);
+        expect(find.byType(ReaderScreen), findsOneWidget);
+        expectPage(tester, 3);
+        await openReaderSettings(tester);
+        await tester.tap(find.byTooltip('关闭阅读设置'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('关闭阅读设置'), findsNothing);
+        expectPage(tester, 3);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.windows}),
+    );
+  }
+
   testWidgets('手机系统返回先关闭设置，全部分组展开且关闭入口固定', (tester) async {
     await pumpReader(tester, width: 320, textScale: 2);
     await openReaderSettings(tester);
