@@ -255,6 +255,22 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
     int generation, {
     bool upscale = true,
   }) async {
+    // 缺失原文件的页面没有版本，保留原图错误和页码，不拖累其它页的超分。
+    final unavailable = images
+        .where(
+          (image) => !RegExp(
+            r'^\d+-\d+$',
+          ).hasMatch(Uri.parse(image.url).queryParameters['v'] ?? ''),
+        )
+        .toList();
+    if (upscale && unavailable.isNotEmpty && _current(generation)) {
+      _fail(
+        unavailable,
+        const UserVisibleException(UserErrorKind.rejected, '原图不可用，请检查文件或重新导入'),
+      );
+    }
+    images = images.where((image) => !unavailable.contains(image)).toList();
+    if (images.isEmpty) return;
     try {
       if (images.any(
         (image) =>

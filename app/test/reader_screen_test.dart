@@ -142,7 +142,7 @@ void main() {
         id: i,
         filename: '$i.jpg',
         pageNumber: i,
-        url: 'http://example.com/$i.jpg',
+        url: 'http://example.com/$i.jpg?v=1-1',
         width: 800,
         height: 1200,
       ),
@@ -817,6 +817,33 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
+  testWidgets('缺失原图不阻断其它页增强，保留原窗口优先级和页码', (tester) async {
+    final client = _UpscaleProgressClient();
+    await pumpReader(
+      tester,
+      srClient: client,
+      defaultUpscale: true,
+      loadImages: (_) async => List.generate(
+        3,
+        (index) => ImageItem(
+          id: index,
+          filename: '$index.jpg',
+          pageNumber: index,
+          url: 'http://example.com/$index.jpg${index == 0 ? '' : '?v=1-1'}',
+          width: 800,
+          height: 1200,
+        ),
+      ),
+    );
+    expect(client.requested.map((image) => image.id), [1, 2]);
+    expect(client.requestedPriorities, {1: 1, 2: 2});
+    final state = ProviderScope.containerOf(
+      tester.element(find.byType(ReaderScreen)),
+    ).read(superResolutionProvider);
+    expect(state.results['http://example.com/0.jpg']?.status, 'failed');
+    expectPage(tester, 1);
+  });
+
   testWidgets('全局开启后预处理当前及后十页，阅读器关闭同步全局策略', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
@@ -937,7 +964,7 @@ void main() {
     expect(
       container
           .read(superResolutionProvider)
-          .results['http://example.com/2.jpg']!
+          .results['http://example.com/2.jpg?v=1-1']!
           .status,
       'failed',
     );
@@ -951,7 +978,7 @@ void main() {
           .any((job) => job.status == 'failed'),
       isTrue,
     );
-    expect(_imageRequests['http://example.com/2.jpg'], 1);
+    expect(_imageRequests['http://example.com/2.jpg?v=1-1'], 1);
   });
 
   testWidgets('移动端初始定位到指定页且滚动偏移与页码一致', (tester) async {
@@ -1177,7 +1204,7 @@ void main() {
     '桌面显示命中相邻预加载尺寸缓存，同档窗口调整复用',
     (tester) async {
       await pumpReader(tester, width: 1200);
-      const url = 'http://example.com/0.jpg';
+      const url = 'http://example.com/0.jpg?v=1-1';
       final image = tester.widget<Image>(find.byType(Image).first);
       final provider = image.image as DisplaySizedNetworkImage;
       expect(provider.fit, BoxFit.contain);
@@ -1197,9 +1224,9 @@ void main() {
       );
       final key = await provider.obtainKey(ImageConfiguration.empty);
       expect(key, await expected.obtainKey(ImageConfiguration.empty));
-      expect(_imageRequests['http://example.com/1.jpg'], 1);
-      expect(_imageRequests['http://example.com/2.jpg'], 1);
-      expect(_imageRequests['http://example.com/3.jpg'], isNull);
+      expect(_imageRequests['http://example.com/1.jpg?v=1-1'], 1);
+      expect(_imageRequests['http://example.com/2.jpg?v=1-1'], 1);
+      expect(_imageRequests['http://example.com/3.jpg?v=1-1'], isNull);
       expect(
         PaintingBinding.instance.imageCache.containsKey(NetworkImage(url)),
         isFalse,
@@ -1211,7 +1238,7 @@ void main() {
       expect(_imageRequests[url], 1);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await settleReader(tester);
-      expect(_imageRequests['http://example.com/1.jpg'], 1);
+      expect(_imageRequests['http://example.com/1.jpg?v=1-1'], 1);
       expectPage(tester, 2);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
@@ -1270,7 +1297,7 @@ void main() {
     testWidgets(
       '缩图失败重试清实际缓存并重新请求（宽 $width）',
       (tester) async {
-        const url = 'http://example.com/0.jpg';
+        const url = 'http://example.com/0.jpg?v=1-1';
         _failedImageUrls.add(url);
         await pumpReader(tester, width: width);
         expect(find.text('点击重试'), findsOneWidget);
@@ -1511,6 +1538,7 @@ class _FakeHttpClientResponse implements HttpClientResponse {
 class _UpscaleProgressClient extends _ProgressClient {
   final response = Completer<List<SuperResolutionJob>>();
   List<ImageItem> requested = [];
+  Map<int, int>? requestedPriorities;
   @override
   Future<List<ImageResolution>> resolveImages(
     List<ImageItem> images, {
@@ -1528,6 +1556,7 @@ class _UpscaleProgressClient extends _ProgressClient {
       );
     }
     requested = images;
+    requestedPriorities = priorities;
     return response.future.then(
       (jobs) => images
           .map(

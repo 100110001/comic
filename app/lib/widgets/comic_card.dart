@@ -126,6 +126,15 @@ class _ComicCardState extends State<ComicCard> {
                           child: Text(
                             comic.title,
                             maxLines: 1,
+                            textHeightBehavior: const TextHeightBehavior(
+                              applyHeightToFirstAscent: true,
+                              applyHeightToLastDescent: true,
+                            ),
+                            strutStyle: const StrutStyle(
+                              fontSize: 16,
+                              height: 1.4,
+                              forceStrutHeight: true,
+                            ),
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: c.text1,
@@ -140,6 +149,11 @@ class _ComicCardState extends State<ComicCard> {
                         Text(
                           comic.author ?? '未知作者',
                           maxLines: 1,
+                          strutStyle: const StrutStyle(
+                            fontSize: 14,
+                            height: 1.4,
+                            forceStrutHeight: true,
+                          ),
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: c.text2,

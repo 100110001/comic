@@ -3,6 +3,7 @@ import path from "path";
 import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import { progress, done } from "../utils/progress";
+import { readImageDimensions } from "../utils/image-metadata";
 dotenv.config();
 
 const SCAN_FILE = path.join(__dirname, "../../data/scan.json");
@@ -81,6 +82,10 @@ async function seed() {
       const existingImages = await getExistingImages(conn, chapterId);
       for (let pi = 0; pi < chapter.images.length; pi++) {
         const img = chapter.images[pi]!;
+        // 导入承担全库尺寸探测，阅读接口不再等待整章图片逐一读盘。
+        const dimensions = await readImageDimensions(img.path).catch(
+          () => null,
+        );
         if (!existingImages.has(img.filename)) {
           await conn.execute(
             "INSERT INTO images (chapter_id, filename, path, page_number) VALUES (?, ?, ?, ?)",
@@ -89,8 +94,15 @@ async function seed() {
           newImageCount++;
         }
         await conn.execute(
-          "UPDATE images SET path = ?, page_number = ?, width = NULL, height = NULL WHERE chapter_id = ? AND filename = ?",
-          [img.path, pi, chapterId, img.filename],
+          "UPDATE images SET path = ?, page_number = ?, width = ?, height = ? WHERE chapter_id = ? AND filename = ?",
+          [
+            img.path,
+            pi,
+            dimensions?.width ?? null,
+            dimensions?.height ?? null,
+            chapterId,
+            img.filename,
+          ],
         );
       }
     }
