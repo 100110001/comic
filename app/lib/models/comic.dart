@@ -51,6 +51,7 @@ class Comic {
     final rel = coverPath!
         .replaceAll('\\', '/')
         .replaceFirst(RegExp(r'^.*?/comic/'), '');
-    return Uri.parse('$serverUrl/').resolve('static/$rel').toString();
+    final encoded = rel.split('/').map(Uri.encodeComponent).join('/');
+    return Uri.parse('$serverUrl/').resolve('static/$encoded').toString();
   }
 }

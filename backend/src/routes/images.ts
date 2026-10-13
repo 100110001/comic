@@ -4,6 +4,7 @@ import path from "node:path";
 import { db } from "../db/knex";
 import { config } from "../config";
 import { ok, fail } from "../utils/response";
+import { imagePathUrl } from "../utils/image-metadata";
 import {
   superResolution,
   SUPER_RESOLUTION_WINDOW_SIZE,
@@ -80,7 +81,7 @@ imagesRouter.post("/resolve", async (req, res) => {
         priority: item.priority ?? index,
         path: row.path,
         version: item.version,
-        url: `/static/${relative.replace(/\\/g, "/")}?v=${item.version}`,
+        url: `${imagePathUrl(relative)}?v=${item.version}`,
       });
     }
     const result = [];
