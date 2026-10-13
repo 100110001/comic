@@ -167,7 +167,7 @@
         shape("polyline", {
           points: segment.map((p) => p.join(",")).join(" "),
           fill: "none",
-          stroke: "#85b9e8",
+          stroke: "#c5ccd9",
           "stroke-width": 2,
         });
       segment = [];
@@ -184,10 +184,10 @@
             height: h,
             rx: 2,
             fill: {
-              api: "#b8ed8c",
-              image: "#85b9e8",
-              upscale: "#d5ade9",
-              count: "#b8ed8c",
+              api: "#91b2ee",
+              image: "#c5ccd9",
+              upscale: "#b4a3d3",
+              count: "#91b2ee",
             }[key],
           });
         const title = document.createElementNS(ns, "title");
@@ -199,7 +199,7 @@
         if (b.count) {
           const y = 160 - (b.elapsed / b.count / maxMs) * 138;
           segment.push([x + 11, y]);
-          shape("circle", { cx: x + 11, cy: y, r: 3, fill: "#85b9e8" });
+          shape("circle", { cx: x + 11, cy: y, r: 3, fill: "#c5ccd9" });
         } else flush();
       }
       if (i % 4 === 0 || i === 14)
