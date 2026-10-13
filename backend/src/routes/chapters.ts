@@ -60,6 +60,12 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
 
     const cacheKey = `chapter:${id}:images`;
     const cached = await cacheGet<unknown[]>(cacheKey);
+    res.locals.cacheOutcome =
+      cached.generation === null
+        ? "unavailable"
+        : cached.value
+          ? "hit"
+          : "miss";
     if (cached.value) {
       console.log(`[cache hit] ${cacheKey}`);
       return ok(res, cached.value);
