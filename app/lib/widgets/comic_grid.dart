@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/comic.dart';
 import 'comic_card.dart';
 import 'status_views.dart';
+import 'loading_placeholders.dart';
 
 /// 按可用宽度返回漫画网格的列数：
 /// <480 → 2 列；480–599 → 3 列；600–899 → 4 列；900–1199 → 5 列；
@@ -80,10 +81,36 @@ class ComicGrid extends StatelessWidget {
                     mainAxisSpacing: spacing,
                   ),
                   itemCount:
-                      comics.length + (loading && comics.isNotEmpty ? 1 : 0),
+                      comics.length +
+                      (loading ? columns * (comics.isEmpty ? 3 : 1) : 0),
                   itemBuilder: (ctx, i) {
-                    if (i == comics.length) {
-                      return const Center(child: CircularProgressIndicator());
+                    if (i >= comics.length) {
+                      return Semantics(
+                        label: i == comics.length ? '正在加载漫画' : null,
+                        child: SkeletonPulse(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Expanded(child: SkeletonBlock()),
+                              SizedBox(
+                                height: textHeight,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 12),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SkeletonBlock(height: 14),
+                                      SizedBox(height: 8),
+                                      SkeletonBlock(height: 10, width: 80),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
                     }
                     final comic = comics[i];
                     return ComicCard(
@@ -92,14 +119,12 @@ class ComicGrid extends StatelessWidget {
                     );
                   },
                 ),
-                if (comics.isEmpty)
+                if (comics.isEmpty && !loading)
                   IgnorePointer(
-                    child: loading
-                        ? const Center(child: CircularProgressIndicator())
-                        : StatusView(
-                            icon: Icons.auto_stories_outlined,
-                            message: emptyMessage,
-                          ),
+                    child: StatusView(
+                      icon: Icons.auto_stories_outlined,
+                      message: emptyMessage,
+                    ),
                   ),
               ],
             );

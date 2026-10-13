@@ -38,4 +38,4 @@ origin: specs/changes/2026-10-13-loading-experience/define.md
 
 ## 状态
 
-U1 待实现；实现后执行规范收割。
+U1 已实现，五项本地门禁全部通过；最终 PR 统一承载实现与规范收割。

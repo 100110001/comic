@@ -313,17 +313,35 @@ void main() {
     expect(ids, List.generate(60, (i) => 100 + i));
   });
 
-  test('首次请求未完成时洗牌也不会被旧首屏覆盖', () async {
+  test('首次请求未完成时重复洗牌等待同一次首屏', () async {
     final old = container.read(randomLibraryProvider.future);
     final notifier = container.read(randomLibraryProvider.notifier);
     final refresh = notifier.reshuffle();
     await container.pump();
-    expect(client.requests, hasLength(2));
-    client.requests[1].complete(firstId: 100);
+    expect(client.requests, hasLength(1));
+    client.requests[0].complete(firstId: 100);
     await refresh;
-    client.requests[0].complete();
     await old;
     await container.pump();
+    expect(
+      container.read(randomLibraryProvider).requireValue.comics.first.id,
+      100,
+    );
+  });
+
+  test('换批重复触发共享等待，失败后可以重新换批', () async {
+    final notifier = await randomLibrary();
+    final first = notifier.reshuffle();
+    final duplicate = notifier.reshuffle();
+    expect(identical(first, duplicate), isTrue);
+    expect(client.requests, hasLength(2));
+    final failed = expectLater(first, throwsException);
+    client.requests.last.result.completeError(Exception('换批失败'));
+    await failed;
+    final retry = notifier.reshuffle();
+    expect(client.requests, hasLength(3));
+    client.requests.last.complete(firstId: 100);
+    await retry;
     expect(
       container.read(randomLibraryProvider).requireValue.comics.first.id,
       100,

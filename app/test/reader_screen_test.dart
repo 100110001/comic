@@ -13,6 +13,7 @@ import 'package:comic/models/image_item.dart';
 import 'package:comic/models/super_resolution_job.dart';
 import 'package:comic/providers/super_resolution_provider.dart';
 import 'package:comic/widgets/enhanced_image.dart';
+import 'package:comic/widgets/loading_placeholders.dart';
 import 'package:comic/widgets/reader_progress_bar.dart';
 import 'package:comic/providers/comics_providers.dart';
 import 'package:comic/providers/reader_providers.dart';
@@ -30,15 +31,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Future<void> settleReader(WidgetTester tester) async {
-  await tester.pump();
-  await tester.pump();
-  // 尺寸解码会读取原图描述符；等待真实引擎任务，避免假时钟饿死解码。
-  await tester.runAsync(() async {
-    for (final element in find.byType(Image).evaluate()) {
-      final image = element.widget as Image;
-      await precacheImage(image.image, element, onError: (error, stack) {});
+  // 布局与延迟图片可能跨帧挂载。先等待真实首帧，再等待有限过渡；
+  // 不能让假时钟一直等待首帧前的循环加载动效。
+  for (var pass = 0; pass < 10; pass++) {
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (final element
+          in find.byType(Image, skipOffstage: false).evaluate()) {
+        final image = element.widget as Image;
+        await precacheImage(image.image, element, onError: (error, stack) {});
+      }
+    });
+    await tester.pump(const Duration(milliseconds: 200));
+    if (pass >= 2 &&
+        find
+            .byType(ImageLoadingPlaceholder, skipOffstage: false)
+            .evaluate()
+            .isEmpty) {
+      break;
     }
-  });
+  }
   await tester.pumpAndSettle();
 }
 

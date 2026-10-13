@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import '../utils/display_image_provider.dart';
+import 'loading_placeholders.dart';
 
 /// 在图片的实际布局区域中选择解码尺寸，不改变占位或裁切。
 class DisplayNetworkImage extends StatelessWidget {
@@ -30,6 +31,7 @@ class DisplayNetworkImage extends StatelessWidget {
         ),
       );
       return Image(
+        key: ValueKey((url, size, fit)),
         image: displayImageProvider(
           url,
           logicalSize: size,
@@ -41,6 +43,17 @@ class DisplayNetworkImage extends StatelessWidget {
         fit: fit,
         errorBuilder: errorBuilder,
         loadingBuilder: loadingBuilder,
+        frameBuilder: (context, child, frame, synchronous) => imageFrame(
+          context,
+          child,
+          frame,
+          synchronous,
+          placeholder: SizedBox(
+            width: size.width.isFinite ? size.width : null,
+            height: size.height.isFinite ? size.height : null,
+            child: const SkeletonPulse(child: SkeletonBlock()),
+          ),
+        ),
       );
     },
   );
