@@ -81,7 +81,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _desktopImages = false;
   int _spreadCount = 1;
   String? _panel;
-  Offset? _menuPosition;
   bool _fullscreen = false;
   bool _exiting = false;
   Timer? _autoTimer;
@@ -202,11 +201,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
-  void _setPanel(String? panel, [Offset? position]) {
+  void _setPanel(String? panel) {
     _stopAutoReading();
     setState(() {
       _panel = panel;
-      _menuPosition = position;
     });
   }
 
@@ -809,8 +807,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _recordPosition();
   }
 
-  void _openReadingSettings() => _setPanel('settings');
-
   Future<void> _ensureChapters() async {
     if (_chapters.isNotEmpty) return;
     try {
@@ -924,7 +920,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onSecondaryTapDown: desktop
-                    ? (details) => _setPanel('menu', details.localPosition)
+                    ? (details) => _setPanel('settings')
                     : null,
                 onDoubleTap: desktop
                     ? null
@@ -958,7 +954,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       ),
                       IconButton(
                         tooltip: '菜单',
-                        onPressed: () => _setPanel('menu'),
+                        onPressed: () => _setPanel('settings'),
                         icon: const Icon(Icons.more_horiz),
                       ),
                       IconButton(
@@ -969,12 +965,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     ],
                   ),
                 ),
-              ),
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _progressControl(),
               ),
             ],
             if (_autoReading)
@@ -1024,9 +1014,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Widget _buildPanel(bool desktop) {
     final c = context.appColors;
-    final menu = _panel == 'menu';
     final directory = _panel == 'directory';
-    final panelWidth = menu ? 360.0 : 420.0;
+    const panelWidth = 420.0;
     final content = Material(
       color: c.surface1,
       elevation: 12,
@@ -1051,12 +1040,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     children: [
                       Expanded(
                         child: Text(
-                          menu ? '快捷菜单' : '阅读设置',
+                          '阅读设置',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
                       IconButton(
-                        tooltip: menu ? '关闭菜单' : '关闭阅读设置',
+                        tooltip: '关闭阅读设置',
                         onPressed: () => _setPanel(null),
                         icon: const Icon(Icons.close),
                       ),
@@ -1068,9 +1057,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                   child: SingleChildScrollView(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
-                      child: menu
-                          ? _menuContents(desktop)
-                          : _settingsContents(),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _navigationContents(desktop),
+                          const Divider(height: 32),
+                          _settingsContents(),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1079,27 +1073,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (desktop && menu) {
-          final width = math.min(panelWidth, constraints.maxWidth - 24);
-          final left = (_menuPosition?.dx ?? constraints.maxWidth - width - 12)
-              .clamp(12.0, math.max(12.0, constraints.maxWidth - width - 12));
-          return Stack(
-            children: [
-              const Positioned.fill(
-                child: ModalBarrier(dismissible: false, color: Colors.black26),
-              ),
-              Positioned(
-                left: left.toDouble(),
-                top: (_menuPosition?.dy ?? 12)
-                    .clamp(12.0, math.max(12.0, constraints.maxHeight - 620))
-                    .toDouble(),
-                bottom: 12,
-                width: width,
-                child: Align(alignment: Alignment.topCenter, child: content),
-              ),
-            ],
-          );
-        }
         return Stack(
           children: [
             const Positioned.fill(
@@ -1125,10 +1098,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _menuContents(bool desktop) => Column(
+  Widget _navigationContents(bool desktop) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      if (desktop) ...[
+      ...[
         Text(
           _currentChapter?.title ?? _title,
           style: Theme.of(context).textTheme.titleMedium,
@@ -1137,11 +1110,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _progressControl(),
         const Divider(height: 24),
       ],
-      ListTile(
-        leading: const Icon(Icons.tune),
-        title: const Text('阅读设置'),
-        onTap: _openReadingSettings,
-      ),
       ListTile(
         leading: const Icon(Icons.format_list_bulleted),
         title: const Text('章节目录'),

@@ -46,7 +46,7 @@ final _imageRequests = <String, int>{};
 final _failedImageUrls = <String>{};
 
 Future<void> openReaderMenu(WidgetTester tester) async {
-  if (find.text('快捷菜单').evaluate().isNotEmpty) return;
+  if (find.text('阅读设置').evaluate().isNotEmpty) return;
   final context = tester.element(find.byType(ReaderScreen));
   if (isDesktopAt(MediaQuery.sizeOf(context).width)) {
     await tester.tapAt(const Offset(200, 200), buttons: kSecondaryMouseButton);
@@ -64,8 +64,6 @@ Future<void> openReaderMenu(WidgetTester tester) async {
 
 Future<void> openReaderSettings(WidgetTester tester) async {
   await openReaderMenu(tester);
-  await tester.tap(find.text('阅读设置'));
-  await tester.pumpAndSettle();
 }
 
 ReadingProgressEntry positionOf(WidgetTester tester) =>
@@ -219,8 +217,6 @@ void main() {
     expectChapter(tester, 2);
     expectPage(tester, 1);
     await openReaderMenu(tester);
-    await tester.tap(find.byTooltip('关闭菜单'));
-    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('reader-page-input')),
       '2',
@@ -230,6 +226,8 @@ void main() {
     expectChapter(tester, 2);
     expectPage(tester, 2);
     expect(controller.offset, closeTo(2400, 1));
+    await tester.tap(find.byTooltip('关闭阅读设置'));
+    await tester.pumpAndSettle();
     controller.jumpTo(0);
     await settleReader(tester);
     expectChapter(tester, 1);
@@ -567,9 +565,9 @@ void main() {
     expect(find.byType(ListView), findsOneWidget);
     expect(find.byType(ReaderProgressBar), findsNothing);
     await openReaderMenu(tester);
-    await tester.tap(find.byTooltip('关闭菜单'));
+    await tester.tap(find.byTooltip('关闭阅读设置'));
     await tester.pumpAndSettle();
-    expect(find.byType(ReaderProgressBar), findsOneWidget);
+    expect(find.byType(ReaderProgressBar), findsNothing);
     await tester.pump(const Duration(seconds: 6));
     expect(find.byTooltip('关闭控制层').hitTestable(), findsOneWidget);
     await tester.tap(find.byTooltip('关闭控制层'));
@@ -655,7 +653,7 @@ void main() {
       tester
           .widget<ReaderProgressBar>(find.byType(ReaderProgressBar))
           .onSeek(9);
-      await tester.tap(find.byTooltip('关闭菜单'));
+      await tester.tap(find.byTooltip('关闭阅读设置'));
       await settleReader(tester);
       expectChapter(tester, 1);
       expectPage(tester, 10);
@@ -699,7 +697,7 @@ void main() {
       expect(find.byType(ReaderProgressBar), findsNothing);
       await openReaderMenu(tester);
       expect(find.byType(ReaderProgressBar), findsOneWidget);
-      await tester.tap(find.byTooltip('关闭菜单'));
+      await tester.tap(find.byTooltip('关闭阅读设置'));
       await tester.pumpAndSettle();
       expect(list.controller!.offset, offset);
       client.complete();
@@ -1093,8 +1091,13 @@ void main() {
       await press(LogicalKeyboardKey.arrowRight);
       expectPage(tester, 2);
       await openReaderMenu(tester);
-      await tester.tap(find.byType(Slider));
-      await tester.tap(find.byTooltip('关闭菜单'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ReaderProgressBar),
+          matching: find.byType(Slider),
+        ),
+      );
+      await tester.tap(find.byTooltip('关闭阅读设置'));
       await settleReader(tester);
       await press(LogicalKeyboardKey.pageUp);
       expectChapter(tester, 1);
