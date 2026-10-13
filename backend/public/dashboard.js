@@ -591,11 +591,17 @@
         new Date(data.traffic.startedAt).toLocaleString("zh-CN") +
         "。本进程累计与近期明细分别计算，重启清空；HTTP 和超分提交明细各保留最多 500 条。监视轮询不计入业务请求。";
       const focused = document.activeElement;
-      const scope = focused?.closest("#library-cards, #traffic-cards, #cache-overview, #upscale-overview, #recent-errors, #cache-detail");
-      const href = focused?.tagName === "A" ? focused.getAttribute("href") : null;
+      const scope = focused?.closest(
+        "#library-cards, #traffic-cards, #cache-overview, #upscale-overview, #recent-errors, #cache-detail",
+      );
+      const href =
+        focused?.tagName === "A" ? focused.getAttribute("href") : null;
       if (page === "overview") overview();
       else requests();
-      if (scope && href) Array.from(scope.querySelectorAll("a")).find(a => a.getAttribute("href") === href)?.focus({preventScroll: true});
+      if (scope && href)
+        Array.from(scope.querySelectorAll("a"))
+          .find((a) => a.getAttribute("href") === href)
+          ?.focus({ preventScroll: true });
     } catch (error) {
       $("connection").classList.add("stale");
       $("connection-text").textContent =
