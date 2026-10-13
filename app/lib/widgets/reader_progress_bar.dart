@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 
 /// 章内进度；输入框与滑杆共用页码范围，不创建会截获 Esc 的路由。
 class ReaderProgressBar extends StatefulWidget {
+  final String chapterTitle;
   final int currentPage;
   final int totalPages;
   final ValueChanged<int> onSeek;
   const ReaderProgressBar({
     super.key,
+    required this.chapterTitle,
     required this.currentPage,
     required this.totalPages,
     required this.onSeek,
@@ -20,6 +22,24 @@ class _ReaderProgressBarState extends State<ReaderProgressBar> {
   final _controller = TextEditingController();
   final _focus = FocusNode();
   String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = '${widget.totalPages == 0 ? 0 : widget.currentPage + 1}';
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPage != widget.currentPage ||
+        oldWidget.totalPages != widget.totalPages ||
+        oldWidget.chapterTitle != widget.chapterTitle) {
+      _controller.text =
+          '${widget.totalPages == 0 ? 0 : widget.currentPage + 1}';
+      _error = null;
+    }
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -52,26 +72,35 @@ class _ReaderProgressBarState extends State<ReaderProgressBar> {
               children: [
                 Expanded(
                   child: Text(
-                    '第 ${widget.totalPages == 0 ? 0 : widget.currentPage + 1} / ${widget.totalPages} 页',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    widget.chapterTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
                 ),
                 SizedBox(
-                  width: 80,
+                  width: 60,
                   child: TextField(
                     key: const ValueKey('reader-page-input'),
                     controller: _controller,
+                    textAlign: TextAlign.center,
                     focusNode: _focus,
                     enabled: widget.totalPages > 0,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: const InputDecoration(
                       hintText: '页码',
+                      semanticCounterText: '当前页码',
                       isDense: true,
                       contentPadding: EdgeInsets.all(10),
                     ),
                     onSubmitted: (_) => _seek(),
                   ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '/ ${widget.totalPages}',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 IconButton(
                   tooltip: '跳转到页码',

@@ -1004,6 +1004,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Widget _progressControl() => ReaderProgressBar(
+    chapterTitle: _currentChapter?.title ?? _title,
     currentPage: _currentPage,
     totalPages: _images.length,
     onSeek: (page) {
@@ -1044,6 +1045,21 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
+                      if (desktop && isWindowsPlatform)
+                        IconButton(
+                          tooltip: _fullscreen ? '退出全屏' : '全屏',
+                          onPressed: _toggleFullscreen,
+                          icon: Icon(
+                            _fullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: '返回上一页',
+                        onPressed: _exitReader,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
                       IconButton(
                         tooltip: '关闭阅读设置',
                         onPressed: () => _setPanel(null),
@@ -1060,7 +1076,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _navigationContents(desktop),
+                          _navigationContents(),
                           const Divider(height: 32),
                           _settingsContents(),
                         ],
@@ -1103,39 +1119,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _navigationContents(bool desktop) => Column(
+  Widget _navigationContents() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Text(
-        _currentChapter?.title ?? _title,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      const SizedBox(height: 8),
       _progressControl(),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.format_list_bulleted, size: 18),
-            label: const Text('章节目录'),
-            onPressed: _openDirectory,
-          ),
-          if (desktop && isWindowsPlatform)
-            OutlinedButton.icon(
-              icon: const Icon(Icons.fullscreen, size: 18),
-              label: Text(_fullscreen ? '退出全屏' : '全屏'),
-              onPressed: _toggleFullscreen,
-            ),
-          TextButton.icon(
-            icon: const Icon(Icons.arrow_back, size: 18),
-            label: const Text('返回上一页'),
-            onPressed: _exitReader,
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 4),
       Row(
         children: [
           Expanded(
@@ -1147,6 +1135,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     }
                   : null,
               child: const Text('上一章'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: _openDirectory,
+              child: const Text('章节目录'),
             ),
           ),
           Expanded(
