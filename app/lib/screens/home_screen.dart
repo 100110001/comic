@@ -275,7 +275,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                 Padding(
                   padding: EdgeInsets.fromLTRB(
                     desktop ? 28 : 16,
-                    4,
+                    16,
                     desktop ? 28 : 16,
                     16,
                   ),

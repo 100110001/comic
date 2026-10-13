@@ -25,11 +25,13 @@ class ChapterDrawer extends StatelessWidget {
 
 /// 桌面侧栏与手机底部面板共用的章节内容。
 class ChapterDirectory extends StatelessWidget {
+  final VoidCallback? onClose;
   final List<Chapter> chapters;
   final int currentIndex;
   final ValueChanged<int> onSelect;
   const ChapterDirectory({
     super.key,
+    this.onClose,
     required this.chapters,
     required this.currentIndex,
     required this.onSelect,
@@ -65,7 +67,7 @@ class ChapterDirectory extends StatelessWidget {
                 IconButton(
                   tooltip: '关闭目录',
                   icon: const Icon(Icons.close, size: 20),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: onClose ?? () => Navigator.pop(context),
                 ),
               ],
             ),

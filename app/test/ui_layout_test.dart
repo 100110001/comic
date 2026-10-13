@@ -449,10 +449,7 @@ void main() {
     expect(find.text('第100话').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.scrollUntilVisible(find.text('开始阅读'), -500, maxScrolls: 30);
-    tester
-        .state<ScrollableState>(find.byType(Scrollable).first)
-        .position
-        .jumpTo(0);
+    await tester.ensureVisible(find.text('开始阅读'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('开始阅读'));
     await tester.pumpAndSettle();

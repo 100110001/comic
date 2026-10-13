@@ -161,7 +161,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(28, 20, 28, 20),
+            padding: EdgeInsets.fromLTRB(
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 28,
+              20,
+              MediaQuery.sizeOf(context).width < 600 ? 16 : 28,
+              20,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

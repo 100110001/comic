@@ -272,7 +272,10 @@ class _DesktopSidebar extends StatelessWidget {
     final c = context.appColors;
     return Container(
       width: 196,
-      color: c.navBg,
+      decoration: BoxDecoration(
+        color: c.navBg,
+        border: Border(right: BorderSide(color: c.border)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -298,7 +301,7 @@ class _DesktopSidebar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Comic',
+                        '漫画',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(

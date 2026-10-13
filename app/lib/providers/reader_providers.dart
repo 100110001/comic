@@ -4,4 +4,5 @@ import 'server_provider.dart';
 
 final chapterImagesProvider = FutureProvider.family<List<ImageItem>, int>(
   (ref, chapterId) => ref.watch(apiClientProvider).getChapterImages(chapterId),
+  retry: (_, _) => null,
 );

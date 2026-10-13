@@ -172,7 +172,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
           : LayoutBuilder(
               builder: (ctx, constraints) {
                 final header = _Header(
-                  vertical: constraints.maxWidth >= 720,
+                  vertical:
+                      constraints.maxWidth >= 720 &&
+                      MediaQuery.textScalerOf(ctx).scale(14) <= 20,
                   comic: detail!.comic,
                   favorited: detail.favorited,
                   authorFavorited: detail.authorFavorited,
@@ -210,57 +212,27 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                               }
                       : () => _continueReading(progress),
                 );
-                final chapterList = _ChapterList(
-                  comicId: widget.comicId,
-                  chapters: detail.chapters,
-                  currentChapterId: progress?.chapterId,
-                );
-                if (constraints.maxWidth >= 720) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(
-                        width: constraints.maxWidth >= 1000 ? 380 : 320,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                Color.alphaBlend(
-                                  c.accent.withValues(alpha: 0.18),
-                                  c.surface2,
-                                ),
-                                c.surface2,
-                              ],
-                            ),
-                          ),
-                          child: SingleChildScrollView(child: header),
-                        ),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(kRadiusCard),
-                            child: ColoredBox(
-                              color: c.surface1,
-                              child: chapterList,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }
+                final gutter = constraints.maxWidth >= 720 ? 32.0 : 12.0;
+                final inset =
+                    (constraints.maxWidth - 1120).clamp(
+                      gutter * 2,
+                      double.infinity,
+                    ) /
+                    2;
                 return CustomScrollView(
                   slivers: [
-                    SliverToBoxAdapter(child: header),
-                    _ChapterList(
-                      comicId: widget.comicId,
-                      chapters: detail.chapters,
-                      currentChapterId: progress?.chapterId,
-                      asSliver: true,
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(inset, 16, inset, 24),
+                      sliver: SliverToBoxAdapter(child: header),
+                    ),
+                    SliverPadding(
+                      padding: EdgeInsets.symmetric(horizontal: inset),
+                      sliver: _ChapterList(
+                        comicId: widget.comicId,
+                        chapters: detail.chapters,
+                        currentChapterId: progress?.chapterId,
+                        asSliver: true,
+                      ),
                     ),
                   ],
                 );
@@ -391,112 +363,94 @@ class _Header extends StatelessWidget {
         ),
       ],
     );
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(c.accent.withValues(alpha: 0.18), c.surface2),
-            c.surface2,
-          ],
-        ),
-      ),
-      padding: EdgeInsets.all(vertical ? 28 : 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.book_outlined, size: 18, color: c.accent),
-              const SizedBox(width: 8),
-              Text(
-                '漫画信息',
-                style: TextStyle(
-                  color: c.accent,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+    final actions = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedButton.icon(
+          icon: Icon(
+            favorited ? Icons.favorite : Icons.favorite_border,
+            color: favorited ? c.favorite : c.text2,
+            size: 18,
           ),
-          const SizedBox(height: 20),
-          if (vertical) ...[
-            Center(child: cover),
-            const SizedBox(height: 24),
-            metadata,
-          ] else
-            Row(
+          label: Text(favorited ? '已收藏' : '收藏漫画'),
+          onPressed: onToggleFavorite,
+        ),
+        const SizedBox(height: 10),
+        Tooltip(
+          message: '在运行后端的电脑上打开漫画原文件夹',
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.folder_open_outlined, size: 18),
+            label: Text(directoryBusy ? '正在打开…' : '打开本地目录（后端电脑）'),
+            onPressed: onOpenDirectory,
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (progress != null) ...[
+          Text(
+            '上次读到第 ${progress!.pageNumber + 1} 页',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+        ],
+        FilledButton.icon(
+          icon: const Icon(Icons.menu_book_outlined, size: 20),
+          label: Text(
+            progress != null
+                ? '继续阅读'
+                : onContinue != null
+                ? '开始阅读'
+                : '暂无章节',
+          ),
+          onPressed: onContinue,
+        ),
+      ],
+    );
+    return Container(
+      padding: EdgeInsets.all(vertical ? 28 : 16),
+      decoration: BoxDecoration(
+        color: c.surface1,
+        borderRadius: BorderRadius.circular(kRadiusCard),
+      ),
+      child: vertical
+          ? Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 cover,
-                const SizedBox(width: 16),
-                Expanded(child: metadata),
+                const SizedBox(width: 28),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      metadata,
+                      const SizedBox(height: 28),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 360),
+                          child: actions,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    cover,
+                    const SizedBox(width: 16),
+                    Expanded(child: metadata),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                actions,
               ],
             ),
-          const SizedBox(height: 24),
-          Divider(color: c.border),
-          const SizedBox(height: 12),
-          Text(
-            '快捷操作',
-            style: TextStyle(
-              color: c.text2,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          FilledButton.tonalIcon(
-            style: FilledButton.styleFrom(
-              backgroundColor: Color.alphaBlend(
-                c.favorite.withValues(alpha: favorited ? 0.18 : 0.08),
-                c.surface1,
-              ),
-              foregroundColor: favorited ? c.favorite : c.text1,
-            ),
-            icon: Icon(
-              favorited ? Icons.favorite : Icons.favorite_border,
-              color: c.favorite,
-              size: 18,
-            ),
-            label: Text(favorited ? '已收藏' : '收藏漫画'),
-            onPressed: onToggleFavorite,
-          ),
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            icon: const Icon(Icons.menu_book_outlined, size: 20),
-            label: Text(
-              progress != null
-                  ? '继续阅读'
-                  : onContinue != null
-                  ? '开始阅读'
-                  : '暂无章节',
-            ),
-            onPressed: onContinue,
-          ),
-          if (progress != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '上次读到第 ${progress!.pageNumber + 1} 页',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: c.text2, fontSize: 12),
-            ),
-          ],
-          const SizedBox(height: 10),
-          Tooltip(
-            message: '在运行后端的电脑上打开漫画原文件夹',
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: c.accent,
-                backgroundColor: c.accent.withValues(alpha: 0.06),
-              ),
-              icon: const Icon(Icons.folder_open_outlined, size: 20),
-              label: Text(directoryBusy ? '正在打开…' : '打开本地目录（后端电脑）'),
-              onPressed: onOpenDirectory,
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -505,7 +459,7 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.accent.withValues(alpha: 0.10),
+        color: c.surface2,
         borderRadius: BorderRadius.circular(kRadiusSmall),
       ),
       child: Row(
@@ -576,7 +530,7 @@ class _ChapterList extends StatelessWidget {
           return Padding(
             padding: const EdgeInsets.only(bottom: 6),
             child: Material(
-              color: isCurrent ? c.accent.withValues(alpha: 0.16) : c.surface2,
+              color: c.surface1,
               borderRadius: BorderRadius.circular(kRadiusButton),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
