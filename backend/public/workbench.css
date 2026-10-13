@@ -20,7 +20,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font:
-    14px/1.6 "Segoe UI",
+    16px/1.65 "Segoe UI",
     "Microsoft YaHei",
     sans-serif;
 }
@@ -105,13 +105,13 @@ body.workbench {
 }
 .rail-brand small {
   display: block;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
   letter-spacing: 2px;
   color: var(--muted);
 }
 .rail-label {
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 2px;
   color: #7e889b;
   padding: 8px 14px;
@@ -135,7 +135,7 @@ body.workbench {
 }
 .rail-foot {
   margin-top: auto;
-  font-size: 11px;
+  font-size: 14px;
   color: #8d97a9;
   padding: 20px 12px 0;
   border-top: 1px solid var(--line);
@@ -159,7 +159,7 @@ body.workbench {
   font-size: 16px;
 }
 .workbench .app-header p {
-  font-size: 11px;
+  font-size: 14px;
 }
 .workbench .monitor-summary {
   background: var(--bg);
@@ -185,7 +185,7 @@ body.workbench {
   background: #343c4c;
 }
 .workbench .container {
-  grid-template-columns: 270px minmax(0, 1fr);
+  grid-template-columns: 310px minmax(0, 1fr);
 }
 .dashboard {
   max-width: 1640px;
@@ -201,7 +201,7 @@ body.workbench {
 }
 .eyebrow {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 14px;
   letter-spacing: 2px;
   margin: 0 0 5px;
 }
@@ -214,14 +214,14 @@ body.workbench {
 .subtitle {
   color: var(--muted);
   margin: 7px 0 0;
-  font-size: 12px;
+  font-size: 14px;
 }
 .actions {
   display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .connection-bar {
@@ -232,7 +232,7 @@ body.workbench {
   padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
 }
 .connection-bar::before {
@@ -261,14 +261,14 @@ body.workbench {
   margin: 26px 0 12px;
 }
 .section-heading h2 {
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 600;
   margin: 0;
 }
 .section-heading small,
 .muted {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
 }
 .metric-grid {
   display: grid;
@@ -284,14 +284,14 @@ body.workbench {
   text-align: left;
 }
 .metric .label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--muted);
   display: flex;
   justify-content: space-between;
   gap: 8px;
 }
 .metric .value {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 550;
   letter-spacing: -1px;
   line-height: 1.4;
@@ -299,7 +299,7 @@ body.workbench {
   font-variant-numeric: tabular-nums;
 }
 .metric .note {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
 }
 .metric.featured {
@@ -318,7 +318,7 @@ body.workbench {
   padding: 14px 20px;
   margin-top: 14px;
   background: var(--panel);
-  font-size: 12px;
+  font-size: 14px;
 }
 .status-item {
   display: flex;
@@ -329,7 +329,7 @@ body.workbench {
   display: inline-block;
   border-radius: 5px;
   padding: 2px 7px;
-  font-size: 10px;
+  font-size: 14px;
   background: #263248;
   color: var(--accent);
   white-space: nowrap;
@@ -363,12 +363,12 @@ body.workbench {
   gap: 12px;
 }
 .panel-heading h2 {
-  font-size: 14px;
+  font-size: 18px;
   margin: 0;
   font-weight: 600;
 }
 .panel-heading small {
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
 }
 .chart {
@@ -378,7 +378,7 @@ body.workbench {
 }
 .chart text {
   fill: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
 }
 .chart line {
   stroke: var(--line);
@@ -387,14 +387,14 @@ body.workbench {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 10px;
+  font-size: 14px;
   color: var(--muted);
   margin-top: 8px;
 }
 .legend {
   display: flex;
   gap: 16px;
-  font-size: 11px;
+  font-size: 14px;
   color: var(--muted);
   margin-top: 14px;
 }
@@ -415,7 +415,7 @@ body.workbench {
 .cache-title {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
+  font-size: 14px;
   margin-bottom: 8px;
 }
 .track {
@@ -431,7 +431,7 @@ body.workbench {
   border-radius: 5px;
 }
 .cache-row p {
-  font-size: 10px;
+  font-size: 14px;
   color: var(--muted);
   margin: 7px 0 0;
 }
@@ -443,12 +443,12 @@ body.workbench {
   border-collapse: collapse;
   text-align: left;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 14px;
 }
 .data-table th {
   font-weight: 400;
   color: var(--muted);
-  font-size: 10px;
+  font-size: 14px;
   padding: 10px;
   border-bottom: 1px solid var(--line);
 }
@@ -464,7 +464,7 @@ body.workbench {
 }
 .data-table code {
   font:
-    11px Consolas,
+    14px Consolas,
     monospace;
   color: #c8cfde;
 }
@@ -506,7 +506,7 @@ body.workbench {
   color: var(--accent);
 }
 .footnote {
-  font-size: 11px;
+  font-size: 14px;
   color: #949eaf;
   margin-top: 20px;
   line-height: 1.9;
@@ -518,7 +518,7 @@ body.workbench {
   flex-wrap: wrap;
   padding: 10px 24px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 14px;
 }
 .sr-extra button {
   padding: 5px 10px;
@@ -554,7 +554,7 @@ body.workbench {
     padding: 24px;
   }
   .workbench .container {
-    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
   }
 }
 @media (max-width: 760px) {
@@ -591,7 +591,7 @@ body.workbench {
     font-size: 18px;
   }
   .rail a.nav-item {
-    font-size: 12px;
+    font-size: 14px;
     padding: 9px 10px;
     white-space: nowrap;
   }
@@ -657,6 +657,93 @@ body.workbench {
     flex: 1;
     justify-content: center;
     padding: 9px 4px;
-    font-size: 11px;
+    font-size: 14px;
   }
+}
+
+/* 旧调试与监视页面同步采用可读字号。 */
+.workbench .endpoint strong {
+  font-size: 16px;
+}
+.workbench .endpoint code,
+.workbench .method,
+.workbench .request-panel label,
+.workbench .request-hint,
+.workbench .sidebar-foot,
+.workbench .heading p,
+.workbench .response-meta,
+.workbench .response-head button,
+.workbench .copy-feedback,
+.workbench .request-table,
+.workbench .request-table th,
+.workbench .stat,
+.workbench .stat span,
+.workbench .stat small {
+  font-size: 14px;
+}
+.workbench .response-head h3 {
+  font-size: 16px;
+}
+.workbench #response-body {
+  font-size: 15px;
+}
+.workbench .main {
+  overflow: auto;
+}
+.workbench .request-panel {
+  flex-shrink: 0;
+}
+.workbench .response-area {
+  min-height: 240px;
+}
+textarea {
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 12px;
+}
+textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+#body-editor {
+  margin-top: 16px;
+}
+#request-body {
+  display: block;
+  width: 100%;
+  min-height: 140px;
+  resize: vertical;
+  font:
+    15px/1.6 Consolas,
+    "Microsoft YaHei",
+    monospace;
+}
+#body-error {
+  color: var(--red);
+  margin-bottom: 0;
+}
+dialog {
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  color: var(--text);
+}
+dialog::backdrop {
+  background: #0009;
+}
+dialog h2 {
+  font-size: 20px;
+  margin-top: 0;
+}
+#confirm-details {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+dialog .actions {
+  justify-content: flex-end;
 }

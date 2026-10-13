@@ -34,12 +34,12 @@
   const bytes = (n) =>
     n == null
       ? "未采集"
-      : n >= 1073741824
-        ? (n / 1073741824).toFixed(2) + " GiB"
-        : n >= 1048576
-          ? (n / 1048576).toFixed(1) + " MiB"
-          : n >= 1024
-            ? (n / 1024).toFixed(1) + " KiB"
+      : n >= 1000000000
+        ? (n / 1000000000).toFixed(2) + " GB"
+        : n >= 1000000
+          ? (n / 1000000).toFixed(1) + " MB"
+          : n >= 1000
+            ? (n / 1000).toFixed(1) + " KB"
             : n + " B";
   function el(tag, text, cls) {
     const n = document.createElement(tag);
@@ -217,7 +217,7 @@
       metric("章节总数", num(i.library.chapters), "所有漫画章节"),
       metric("图片总数", num(i.library.images), "已索引的原图"),
       metric(
-        "超分缓存",
+        "超分缓存占用",
         bytes(i.cache.bytes),
         i.cache.status === "unavailable"
           ? "缓存目录不可读"
@@ -390,9 +390,11 @@
         "本次运行 · 含排队等待",
       ),
       metric(
-        "已知响应体大小",
+        "响应数据量",
         bytes(total.bytes),
-        total.unknownBytes + " 次大小未知 · 不含响应头",
+        total.unknownBytes
+          ? `${total.unknownBytes} 次响应未计入 · 仅统计内容`
+          : "仅统计返回内容",
       ),
     );
     chart(
@@ -425,7 +427,7 @@
         row(
           "命中 / 未命中",
           total.hit + " / " + total.miss,
-          "目前章节图片列表使用 Redis，缓存有效期 24 小时",
+          "列表、搜索、详情、阅读与收藏缓存 60 秒；章节图片缓存 24 小时",
         ),
         row(
           "不可用 / 未使用",
@@ -653,7 +655,7 @@
   };
   if (page === "overview") {
     $("library-cards").replaceChildren(
-      ...["漫画总数", "章节总数", "图片总数", "超分缓存"].map((t) =>
+      ...["漫画总数", "章节总数", "图片总数", "超分缓存占用"].map((t) =>
         metric(t, "—", "等待数据"),
       ),
     );
@@ -664,8 +666,8 @@
     );
   } else
     $("category-cards").replaceChildren(
-      ...["HTTP 请求", "失败 / 中断", "平均响应耗时", "已知响应体大小"].map(
-        (t) => metric(t, "—", "等待数据"),
+      ...["HTTP 请求", "失败 / 中断", "平均响应耗时", "响应数据量"].map((t) =>
+        metric(t, "—", "等待数据"),
       ),
     );
   setInterval(() => {
