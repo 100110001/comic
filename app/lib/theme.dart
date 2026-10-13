@@ -41,30 +41,30 @@ class AppColors extends ThemeExtension<AppColors> {
   });
 
   static const dark = AppColors(
-    bg: Color(0xFF17181c),
-    surface1: Color(0xFF22242a),
-    surface2: Color(0xFF2b2d34),
-    border: Color(0xFF363840),
-    borderStrong: Color(0xFF30323a),
-    accent: Color(0xFFb5afe8),
-    text1: Color(0xFFf1f0f4),
-    text2: Color(0xFFa9a7b2),
+    bg: Color(0xFF111318),
+    surface1: Color(0xFF191c23),
+    surface2: Color(0xFF222630),
+    border: Color(0xFF303540),
+    borderStrong: Color(0xFF303540),
+    accent: Color(0xFF91b2ee),
+    text1: Color(0xFFe8ebf2),
+    text2: Color(0xFF9aa3b3),
     favorite: Color(0xFFf778ba),
     star: Color(0xFFf5c542),
     readerBg: Colors.black,
-    readerBar: Color(0xFF22242a),
-    navBg: Color(0xFF22242a),
+    readerBar: Color(0xFF191c23),
+    navBg: Color(0xFF14171d),
   );
 
   static const light = AppColors(
-    bg: Color(0xFFf6f5f2),
+    bg: Color(0xFFf3f5f9),
     surface1: Color(0xFFffffff),
-    surface2: Color(0xFFeeece7),
-    border: Color(0xFFe5e2dc),
-    borderStrong: Color(0xFFe5e2dc),
-    accent: Color(0xFF6860a8),
-    text1: Color(0xFF29272f),
-    text2: Color(0xFF706c79),
+    surface2: Color(0xFFe9eef5),
+    border: Color(0xFFd8e0eb),
+    borderStrong: Color(0xFFd8e0eb),
+    accent: Color(0xFF365f9c),
+    text1: Color(0xFF202936),
+    text2: Color(0xFF59677a),
     favorite: Color(0xFFd03592),
     star: Color(0xFF9a6700),
     readerBg: Color(0xFFf6f5f2),
@@ -146,7 +146,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     brightness: brightness,
     primary: c.accent,
     onPrimary: brightness == Brightness.dark
-        ? const Color(0xFF252139)
+        ? const Color(0xFF14213b)
         : Colors.white,
     secondary: c.accent,
     onSecondary: brightness == Brightness.dark ? Colors.black : Colors.white,
@@ -170,39 +170,42 @@ ThemeData buildAppTheme(Brightness brightness) {
       fontFamilyFallback: cjkFallback,
     ),
     titleMedium: TextStyle(
-      fontSize: 16,
+      fontSize: 18,
       fontWeight: FontWeight.w600,
       color: c.text1,
       fontFamilyFallback: cjkFallback,
     ),
     bodyLarge: TextStyle(
-      fontSize: 15,
+      height: 1.5,
+      fontSize: 16,
       color: c.text1,
       fontFamilyFallback: cjkFallback,
     ),
     bodyMedium: TextStyle(
-      fontSize: 14,
+      height: 1.5,
+      fontSize: 16,
       color: c.text1,
       fontFamilyFallback: cjkFallback,
     ),
     bodySmall: TextStyle(
-      fontSize: 12,
+      height: 1.5,
+      fontSize: 14,
       color: c.text2,
       fontFamilyFallback: cjkFallback,
     ),
     labelLarge: TextStyle(
-      fontSize: 14,
+      fontSize: 16,
       fontWeight: FontWeight.w600,
       color: c.text1,
       fontFamilyFallback: cjkFallback,
     ),
     labelMedium: TextStyle(
-      fontSize: 12,
+      fontSize: 14,
       color: c.text1,
       fontFamilyFallback: cjkFallback,
     ),
     labelSmall: TextStyle(
-      fontSize: 11,
+      fontSize: 14,
       color: c.text2,
       letterSpacing: 0,
       fontFamilyFallback: cjkFallback,
@@ -239,16 +242,17 @@ ThemeData buildAppTheme(Brightness brightness) {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(kRadiusCard),
+        side: BorderSide(color: c.border),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: c.surface1,
+      backgroundColor: c.navBg,
       indicatorColor: c.accent.withValues(alpha: 0.14),
       elevation: 0,
-      height: 72,
+      height: 80,
       labelTextStyle: WidgetStateProperty.resolveWith(
         (states) => TextStyle(
-          fontSize: 12,
+          fontSize: 14,
           fontWeight: states.contains(WidgetState.selected)
               ? FontWeight.w600
               : FontWeight.w400,
@@ -275,7 +279,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         textStyle: TextStyle(
-          fontSize: 14,
+          fontSize: 16,
           fontWeight: FontWeight.w500,
           fontFamily: cjkFallback.first,
           fontFamilyFallback: cjkFallback,
@@ -289,7 +293,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: OutlinedButton.styleFrom(
         foregroundColor: c.text1,
         backgroundColor: c.surface2,
-        side: BorderSide.none,
+        side: BorderSide(color: c.border),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(kRadiusButton),
@@ -367,7 +371,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       ),
       labelStyle: TextStyle(
         color: c.text2,
-        fontSize: 13,
+        fontSize: 14,
         fontFamily: cjkFallback.first,
         fontFamilyFallback: cjkFallback,
       ),
@@ -391,12 +395,12 @@ ThemeData buildAppTheme(Brightness brightness) {
       overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
     ),
     navigationRailTheme: NavigationRailThemeData(
-      backgroundColor: c.surface1,
+      backgroundColor: c.navBg,
       indicatorColor: c.accent.withValues(alpha: 0.15),
       selectedIconTheme: IconThemeData(color: c.accent),
       unselectedIconTheme: IconThemeData(color: c.text2),
-      selectedLabelTextStyle: TextStyle(color: c.accent, fontSize: 12),
-      unselectedLabelTextStyle: TextStyle(color: c.text2, fontSize: 12),
+      selectedLabelTextStyle: TextStyle(color: c.accent, fontSize: 14),
+      unselectedLabelTextStyle: TextStyle(color: c.text2, fontSize: 14),
       labelType: NavigationRailLabelType.all,
     ),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(

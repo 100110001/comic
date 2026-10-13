@@ -140,7 +140,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         title: TextField(
           controller: _controller,
           autofocus: true,
-          style: TextStyle(color: c.text1, fontSize: 14),
+          style: TextStyle(color: c.text1, fontSize: 16),
           decoration: InputDecoration(
             hintText: '搜索漫画、作者…',
             hintStyle: TextStyle(color: c.text2),

@@ -14,6 +14,7 @@ import 'screens/settings_screen.dart';
 import 'theme.dart';
 import 'tray/close_to_tray.dart';
 import 'widgets/pressable.dart';
+import 'widgets/page_heading.dart';
 import 'widgets/reading_lists.dart';
 import 'widgets/window_title_bar.dart';
 
@@ -184,7 +185,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.appColors;
     return Scaffold(
       body: Row(
         children: [
@@ -206,7 +206,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               }
             },
           ),
-          VerticalDivider(width: 1, color: c.border),
           Expanded(
             child: TweenAnimationBuilder<double>(
               key: ValueKey('page-$_index'),
@@ -271,7 +270,7 @@ class _DesktopSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.appColors;
     return Container(
-      width: 196,
+      width: 216,
       decoration: BoxDecoration(
         color: c.navBg,
         border: Border(right: BorderSide(color: c.border)),
@@ -286,12 +285,12 @@ class _DesktopSidebar extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: c.accent.withValues(alpha: 0.08),
+                    color: c.accent,
                     borderRadius: BorderRadius.circular(kRadiusButton),
                   ),
                   child: Icon(
                     Icons.auto_stories_rounded,
-                    color: c.accent,
+                    color: Theme.of(context).colorScheme.onPrimary,
                     size: 22,
                   ),
                 ),
@@ -314,7 +313,7 @@ class _DesktopSidebar extends StatelessWidget {
                         '私人漫画书库',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: c.text2, fontSize: 11),
+                        style: TextStyle(color: c.text2, fontSize: 14),
                       ),
                     ],
                   ),
@@ -334,7 +333,7 @@ class _DesktopSidebar extends StatelessWidget {
                         i == 0 ? '浏览' : '我的书库',
                         style: TextStyle(
                           color: c.text2,
-                          fontSize: 11,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                         ),
@@ -424,7 +423,7 @@ class _SideNavItemState extends State<_SideNavItem> {
                     widget.label,
                     style: TextStyle(
                       color: fg,
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
                     ),
                   ),
@@ -456,14 +455,7 @@ class _PageScaffold extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(28, 28, 28, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 6),
-                Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-              ],
-            ),
+            child: PageHeading(title: title, subtitle: subtitle),
           ),
           Expanded(child: child),
         ],

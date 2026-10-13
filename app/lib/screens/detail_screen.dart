@@ -175,7 +175,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 final header = _Header(
                   vertical:
                       constraints.maxWidth >= 720 &&
-                      MediaQuery.textScalerOf(ctx).scale(14) <= 20,
+                      MediaQuery.textScalerOf(ctx).scale(16) <= 20,
                   comic: detail!.comic,
                   favorited: detail.favorited,
                   authorFavorited: detail.authorFavorited,
@@ -468,7 +468,7 @@ class _Header extends StatelessWidget {
         children: [
           Icon(icon, size: 14, color: c.accent),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(color: c.accent, fontSize: 12)),
+          Text(label, style: TextStyle(color: c.accent, fontSize: 14)),
         ],
       ),
     );
@@ -520,7 +520,7 @@ class _ChapterList extends StatelessWidget {
                   const SizedBox(width: 10),
                   Text(
                     '${chapters.length} 话',
-                    style: TextStyle(color: c.text2, fontSize: 12),
+                    style: TextStyle(color: c.text2, fontSize: 14),
                   ),
                 ],
               ),
@@ -545,21 +545,21 @@ class _ChapterList extends StatelessWidget {
                   ),
                   child: Text(
                     '$i',
-                    style: TextStyle(color: c.accent, fontSize: 12),
+                    style: TextStyle(color: c.accent, fontSize: 14),
                   ),
                 ),
                 title: Text(
                   ch.title,
                   style: TextStyle(
                     color: isCurrent ? c.accent : c.text1,
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w400,
                   ),
                 ),
                 subtitle: isCurrent
                     ? Text(
                         '上次读到这里',
-                        style: TextStyle(color: c.accent, fontSize: 12),
+                        style: TextStyle(color: c.accent, fontSize: 14),
                       )
                     : null,
                 trailing: Icon(

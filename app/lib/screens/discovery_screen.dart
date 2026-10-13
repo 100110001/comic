@@ -129,7 +129,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         builder: (context, constraints) {
           final wide =
               constraints.maxWidth >= 900 &&
-              MediaQuery.textScalerOf(context).scale(14) <= 22;
+              MediaQuery.textScalerOf(context).scale(16) <= 22;
           final heroWidth = math.min(constraints.maxWidth - 48, 1040.0);
           final widthFit = wide
               ? (heroWidth - 360 - 64) / 1.7
