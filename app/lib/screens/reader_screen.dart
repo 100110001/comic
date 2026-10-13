@@ -225,6 +225,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     });
     _autoTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       if (!mounted || _loading || _initialJumping || _panel != null) return;
+      if (_loadFailed || _images.isEmpty) {
+        _stopAutoReading();
+        return;
+      }
       if (_scrollReading && _scrollController.hasClients) {
         final position = _scrollController.position;
         if (position.pixels < position.maxScrollExtent) {
