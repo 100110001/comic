@@ -1,12 +1,12 @@
 {
-  "releaseNotes": "统一全局阅读设置，优化桌面与移动端阅读器；重新整理漫画详情分区，新增原目录打开与漫画信息复制；开发构建显示 DEVELOP 水印，便于区分正式版本。",
-  "latestVersion": "1.1.2",
   "platforms": {
-    "android": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.1.2/app-release.apk"
-    },
     "windows": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.1.2/comic-setup.exe"
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.0/comic-setup.exe"
+    },
+    "android": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.0/app-release.apk"
     }
-  }
+  },
+  "latestVersion": "1.2.0",
+  "releaseNotes": "统一蓝灰工作台风格与明暗双主题，优化桌面和手机阅读体验；改善漫画加载动效并限制机械硬盘原图并发；重设计后台看板，扩展缓存管理与 API 调试；修复特殊字符图片地址导致的 404、大章节加载阻塞和失效图片索引问题。"
 }
