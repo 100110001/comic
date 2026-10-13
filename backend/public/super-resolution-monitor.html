@@ -31,7 +31,7 @@
       .monitor-summary p {
         margin: 3px 0;
         color: var(--muted);
-        font-size: 12px;
+        font-size: 14px;
       }
       .stats {
         display: flex;
@@ -51,7 +51,7 @@
         color: #c8d8ff;
       }
       .stat span {
-        font-size: 12px;
+        font-size: 14px;
         color: var(--muted);
       }
       .connection.status-err {
@@ -93,7 +93,7 @@
         gap: 6px;
         align-items: center;
         color: var(--muted);
-        font-size: 12px;
+        font-size: 14px;
       }
       .requests {
         overflow: auto;
@@ -105,7 +105,7 @@
         min-width: 560px;
         table-layout: fixed;
         border-collapse: collapse;
-        font-size: 12px;
+        font-size: 14px;
         text-align: left;
       }
       .col-sequence {
@@ -166,7 +166,7 @@
         display: inline-block;
         margin-left: 8px;
         color: var(--muted);
-        font-size: 11px;
+        font-size: 14px;
       }
       .request-select {
         background: transparent;
@@ -197,7 +197,7 @@
         padding: 2px 7px;
         background: #273b60;
         color: #b7cbff;
-        font-size: 11px;
+        font-size: 14px;
       }
       .tag.ready {
         background: #1d3c33;
@@ -255,7 +255,7 @@
       }
       .preview-heading p {
         color: var(--muted);
-        font-size: 12px;
+        font-size: 14px;
         margin: 3px 0 0;
       }
       .detail {
@@ -269,7 +269,7 @@
         overflow-wrap: anywhere;
       }
       .detail p {
-        font-size: 12px;
+        font-size: 14px;
         margin: 0;
         color: var(--muted);
       }
@@ -282,18 +282,18 @@
       }
       .tools button {
         padding: 5px 8px;
-        font-size: 12px;
+        font-size: 14px;
       }
       .tools label {
         display: flex;
         gap: 8px;
         align-items: center;
         color: var(--muted);
-        font-size: 12px;
+        font-size: 14px;
       }
       .tools select {
         padding: 5px 8px;
-        font-size: 12px;
+        font-size: 14px;
       }
       #progress {
         width: 120px;
@@ -349,7 +349,7 @@
         color: white;
         border-radius: 5px;
         padding: 3px 7px;
-        font-size: 11px;
+        font-size: 14px;
       }
       .message {
         color: var(--muted);
@@ -369,7 +369,7 @@
         gap: 15px;
       }
       .links a {
-        font-size: 12px;
+        font-size: 14px;
         text-decoration: none;
       }
       .links a:hover {
@@ -377,7 +377,7 @@
       }
       .footer {
         padding: 10px 20px;
-        font-size: 11px;
+        font-size: 14px;
         line-height: 1.7;
         color: var(--muted);
         background: var(--panel);
@@ -460,8 +460,10 @@
         }
       }
     </style>
+    <link rel="stylesheet" href="/workbench.css" />
   </head>
   <body>
+    <script src="/shell.js"></script>
     <header class="app-header">
       <div class="brand">
         <span class="brand-mark" aria-hidden="true">C</span>
@@ -471,7 +473,7 @@
         </div>
       </div>
       <nav class="page-nav" aria-label="后台导航">
-        <a href="/">API 调试</a
+        <a href="/api-debug.html">API 调试</a
         ><a href="/super-resolution-monitor.html" aria-current="page"
           >超分监视</a
         >
@@ -490,6 +492,12 @@
       </div>
       <button id="refresh" class="primary">立即刷新</button>
     </section>
+    <section class="sr-extra" aria-label="近期超分统计">
+      <span id="sr-success">成功率 —</span><button id="sr-failed">失败 —</button
+      ><button id="sr-hit">缓存命中 —</button><span id="sr-shared">共享 —</span
+      ><span id="sr-elapsed">平均耗时 —</span
+      ><span class="muted">基于保留明细 · 耗时含排队</span>
+    </section>
     <main>
       <aside>
         <div class="filters">
@@ -505,6 +513,11 @@
             <option value="running">处理中</option>
             <option value="ready">已完成</option>
             <option value="failed">失败</option></select
+          ><select id="kind-filter" aria-label="筛选处理类型">
+            <option value="all">全部处理类型</option>
+            <option value="cache">缓存命中</option>
+            <option value="shared">共享任务</option>
+            <option value="inference">新推理</option></select
           ><label><input id="auto" type="checkbox" checked /> 自动刷新</label>
         </div>
         <div id="request-scroll" class="requests">
@@ -650,6 +663,8 @@
         const visible = records.filter(
           (r) =>
             ($("filter").value === "all" || r.status === $("filter").value) &&
+            ($("kind-filter").value === "all" ||
+              r.kind === $("kind-filter").value) &&
             `${r.filename} ${r.imageId}`.toLowerCase().includes(query),
         );
         const fragment = document.createDocumentFragment();
@@ -910,6 +925,32 @@
       new ResizeObserver(size).observe($("canvas"));
       $("search").oninput = list;
       $("filter").onchange = list;
+      $("kind-filter").onchange = list;
+      $("sr-failed").onclick = () => {
+        selected = records.find((r) => r.status === "failed")?.id ?? null;
+        signature = "";
+        $("filter").value = "failed";
+        $("kind-filter").value = "all";
+        $("search").value = "";
+        list();
+        detail();
+      };
+      $("sr-hit").onclick = () => {
+        $("filter").value = "all";
+        selected = records.find((r) => r.kind === "cache")?.id ?? null;
+        signature = "";
+        $("kind-filter").value = "cache";
+        $("search").value = "";
+        list();
+        detail();
+      };
+      const initial = new URLSearchParams(location.search);
+      if (
+        ["failed", "ready", "queued", "running"].includes(initial.get("status"))
+      )
+        $("filter").value = initial.get("status");
+      if (["cache", "shared", "inference"].includes(initial.get("kind")))
+        $("kind-filter").value = initial.get("kind");
       async function refresh() {
         if (busy) return;
         busy = true;
@@ -927,6 +968,42 @@
           if (json.code !== 0 || !Array.isArray(json.data?.requests))
             throw Error("监视接口响应异常");
           records = json.data.requests;
+          const ended = records.filter(
+            (r) => r.status === "ready" || r.status === "failed",
+          );
+          text(
+            "sr-success",
+            "成功率 " +
+              (ended.length
+                ? (
+                    (100 * ended.filter((r) => r.status === "ready").length) /
+                    ended.length
+                  ).toFixed(1) + "%"
+                : "—"),
+          );
+          text(
+            "sr-failed",
+            "失败 " + records.filter((r) => r.status === "failed").length,
+          );
+          text(
+            "sr-hit",
+            "缓存命中 " + records.filter((r) => r.kind === "cache").length,
+          );
+          text(
+            "sr-shared",
+            "共享 " + records.filter((r) => r.kind === "shared").length,
+          );
+          text(
+            "sr-elapsed",
+            "平均耗时 " +
+              (ended.length
+                ? (
+                    ended.reduce((n, r) => n + r.elapsedMs, 0) /
+                    ended.length /
+                    1000
+                  ).toFixed(2) + " 秒"
+                : "—"),
+          );
           $("connection").classList.remove("status-err");
           text("total", json.data.total);
           text("queued", json.data.queued);
@@ -935,7 +1012,19 @@
             "connection",
             `${json.data.enabled ? "后端超分已启用" : "后端超分已禁用"} · ${new Date().toLocaleTimeString()} 更新 · 保留最近 ${json.data.limit} 条`,
           );
-          if (selected === null && records.length) selected = records[0].id;
+          if (selected === null && records.length) {
+            const requested = Number(initial.get("request"));
+            selected =
+              records.find((r) => r.id === requested)?.id ??
+              records.find(
+                (r) =>
+                  ($("filter").value === "all" ||
+                    r.status === $("filter").value) &&
+                  ($("kind-filter").value === "all" ||
+                    r.kind === $("kind-filter").value),
+              )?.id ??
+              records[0].id;
+          }
           list();
           detail();
         } catch (error) {

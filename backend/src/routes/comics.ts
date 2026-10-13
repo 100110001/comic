@@ -1,3 +1,5 @@
+import { cacheResponse } from "../middleware/api-cache";
+import { invalidateApiCache } from "../db/redis";
 import { Router } from "express";
 import type { Request, Response } from "express";
 import { db } from "../db/knex";
@@ -29,49 +31,74 @@ export function comicQuery() {
 export const comicsRouter: Router = Router();
 
 // 列表（分页 + 搜索）
-comicsRouter.get("/", async (req: Request, res: Response) => {
-  try {
-    const pageOffset = Math.max(1, parseInt(String(req.query.pageOffset ?? 1)));
-    const random = req.query.random === "1";
-    const seed = parseInt(String(req.query.seed ?? ""));
-    const hasSeed = Number.isInteger(seed);
-    const pageSize = Math.min(
-      random ? 500 : 100,
-      Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
-    );
-    const keyword = String(req.query.keyword ?? "").trim();
+comicsRouter.get(
+  "/",
+  cacheResponse(
+    (req) => {
+      const random = req.query.random === "1";
+      const seed = parseInt(String(req.query.seed ?? ""));
+      if (random && !Number.isInteger(seed)) return null;
+      return [
+        "comics",
+        Math.max(1, parseInt(String(req.query.pageOffset ?? 1))),
+        Math.min(
+          random ? 500 : 100,
+          Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
+        ),
+        String(req.query.keyword ?? "").trim(),
+        random,
+        random ? seed : null,
+      ];
+    },
+    () => ["catalog"],
+  ),
+  async (req: Request, res: Response) => {
+    try {
+      const pageOffset = Math.max(
+        1,
+        parseInt(String(req.query.pageOffset ?? 1)),
+      );
+      const random = req.query.random === "1";
+      const seed = parseInt(String(req.query.seed ?? ""));
+      const hasSeed = Number.isInteger(seed);
+      const pageSize = Math.min(
+        random ? 500 : 100,
+        Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
+      );
+      const keyword = String(req.query.keyword ?? "").trim();
 
-    let query = comicQuery();
-    if (keyword) {
-      query = query
-        .where("comics.title", "like", `%${keyword}%`)
-        .orWhere("comics.author", "like", `%${keyword}%`);
+      let query = comicQuery();
+      if (keyword) {
+        query = query
+          .where("comics.title", "like", `%${keyword}%`)
+          .orWhere("comics.author", "like", `%${keyword}%`);
+      }
+
+      let totalQuery = db("comics");
+      if (keyword) {
+        totalQuery = totalQuery
+          .where("comics.title", "like", `%${keyword}%`)
+          .orWhere("comics.author", "like", `%${keyword}%`);
+      }
+      const total = await totalQuery
+        .countDistinct({ total: "comics.id" })
+        .first()
+        .then((r) => Number(r!.total));
+      const ordered = random
+        ? hasSeed
+          ? query.orderByRaw("RAND(?)", [seed])
+          : query.orderByRaw("RAND()")
+        : query.orderBy("comics.title");
+      const rows = await ordered
+        .limit(pageSize)
+        .offset((pageOffset - 1) * pageSize);
+
+      ok(res, rows, { pageOffset, pageSize, total });
+    } catch {
+      fail(res, "Failed to fetch comics", 1, 500);
     }
-
-    let totalQuery = db("comics");
-    if (keyword) {
-      totalQuery = totalQuery
-        .where("comics.title", "like", `%${keyword}%`)
-        .orWhere("comics.author", "like", `%${keyword}%`);
-    }
-    const total = await totalQuery
-      .countDistinct({ total: "comics.id" })
-      .first()
-      .then((r) => Number(r!.total));
-    const ordered = random
-      ? hasSeed
-        ? query.orderByRaw("RAND(?)", [seed])
-        : query.orderByRaw("RAND()")
-      : query.orderBy("comics.title");
-    const rows = await ordered
-      .limit(pageSize)
-      .offset((pageOffset - 1) * pageSize);
-
-    ok(res, rows, { pageOffset, pageSize, total });
-  } catch {
-    fail(res, "Failed to fetch comics", 1, 500);
-  }
-});
+  },
+);
 
 // 随机（必须在 /:id 前注册）
 comicsRouter.get("/random", async (req: Request, res: Response) => {
@@ -89,43 +116,50 @@ comicsRouter.get("/random", async (req: Request, res: Response) => {
 });
 
 // 详情
-comicsRouter.get("/:id", async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(String(req.params.id));
-    if (isNaN(id)) return fail(res, "Invalid id");
+comicsRouter.get(
+  "/:id",
+  cacheResponse(
+    (req) => ["comic", parseInt(String(req.params.id))],
+    (req) => [`detail:${parseInt(String(req.params.id))}`, "author-details"],
+  ),
+  async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(String(req.params.id));
+      if (isNaN(id)) return fail(res, "Invalid id");
 
-    const comic = await comicQuery().where("comics.id", id).first();
-    if (!comic) return fail(res, "Comic not found", 1, 404);
+      const comic = await comicQuery().where("comics.id", id).first();
+      if (!comic) return fail(res, "Comic not found", 1, 404);
 
-    const chapters = await db("chapters")
-      .select("id", "title", "sort_order")
-      .where({ comic_id: id })
-      .orderBy("sort_order");
+      const chapters = await db("chapters")
+        .select("id", "title", "sort_order")
+        .where({ comic_id: id })
+        .orderBy("sort_order");
 
-    const favorite = await db("favorites").where({ comic_id: id }).first();
-    const progress = await db("reading_progress")
-      .where({ comic_id: id })
-      .first();
-    const authorFav =
-      comic.author != null
-        ? await db("favorite_authors").where({ author: comic.author }).first()
-        : null;
-    ok(res, {
-      ...comic,
-      favorited: !!favorite,
-      authorFavorited: !!authorFav,
-      progress: progress
-        ? {
-            chapterId: progress.chapter_id,
-            pageNumber: progress.page_number,
-          }
-        : null,
-      chapters,
-    });
-  } catch {
-    fail(res, "Failed to fetch comic", 1, 500);
-  }
-});
+      const favorite = await db("favorites").where({ comic_id: id }).first();
+      const progress = await db("reading_progress")
+        .where({ comic_id: id })
+        .first();
+      const authorFav =
+        comic.author != null
+          ? await db("favorite_authors").where({ author: comic.author }).first()
+          : null;
+      ok(res, {
+        ...comic,
+        favorited: !!favorite,
+        authorFavorited: !!authorFav,
+        progress: progress
+          ? {
+              chapterId: progress.chapter_id,
+              pageNumber: progress.page_number,
+            }
+          : null,
+        chapters,
+      });
+    } catch {
+      fail(res, "Failed to fetch comic", 1, 500);
+    }
+  },
+);
 
 // 打开后端电脑上的漫画原文件目录，只接收漫画 ID。
 comicsRouter.post(
@@ -180,6 +214,7 @@ comicsRouter.put("/:id/progress", async (req: Request, res: Response) => {
       .onConflict("comic_id")
       .merge({ chapter_id: chapterId, page_number: pageNumber });
 
+    await invalidateApiCache(["recent", `detail:${id}`]);
     ok(res, { comicId: id, chapterId, pageNumber });
   } catch (err) {
     console.error("[update progress]", err);
@@ -200,6 +235,7 @@ comicsRouter.post("/:id/favorite", async (req: Request, res: Response) => {
       .insert({ comic_id: id })
       .onConflict("comic_id")
       .ignore();
+    await invalidateApiCache(["catalog", "favorites", `detail:${id}`]);
     ok(res, { comicId: id, favorited: true });
   } catch (err) {
     console.error("[favorite comic]", err);
@@ -213,6 +249,7 @@ comicsRouter.delete("/:id/favorite", async (req: Request, res: Response) => {
     if (isNaN(id)) return fail(res, "Invalid id");
 
     await db("favorites").where({ comic_id: id }).del();
+    await invalidateApiCache(["catalog", "favorites", `detail:${id}`]);
     ok(res, { comicId: id, favorited: false });
   } catch (err) {
     console.error("[unfavorite comic]", err);

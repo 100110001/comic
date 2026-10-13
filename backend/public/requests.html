@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="stylesheet" href="/workbench.css" />
+    <title>请求与缓存 · 漫画后台</title>
+  </head>
+  <body data-page="requests">
+    <script src="/shell.js"></script>
+    <main class="dashboard">
+      <header class="page-top">
+        <div>
+          <p class="eyebrow">COMIC / OBSERVATORY</p>
+          <h1>请求与缓存</h1>
+          <p class="subtitle">沿着请求链路，观察接口、图片传输与超分缓存。</p>
+        </div>
+        <div class="actions">
+          <label
+            ><input id="auto-refresh" type="checkbox" checked /> 自动刷新</label
+          ><button id="refresh" class="primary">刷新数据 ↻</button>
+        </div>
+      </header>
+      <div id="connection" class="connection-bar" role="status">
+        <span id="connection-text">正在获取后台数据…</span
+        ><time id="updated"></time>
+      </div>
+      <div class="tabs" aria-label="请求类别">
+        <button data-category="all" aria-pressed="false">全部请求</button
+        ><button data-category="api" aria-pressed="true">普通接口</button
+        ><button data-category="image" aria-pressed="false">图片请求</button
+        ><button data-category="upscale" aria-pressed="false">超分请求</button>
+      </div>
+      <section class="metric-grid" id="category-cards"></section>
+      <div class="two-col">
+        <section class="panel">
+          <div class="panel-heading">
+            <h2>请求与耗时趋势</h2>
+            <small>最近 15 分钟 · 每分钟</small>
+          </div>
+          <div id="request-chart"></div>
+          <div class="chart-note">
+            <span>蓝色柱：请求数</span
+            ><span>浅灰线：平均响应耗时（右轴 ms）</span>
+          </div>
+          <p class="muted">
+            基于保留明细，空时间桶不代表完整历史；耗时包含等待。
+          </p>
+        </section>
+        <section class="panel">
+          <div class="panel-heading">
+            <h2 id="cache-heading">缓存观察</h2>
+            <small>不同链路独立计算</small>
+          </div>
+          <div id="cache-detail"></div>
+        </section>
+      </div>
+      <section
+        class="panel"
+        id="upscale-trend-panel"
+        style="margin-top: 20px"
+        hidden
+      >
+        <div class="panel-heading">
+          <h2>超分处理耗时</h2>
+          <small>最近 15 分钟 · 已结束的保留请求</small>
+        </div>
+        <div id="upscale-chart"></div>
+        <div class="chart-note">
+          <span>蓝色柱：已结束请求数</span
+          ><span>浅灰线：平均总耗时（含排队，右轴 ms）</span>
+        </div>
+        <p class="muted">
+          按提交时间分桶，包含新推理、缓存命中和共享任务；不代表纯 GPU
+          推理耗时。
+        </p>
+      </section>
+      <section class="panel" style="margin-top: 20px">
+        <div class="panel-heading">
+          <h2>最近请求</h2>
+          <small id="visible-count"></small>
+        </div>
+        <div class="toolbar">
+          <input
+            type="search"
+            id="search"
+            placeholder="搜索请求路径或方法"
+            aria-label="搜索请求"
+          /><select id="status-filter" aria-label="筛选响应状态">
+            <option value="all">全部状态</option>
+            <option value="failed">失败 / 中断</option>
+            <option value="success">成功</option>
+            <option value="304">304 协商缓存</option></select
+          ><select id="cache-filter" aria-label="筛选缓存结果">
+            <option value="all">全部缓存结果</option>
+            <option value="hit">命中</option>
+            <option value="miss">未命中</option>
+            <option value="unavailable">不可用</option>
+            <option value="unused">未使用</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>时间</th>
+                <th>方法</th>
+                <th>路径</th>
+                <th>状态</th>
+                <th>缓存</th>
+                <th>耗时</th>
+                <th>响应体大小</th>
+              </tr>
+            </thead>
+            <tbody id="request-rows"></tbody>
+          </table>
+        </div>
+      </section>
+      <p class="footnote" id="scope-note">
+        仅统计当前进程，重启后清空；请求明细最多保留 500
+        条。看板轮询不计入业务请求。
+      </p>
+    </main>
+    <script src="/dashboard.js" defer></script>
+  </body>
+</html>

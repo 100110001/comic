@@ -9,10 +9,25 @@ import { ok } from "../utils/response";
 import { superResolutionRouter } from "./super-resolution";
 import { imagesRouter } from "./images";
 
+import { requestSnapshot } from "../services/request-monitor";
+import { infrastructureSnapshot } from "../services/dashboard";
+import { superResolution } from "../services/super-resolution";
+
 export const router: Router = Router();
 
 router.get("/health", (_req: Request, res: Response) => {
   ok(res, { status: "ok" });
+});
+
+router.get("/admin/dashboard", async (_req: Request, res: Response) => {
+  res.setHeader("Cache-Control", "no-store");
+  const infrastructure = await infrastructureSnapshot();
+  ok(res, {
+    timestamp: new Date().toISOString(),
+    infrastructure,
+    traffic: requestSnapshot(),
+    superResolution: superResolution.monitor(),
+  });
 });
 
 router.use("/comics", comicsRouter);

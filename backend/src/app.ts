@@ -6,9 +6,12 @@ import { router } from "./routes/index";
 import { config } from "./config";
 import { imageTransferLimit } from "./middleware/image-transfer-limit";
 
+import { observeRequests } from "./services/request-monitor";
+
 const app: express.Express = express();
 
 app.use(cors());
+app.use(observeRequests);
 morgan.token("decoded-url", (req) => {
   try {
     return decodeURIComponent(req.url ?? "");
