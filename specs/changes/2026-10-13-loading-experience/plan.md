@@ -29,13 +29,24 @@ origin: specs/changes/2026-10-13-loading-experience/define.md
 
 无限动画不能作为测试等待完成的条件，慢请求用有限帧验证。加载反馈不能改变图片尺寸、滚动位置或触发额外查询。网络原图字节量不因骨架减少，不宣称量化的生产环境减压幅度。
 
+### U2. 机械硬盘原图传输排队
+
+需求：R6；依赖：U1 已完成。
+
+文件：`backend/src/middleware/image_transfer_limit.ts`、`backend/src/app.ts`、`backend/src/config.ts`、`backend/tests/image-transfer-limit.test.cjs`、`README.md`。
+
+在原图静态资源处理前加入进程内共享的先进先出队列，默认并发为 1，通过 `IMAGE_MAX_CONCURRENT_READS` 配置。只在响应完成、连接断开或传输超时后释放额度；等待中的客户端断开立即移出队列。排队数有上限且有等待超时，过载返回可重试的 503。元数据 API 与超分处理不占此队列，不将事件循环或数据库改为单线程。慢客户端占用额度是降低磁盘峰值的已知代价。
+
+验证：独立 Express 测试服务器验证串行/双并发、失败与取消释放额度、排队满载与超时、静态文件成功/304/404和其他 API 不受阻；不连接业务数据库。重新运行仓库五项门禁及后端构建。
+
 ## 规范影响
 
 - `specs/ui-style.convention.md`：骨架、首帧过渡、缓存刷新与减少动画反馈。
 - `specs/image-loading.convention.md`：首帧占位及稳定尺寸，不改变预加载与缓存预算。
 - `specs/data-layer.convention.md`：仅在途查询合并及写入后的隔离。
 - `specs/comics-browsing.spec.md`：重复换批合并等待。
+- `specs/image-loading.convention.md`：后端原图传输额度、取消与过载语义及进程边界。
 
 ## 状态
 
-U1 已实现，五项本地门禁全部通过；最终 PR 统一承载实现与规范收割。
+U1、U2 已实现；最终 PR 统一承载实现与规范收割。
