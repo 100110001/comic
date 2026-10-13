@@ -1,47 +1,125 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
+import 'package:flutter/services.dart';
 
-class ReaderProgressBar extends StatelessWidget {
-  final int currentPage; // 0 起始
+/// 章内进度；输入框与滑杆共用页码范围，不创建会截获 Esc 的路由。
+class ReaderProgressBar extends StatefulWidget {
+  final String chapterTitle;
+  final int currentPage;
   final int totalPages;
   final ValueChanged<int> onSeek;
   const ReaderProgressBar({
     super.key,
+    required this.chapterTitle,
     required this.currentPage,
     required this.totalPages,
     required this.onSeek,
   });
+  @override
+  State<ReaderProgressBar> createState() => _ReaderProgressBarState();
+}
+
+class _ReaderProgressBarState extends State<ReaderProgressBar> {
+  final _controller = TextEditingController();
+  final _focus = FocusNode();
+  String? _error;
+  @override
+  void initState() {
+    super.initState();
+    _controller.text = '${widget.totalPages == 0 ? 0 : widget.currentPage + 1}';
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderProgressBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentPage != widget.currentPage ||
+        oldWidget.totalPages != widget.totalPages ||
+        oldWidget.chapterTitle != widget.chapterTitle) {
+      _controller.text =
+          '${widget.totalPages == 0 ? 0 : widget.currentPage + 1}';
+      _error = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _seek() {
+    final value = int.tryParse(_controller.text);
+    if (value == null || value < 1 || value > widget.totalPages) {
+      setState(() => _error = '请输入 1–${widget.totalPages}');
+      return;
+    }
+    setState(() => _error = null);
+    _focus.unfocus();
+    widget.onSeek(value - 1);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.appColors;
-    final max = totalPages > 1 ? totalPages - 1 : 0;
-    final label = Text(
-      '第 ${currentPage + 1} / $totalPages 页',
-      style: TextStyle(color: c.text2, fontSize: 12),
-    );
-    if (max <= 0) {
-      return Material(
-        color: c.readerBar,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(children: [label]),
-        ),
-      );
-    }
+    final max = widget.totalPages > 1 ? widget.totalPages - 1 : 0;
     return Material(
-      color: c.readerBar,
+      color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-        child: Row(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            label,
-            Expanded(
-              child: Slider(
-                value: currentPage.clamp(0, max).toDouble(),
-                max: max.toDouble(),
-                onChanged: (v) => onSeek(v.round()),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.chapterTitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  child: TextField(
+                    key: const ValueKey('reader-page-input'),
+                    controller: _controller,
+                    textAlign: TextAlign.center,
+                    focusNode: _focus,
+                    enabled: widget.totalPages > 0,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    decoration: const InputDecoration(
+                      hintText: '页码',
+                      semanticCounterText: '当前页码',
+                      isDense: true,
+                      contentPadding: EdgeInsets.all(10),
+                    ),
+                    onSubmitted: (_) => _seek(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '/ ${widget.totalPages}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                IconButton(
+                  tooltip: '跳转到页码',
+                  onPressed: widget.totalPages > 0 ? _seek : null,
+                  icon: const Icon(Icons.arrow_forward, size: 20),
+                ),
+              ],
+            ),
+            if (_error != null)
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
+            Slider(
+              value: widget.currentPage.clamp(0, max).toDouble(),
+              max: max > 0 ? max.toDouble() : 1,
+              onChanged: max > 0
+                  ? (value) => widget.onSeek(value.round())
+                  : null,
             ),
           ],
         ),

@@ -41,33 +41,33 @@ class AppColors extends ThemeExtension<AppColors> {
   });
 
   static const dark = AppColors(
-    bg: Color(0xFF13161c),
-    surface1: Color(0xFF1c2027),
-    surface2: Color(0xFF272d37),
-    border: Color(0xFF2b303a),
-    borderStrong: Color(0xFF1c2027),
-    accent: Color(0xFFadc0ff),
-    text1: Color(0xFFeff0f3),
-    text2: Color(0xFFa3aab7),
+    bg: Color(0xFF17181c),
+    surface1: Color(0xFF22242a),
+    surface2: Color(0xFF2b2d34),
+    border: Color(0xFF363840),
+    borderStrong: Color(0xFF30323a),
+    accent: Color(0xFFb5afe8),
+    text1: Color(0xFFf1f0f4),
+    text2: Color(0xFFa9a7b2),
     favorite: Color(0xFFf778ba),
     star: Color(0xFFf5c542),
     readerBg: Colors.black,
-    readerBar: Color(0xFF1c2027),
-    navBg: Color(0xFF1c2027),
+    readerBar: Color(0xFF22242a),
+    navBg: Color(0xFF22242a),
   );
 
   static const light = AppColors(
-    bg: Color(0xFFf7f8fa),
+    bg: Color(0xFFf6f5f2),
     surface1: Color(0xFFffffff),
-    surface2: Color(0xFFffffff),
-    border: Color(0xFFe8ebef),
-    borderStrong: Color(0xFFe8ebef),
-    accent: Color(0xFF365ecd),
-    text1: Color(0xFF292e35),
-    text2: Color(0xFF6b7380),
+    surface2: Color(0xFFeeece7),
+    border: Color(0xFFe5e2dc),
+    borderStrong: Color(0xFFe5e2dc),
+    accent: Color(0xFF6860a8),
+    text1: Color(0xFF29272f),
+    text2: Color(0xFF706c79),
     favorite: Color(0xFFd03592),
     star: Color(0xFF9a6700),
-    readerBg: Color(0xFFf6f8fa),
+    readerBg: Color(0xFFf6f5f2),
     readerBar: Color(0xFFffffff),
     navBg: Color(0xFFffffff),
   );
@@ -146,7 +146,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     brightness: brightness,
     primary: c.accent,
     onPrimary: brightness == Brightness.dark
-        ? const Color(0xFF192748)
+        ? const Color(0xFF252139)
         : Colors.white,
     secondary: c.accent,
     onSecondary: brightness == Brightness.dark ? Colors.black : Colors.white,
@@ -272,6 +272,7 @@ ThemeData buildAppTheme(Brightness brightness) {
       style: FilledButton.styleFrom(
         backgroundColor: c.accent,
         foregroundColor: scheme.onPrimary,
+        minimumSize: const Size(48, 48),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         textStyle: TextStyle(
           fontSize: 14,

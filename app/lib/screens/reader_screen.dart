@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chapter.dart';
 import '../models/comic.dart';
@@ -79,14 +80,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   double _imagePixelRatio = 1;
   bool _desktopImages = false;
   int _spreadCount = 1;
-  bool _settingsOpen = false;
+  String? _panel;
+  bool _fullscreen = false;
+  bool _exiting = false;
+  Timer? _autoTimer;
+  bool _autoReading = false;
+  double _scrollSpeed = 50;
+  int _pageSeconds = 5;
+  int _autoTicks = 0;
+  final List<({int chapter, ImageItem image})> _flow = [];
+  final Map<int, List<ImageItem>> _flowChapters = {};
+  int _flowLastChapter = 0;
+  int _flowGeneration = 0;
+  bool _flowLoading = false;
+  Object? _flowError;
+  bool get _mobile => !isDesktopAt(MediaQuery.sizeOf(context).width);
+  List<ImageItem> get _scrollImages => _mobile && _flow.isNotEmpty
+      ? _flow.map((entry) => entry.image).toList()
+      : _images;
+  int _flowPage(int page) => _mobile && _flow.isNotEmpty
+      ? _flow.indexWhere((entry) => entry.chapter == _chapterIndex) + page
+      : page;
   bool _scrollReading = false;
   ImageProvider<Object>? _imageLayoutSignature;
   Object? _superResolutionLayoutSignature;
   int _imageLayoutGeneration = 0;
-  Timer? _hideTimer;
-  bool _chromeVisible = true;
-  bool _pointerOverChrome = false;
+  bool _chromeVisible = false;
 
   ReaderPreferences get _preferences => ref.read(readerPreferencesProvider);
   bool get _rightToLeft =>
@@ -123,7 +142,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _chapterId = widget.chapterId;
     _title = widget.title;
     _scrollController.addListener(_onScroll);
-    _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+    HardwareKeyboard.instance.addHandler(_handleEscape);
     _init();
   }
 
@@ -133,7 +152,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (identical(_progressQueue.checkpointActiveReader, _checkpointCallback)) {
       _progressQueue.checkpointActiveReader = null;
     }
-    _hideTimer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_handleEscape);
+    _autoTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -143,35 +163,116 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (state == AppLifecycleState.inactive ||
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      _stopAutoReading();
       unawaited(_saveProgress());
     }
   }
 
-  /// 桌面沉浸：点击阅读区或按键等有意交互恢复工具栏并重置隐藏计时；
-  /// 滚轮翻页视为阅读动作，不触发。
-  void _onActivity() {
-    if (!mounted) return;
-    if (!_chromeVisible) setState(() => _chromeVisible = true);
-    _restartHideTimer();
-  }
-
-  void _restartHideTimer() {
-    _hideTimer?.cancel();
-    if (_preferences.autoHide) {
-      _hideTimer = Timer(const Duration(seconds: 3), _maybeHideChrome);
+  bool _handleEscape(KeyEvent event) {
+    if (ModalRoute.of(context)?.isCurrent == true &&
+        !isMobilePlatform &&
+        event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.escape) {
+      _exitReader();
+      return true;
     }
+    return false;
   }
 
-  /// 无操作超时后隐藏工具栏；指针停留在工具栏区域时推迟隐藏。
-  void _maybeHideChrome() {
-    if (!mounted) return;
-    if (!_preferences.autoHide) return;
-    if (_pointerOverChrome || _settingsOpen) {
-      _restartHideTimer();
+  Future<void> _exitReader() async {
+    if (_exiting) return;
+    _exiting = true;
+    _stopAutoReading();
+    try {
+      await _checkpoint();
+    } catch (_) {
+      _exiting = false;
       return;
     }
-    if (_chromeVisible) {
-      setState(() => _chromeVisible = false);
+    unawaited(_progressQueue.sync(_progressClient).catchError((_) {}));
+    if (!mounted) return;
+    setState(() => _panel = null);
+    if (_fullscreen && isWindowsPlatform) {
+      await windowManager.setFullScreen(false);
+    }
+    if (mounted) {
+      await WidgetsBinding.instance.endOfFrame;
+      if (mounted) Navigator.of(context).pop();
+    }
+  }
+
+  void _setPanel(String? panel) {
+    _stopAutoReading();
+    setState(() {
+      _panel = panel;
+    });
+  }
+
+  void _stopAutoReading() {
+    _autoTimer?.cancel();
+    if (_autoReading && mounted) setState(() => _autoReading = false);
+  }
+
+  void _startAutoReading() {
+    _autoTimer?.cancel();
+    _autoTicks = 0;
+    setState(() {
+      _autoReading = true;
+      _panel = null;
+      _chromeVisible = false;
+    });
+    _autoTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (!mounted || _loading || _initialJumping || _panel != null) return;
+      if (_loadFailed || _images.isEmpty) {
+        _stopAutoReading();
+        return;
+      }
+      if (_scrollReading && _scrollController.hasClients) {
+        final position = _scrollController.position;
+        if (position.pixels < position.maxScrollExtent) {
+          _scrollController.jumpTo(
+            math.min(
+              position.maxScrollExtent,
+              position.pixels + _scrollSpeed / 20,
+            ),
+          );
+        } else if (_mobile && _flowLastChapter < _chapters.length - 1) {
+          if (_flowError != null) {
+            _stopAutoReading();
+            return;
+          }
+          _appendNextChapter();
+        } else if (_hasNext || widget.onNextComic != null) {
+          _autoContinue();
+        } else {
+          _stopAutoReading();
+        }
+      } else if (++_autoTicks >= _pageSeconds * 20) {
+        _autoTicks = 0;
+        if (_currentPage + _spreadCount >= _images.length &&
+            !_hasNext &&
+            widget.onNextComic == null) {
+          _stopAutoReading();
+        } else {
+          _nextPage();
+        }
+      }
+    });
+  }
+
+  Future<void> _toggleFullscreen() async {
+    try {
+      if (isWindowsPlatform) {
+        final next = !await windowManager.isFullScreen();
+        await windowManager.setFullScreen(next);
+        if (mounted) setState(() => _fullscreen = next);
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('无法切换全屏，请重试')));
+      }
     }
   }
 
@@ -326,6 +427,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   }
 
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
+    _flowGeneration++;
+    _flow.clear();
+    _flowChapters.clear();
+    _flowLoading = false;
+    _flowError = null;
+    _flowLastChapter = _chapterIndex;
     ref.read(superResolutionProvider.notifier).resetChapter();
     setState(() {
       _chapterId = chapterId;
@@ -349,6 +456,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (!mounted || generation != _jumpGeneration) return;
       setState(() {
         _images = images;
+        _flowChapters[_chapterIndex] = images;
+        _flow.addAll(
+          images.map((image) => (chapter: _chapterIndex, image: image)),
+        );
         _currentPage =
             initialPage != null &&
                 initialPage >= 0 &&
@@ -374,6 +485,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 章节级重试：重新拉取当前章节的图片列表。
   Future<void> _reloadChapter() async {
     final chapterId = _chapterId;
+    ref.invalidate(chapterImagesProvider(chapterId));
     await _loadChapter(chapterId);
   }
 
@@ -407,6 +519,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         return;
       }
       _precacheAround(_currentPage);
+      if (_mobile &&
+          _scrollController.hasClients &&
+          _scrollController.position.extentAfter < 1000 &&
+          _flowError == null) {
+        _appendNextChapter();
+      }
     });
   }
 
@@ -538,12 +656,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _extentWidth = width;
     _extents.clear();
     var top = 0.0;
-    for (final img in _images) {
+    for (final img in _scrollImages) {
       _extents.add(top);
       top += _estimatedHeight(img, width);
     }
 
-    final target = _pendingJumpPage;
+    final target = _pendingJumpPage == null
+        ? null
+        : _flowPage(_pendingJumpPage!);
     if (target != null && target >= 0 && target < _extents.length) {
       _pendingJumpPage = null;
       _initialJumping = true;
@@ -568,7 +688,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     final max = _scrollController.position.maxScrollExtent;
     final contentHeight =
-        _extents.last + _estimatedHeight(_images.last, _extentWidth!);
+        _extents.last + _estimatedHeight(_scrollImages.last, _extentWidth!);
     final targetOffset = _extents[target].clamp(
       0.0,
       math.max(0.0, contentHeight - _imageViewport!.height),
@@ -586,6 +706,39 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       );
     } else {
       _initialJumping = false;
+    }
+  }
+
+  Future<void> _appendNextChapter() async {
+    if (_flowLoading || _flowLastChapter >= _chapters.length - 1) return;
+    final generation = _flowGeneration;
+    final index = _flowLastChapter + 1;
+    if (_flowError != null) {
+      ref.invalidate(chapterImagesProvider(_chapters[index].id));
+    }
+    setState(() {
+      _flowLoading = true;
+      _flowError = null;
+    });
+    try {
+      final images = await ref.read(
+        chapterImagesProvider(_chapters[index].id).future,
+      );
+      if (!mounted || generation != _flowGeneration) return;
+      if (images.isEmpty) throw StateError('下一章暂无图片');
+      setState(() {
+        _flowChapters[index] = images;
+        _flow.addAll(images.map((image) => (chapter: index, image: image)));
+        _flowLastChapter = index;
+        _flowLoading = false;
+        if (_extentWidth != null) _buildExtents(_extentWidth!);
+      });
+    } catch (error) {
+      if (!mounted || generation != _flowGeneration) return;
+      setState(() {
+        _flowLoading = false;
+        _flowError = error;
+      });
     }
   }
 
@@ -607,19 +760,38 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       }
     }
     final atEnd = offset >= _scrollController.position.maxScrollExtent - 1;
-    if (atEnd) page = _images.length - 1;
-    if (page != _currentPage) {
-      setState(() => _currentPage = page);
-      _precacheAround(page);
-      _recordPosition();
-    }
-    // 滚动接近本章底部时自动续章
-    final desktop = isDesktopAt(MediaQuery.sizeOf(context).width);
-    if ((_hasNext || (desktop && widget.onNextComic != null)) &&
-        (desktop
-            ? atEnd
-            : offset >= _scrollController.position.maxScrollExtent - 200)) {
-      _autoContinue();
+    if (_mobile && _flow.isNotEmpty) {
+      if (atEnd) page = _flow.length - 1;
+      final entry = _flow[page];
+      final localPage =
+          page - _flow.indexWhere((item) => item.chapter == entry.chapter);
+      final changedChapter = entry.chapter != _chapterIndex;
+      if (changedChapter) {
+        ref.read(superResolutionProvider.notifier).resetChapter();
+      }
+      if (changedChapter || localPage != _currentPage) {
+        setState(() {
+          _chapterIndex = entry.chapter;
+          _chapterId = _chapters.isEmpty
+              ? _chapterId
+              : _chapters[_chapterIndex].id;
+          _images = _flowChapters[entry.chapter]!;
+          _currentPage = localPage;
+        });
+        _precacheAround(localPage);
+        _recordPosition();
+      }
+      if (_scrollController.position.extentAfter < 1000 && _flowError == null) {
+        _appendNextChapter();
+      }
+    } else {
+      if (atEnd) page = _images.length - 1;
+      if (page != _currentPage) {
+        setState(() => _currentPage = page);
+        _precacheAround(page);
+        _recordPosition();
+      }
+      if (atEnd && (_hasNext || widget.onNextComic != null)) _autoContinue();
     }
   }
 
@@ -630,220 +802,41 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     _initialJumping = true;
     _jumpAttempts = 0;
     final generation = ++_jumpGeneration;
-    _performInitialJump(page, generation);
+    _performInitialJump(_flowPage(page), generation);
     _precacheAround(page);
     _recordPosition();
-  }
-
-  Future<void> _openReadingSettings() async {
-    _onActivity();
-    _settingsOpen = true;
-    final desktop = isDesktopAt(MediaQuery.sizeOf(context).width);
-    Widget panel(BuildContext ctx) => SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(ctx).height * 0.85,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '阅读设置',
-                      style: Theme.of(ctx).textTheme.titleMedium,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '关闭阅读设置',
-                    onPressed: () => Navigator.pop(ctx),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const Text('应用于所有漫画，与设置页同步'),
-              const SizedBox(height: 8),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const ReaderSettingsControls(compact: true),
-                      const Divider(),
-                      Consumer(
-                        builder: (context, panelRef, _) {
-                          final sr = panelRef.watch(superResolutionProvider);
-                          final pending = panelRef.watch(
-                            localReadingProgressProvider(_comicId),
-                          );
-                          final url = _images.isEmpty
-                              ? null
-                              : _images[_currentPage].url;
-                          final job = sr.results[url];
-                          final status = !sr.enabled
-                              ? '超分关闭 · 原图'
-                              : sr.reasons[url] ??
-                                    job?.error ??
-                                    (job?.status == 'ready'
-                                        ? '超分 2× 已就绪'
-                                        : '超分处理中 · 预处理后 ${sr.lookahead} 页');
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(
-                                status,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 12),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  OutlinedButton.icon(
-                                    onPressed: sr.enabled && _images.isNotEmpty
-                                        ? () => _superResolutionAction('retry')
-                                        : null,
-                                    icon: const Icon(Icons.refresh, size: 18),
-                                    label: const Text('重试超分'),
-                                  ),
-                                  OutlinedButton.icon(
-                                    onPressed: () =>
-                                        _superResolutionAction('clear'),
-                                    icon: const Icon(
-                                      Icons.cleaning_services_outlined,
-                                      size: 18,
-                                    ),
-                                    label: const Text('清空超分缓存'),
-                                  ),
-                                  if (pending != null &&
-                                      MediaQuery.sizeOf(context).width < 500)
-                                    OutlinedButton.icon(
-                                      onPressed: _saveProgress,
-                                      icon: const Icon(
-                                        Icons.cloud_upload_outlined,
-                                        size: 18,
-                                      ),
-                                      label: const Text('同步阅读进度'),
-                                    ),
-                                  if (MediaQuery.sizeOf(context).width < 500 &&
-                                      widget.onPrevComic != null)
-                                    OutlinedButton(
-                                      onPressed:
-                                          _canPrevComic && !_switchingComic
-                                          ? () {
-                                              Navigator.pop(ctx);
-                                              _prevComic();
-                                            }
-                                          : null,
-                                      child: const Text('上一本'),
-                                    ),
-                                  if (MediaQuery.sizeOf(context).width < 500 &&
-                                      widget.onNextComic != null)
-                                    OutlinedButton(
-                                      onPressed: !_switchingComic
-                                          ? () {
-                                              Navigator.pop(ctx);
-                                              _nextComic();
-                                            }
-                                          : null,
-                                      child: const Text('下一本'),
-                                    ),
-                                ],
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (desktop) {
-      await showDialog<void>(
-        context: context,
-        builder: (ctx) =>
-            Dialog(child: SizedBox(width: 440, child: panel(ctx))),
-      );
-    } else {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        constraints: const BoxConstraints(maxWidth: 640),
-        builder: panel,
-      );
-    }
-    _settingsOpen = false;
-    if (mounted) _onActivity();
-  }
-
-  void _openMobileDirectory() {
-    if (_chapters.isEmpty) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      constraints: const BoxConstraints(maxWidth: 640),
-      builder: (ctx) => SizedBox(
-        height: MediaQuery.sizeOf(ctx).height * 0.7,
-        child: ChapterDirectory(
-          chapters: _chapters,
-          currentIndex: _chapterIndex,
-          onSelect: (i) {
-            Navigator.pop(ctx);
-            _goToChapter(i);
-          },
-        ),
-      ),
-    );
   }
 
   Future<void> _ensureChapters() async {
     if (_chapters.isNotEmpty) return;
     try {
+      ref.invalidate(comicDetailProvider(_comicId));
       final detail = await ref.read(comicDetailProvider(_comicId).future);
       if (!mounted || _chapters.isNotEmpty) return;
       final targetId = _chapterId;
       final idx = detail.chapters.indexWhere((c) => c.id == targetId);
+      if (idx < 0) return;
       setState(() {
         _comic = detail.comic;
         _chapters = detail.chapters;
-        _chapterIndex = idx < 0 ? 0 : idx;
+        _chapterIndex = idx;
+        _flowGeneration++;
+        _flowLoading = false;
+        _flowError = null;
+        _flowChapters.clear();
+        _flowChapters[idx] = _images;
+        _flow.clear();
+        _flow.addAll(_images.map((image) => (chapter: idx, image: image)));
+        _flowLastChapter = idx;
       });
     } catch (_) {
       // 章节列表仍不可用
     }
   }
 
-  Future<void> _openDirectory(BuildContext buttonContext) async {
-    final desktop = isDesktopAt(MediaQuery.of(buttonContext).size.width);
-    if (_chapters.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('正在加载章节…')));
-      await _ensureChapters();
-      if (!mounted) return;
-      if (_chapters.isEmpty) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('暂无章节信息')));
-        return;
-      }
-    }
-    if (desktop) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Scaffold.of(buttonContext).openEndDrawer();
-      });
-    } else {
-      _openMobileDirectory();
-    }
+  Future<void> _openDirectory() async {
+    await _ensureChapters();
+    if (mounted) _setPanel('directory');
   }
 
   Future<void> _checkpoint() async {
@@ -900,19 +893,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final width = MediaQuery.sizeOf(context).width;
     final desktop = isDesktopAt(width);
     final preferences = ref.watch(readerPreferencesProvider);
-    ref.listen(readerPreferencesProvider, (previous, next) {
-      if (previous?.autoHide != next.autoHide) _onActivity();
-    });
-    final continuous =
-        preferences.mode == ReaderMode.continuous ||
-        (preferences.mode == ReaderMode.automatic && !desktop);
+    final continuous = !desktop || preferences.mode == ReaderMode.continuous;
     _spreadCount =
         !continuous &&
             preferences.mode == ReaderMode.doublePage &&
             width >= kDesktopBreakpoint
         ? 2
         : 1;
-    if (!desktop && !preferences.autoHide) _chromeVisible = true;
     if (_scrollReading != continuous) {
       _scrollReading = continuous;
       _extentWidth = null;
@@ -921,192 +908,374 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _initialJumping = continuous;
       _jumpAttempts = 0;
     }
-    final sr = ref.watch(superResolutionProvider);
-    final srJob = _images.isEmpty
-        ? null
-        : sr.results[_images[_currentPage].url];
-    final srReason = _images.isEmpty
-        ? null
-        : sr.reasons[_images[_currentPage].url];
-    final srStatus = !sr.enabled
-        ? '超分关闭 · 原图'
-        : srReason != null
-        ? '自适应 · $srReason'
-        : srJob?.status == 'failed'
-        ? '超分失败 · 已回退原图'
-        : srJob?.status == 'ready'
-        ? '超分 2× 已就绪'
-        : srJob?.status == 'queued'
-        ? '超分已开启 · 排队中'
-        : '超分已开启 · 处理中';
-    final pending = ref.watch(localReadingProgressProvider(_comicId));
+    ref.watch(superResolutionProvider);
+    ref.watch(localReadingProgressProvider(_comicId));
     final c = context.appColors;
-    final textScaler = MediaQuery.textScalerOf(context);
-    final toolbarHeight = math.max(
-      kToolbarHeight,
-      textScaler.scale(15) * 1.3 + textScaler.scale(11) * 1.3 + 10,
-    );
-    final Widget scaffold = Scaffold(
+    final scaffold = Scaffold(
       backgroundColor: _readerBackground,
-      endDrawer: desktop
-          ? ChapterDrawer(
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onSecondaryTapDown: desktop
+                    ? (details) => _setPanel('settings')
+                    : null,
+                onDoubleTap: desktop
+                    ? null
+                    : () {
+                        _stopAutoReading();
+                        setState(() => _chromeVisible = !_chromeVisible);
+                      },
+                child: _buildChapterBody(desktop),
+              ),
+            ),
+            if (!desktop && _chromeVisible) ...[
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Material(
+                  color: c.readerBar,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        tooltip: '返回上一页',
+                        onPressed: _exitReader,
+                        icon: const Icon(Icons.arrow_back),
+                      ),
+                      Expanded(
+                        child: Text(
+                          _currentChapter?.title ?? _title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: '菜单',
+                        onPressed: () => _setPanel('settings'),
+                        icon: const Icon(Icons.more_horiz),
+                      ),
+                      IconButton(
+                        tooltip: '关闭控制层',
+                        onPressed: () => setState(() => _chromeVisible = false),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (_autoReading)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: FilledButton.tonalIcon(
+                  onPressed: _stopAutoReading,
+                  icon: const Icon(Icons.pause),
+                  label: const Text('停止自动阅读'),
+                ),
+              ),
+            if (_panel != null) Positioned.fill(child: _buildPanel(desktop)),
+          ],
+        ),
+      ),
+    );
+    return PopScope(
+      canPop: _panel == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) {
+          if (!_exiting) _saveProgress();
+          if (_fullscreen && isWindowsPlatform) {
+            unawaited(windowManager.setFullScreen(false));
+          }
+        } else if (_panel != null) {
+          _setPanel(null);
+        }
+      },
+      child: desktop
+          ? CallbackShortcuts(
+              bindings: _panel == null ? _desktopShortcutBindings() : {},
+              child: Focus(autofocus: true, child: scaffold),
+            )
+          : scaffold,
+    );
+  }
+
+  Widget _progressControl() => ReaderProgressBar(
+    chapterTitle: _currentChapter?.title ?? _title,
+    currentPage: _currentPage,
+    totalPages: _images.length,
+    onSeek: (page) {
+      _stopAutoReading();
+      _goToPage(page);
+    },
+  );
+
+  Widget _buildPanel(bool desktop) {
+    final c = context.appColors;
+    final directory = _panel == 'directory';
+    const panelWidth = 460.0;
+    final content = Material(
+      color: c.surface1,
+      elevation: 12,
+      borderRadius: BorderRadius.circular(kRadiusFloat),
+      clipBehavior: Clip.antiAlias,
+      child: directory
+          ? ChapterDirectory(
               chapters: _chapters,
               currentIndex: _chapterIndex,
+              onClose: () => _setPanel(null),
               onSelect: (i) {
-                Navigator.pop(context);
+                _setPanel(null);
                 _goToChapter(i);
               },
             )
-          : null,
-      appBar: PreferredSize(
-        preferredSize: Size.fromHeight(toolbarHeight),
-        child: MouseRegion(
-          onEnter: (_) {
-            setState(() => _pointerOverChrome = true);
-            _restartHideTimer();
-          },
-          onExit: (_) {
-            setState(() => _pointerOverChrome = false);
-            _restartHideTimer();
-          },
-          child: AnimatedOpacity(
-            opacity: _chromeVisible ? 1 : 0,
-            duration: const Duration(milliseconds: 200),
-            child: IgnorePointer(
-              ignoring: !_chromeVisible,
-              child: AppBar(
-                toolbarHeight: toolbarHeight,
-                backgroundColor: c.readerBar,
-                iconTheme: IconThemeData(color: c.text1),
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _currentChapter?.title ?? _title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: c.text1,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '阅读设置',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
                       ),
-                    ),
-                    Text(
-                      srStatus,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: sr.enabled
-                            ? Theme.of(context).colorScheme.primary
-                            : c.text2,
-                        fontSize: 11,
+                      if (desktop && isWindowsPlatform)
+                        IconButton(
+                          tooltip: _fullscreen ? '退出全屏' : '全屏',
+                          onPressed: _toggleFullscreen,
+                          icon: Icon(
+                            _fullscreen
+                                ? Icons.fullscreen_exit
+                                : Icons.fullscreen,
+                          ),
+                        ),
+                      IconButton(
+                        tooltip: '返回上一页',
+                        onPressed: _exitReader,
+                        icon: const Icon(Icons.arrow_back),
                       ),
-                    ),
-                  ],
-                ),
-                bottom: PreferredSize(
-                  preferredSize: Size.fromHeight(1),
-                  child: SizedBox(
-                    height: 1,
-                    child: ColoredBox(color: c.borderStrong),
+                      IconButton(
+                        tooltip: '关闭阅读设置',
+                        onPressed: () => _setPanel(null),
+                        icon: const Icon(Icons.close),
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  IconButton(
-                    tooltip: '阅读设置',
-                    visualDensity: VisualDensity.compact,
-                    icon: const Icon(Icons.tune),
-                    onPressed: _openReadingSettings,
-                  ),
-                  if (pending != null && width >= 500)
-                    IconButton(
-                      icon: Icon(Icons.cloud_upload_outlined, color: c.text1),
-                      tooltip: '进度已存本机，点击同步',
-                      onPressed: _saveProgress,
-                    ),
-                  Builder(
-                    builder: (buttonContext) => IconButton(
-                      icon: Icon(Icons.format_list_bulleted, color: c.text1),
-                      tooltip: '目录',
-                      onPressed: () => _openDirectory(buttonContext),
-                    ),
-                  ),
-                  if (widget.onPrevComic != null && width >= 500)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        Icons.skip_previous,
-                        color: _canPrevComic && !_switchingComic
-                            ? c.text1
-                            : c.text2.withValues(alpha: 0.45),
+                const Divider(),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _navigationContents(),
+                          const Divider(height: 32),
+                          _settingsContents(),
+                        ],
                       ),
-                      tooltip: '上一本',
-                      onPressed: _canPrevComic && !_switchingComic
-                          ? _prevComic
-                          : null,
                     ),
-                  if (widget.onNextComic != null && width >= 500)
-                    IconButton(
-                      visualDensity: VisualDensity.compact,
-                      icon: Icon(
-                        Icons.skip_next,
-                        color: _switchingComic
-                            ? c.text2.withValues(alpha: 0.45)
-                            : c.text1,
-                      ),
-                      tooltip: '下一本',
-                      onPressed: _switchingComic ? null : _nextComic,
-                    ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.chevron_left,
-                      color: _hasPrev
-                          ? c.text1
-                          : c.text2.withValues(alpha: 0.45),
-                    ),
-                    tooltip: '上一章',
-                    onPressed: _hasPrev ? _prevChapter : null,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.chevron_right,
-                      color: _hasNext
-                          ? c.text1
-                          : c.text2.withValues(alpha: 0.45),
-                    ),
-                    tooltip: '下一章',
-                    onPressed: _hasNext ? _nextChapter : null,
-                  ),
-                ],
+                ),
+              ],
+            ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: ModalBarrier(
+                dismissible: true,
+                onDismiss: () => _setPanel(null),
+                semanticsLabel: '关闭阅读面板',
+                color: Colors.black38,
               ),
             ),
-          ),
-        ),
-      ),
-      body: _buildChapterBody(desktop),
-    );
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) _saveProgress();
+            Align(
+              alignment: desktop
+                  ? Alignment.centerRight
+                  : Alignment.bottomCenter,
+              child: SizedBox(
+                width: desktop
+                    ? panelWidth
+                    : math.min(640.0, constraints.maxWidth),
+                height: desktop
+                    ? constraints.maxHeight
+                    : constraints.maxHeight * .88,
+                child: content,
+              ),
+            ),
+          ],
+        );
       },
-      child: GestureDetector(
-        onTap: _onActivity,
-        child: desktop
-            ? CallbackShortcuts(
-                bindings: _desktopShortcutBindings(),
-                child: Focus(
-                  autofocus: true,
-                  onKeyEvent: (node, event) {
-                    _onActivity();
-                    return KeyEventResult.ignored;
-                  },
-                  child: scaffold,
-                ),
-              )
-            : scaffold,
+    );
+  }
+
+  Widget _navigationContents() => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _progressControl(),
+      const SizedBox(height: 4),
+      Row(
+        children: [
+          Expanded(
+            child: TextButton(
+              onPressed: _hasPrev
+                  ? () {
+                      _setPanel(null);
+                      _prevChapter();
+                    }
+                  : null,
+              child: const Text('上一章'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: _openDirectory,
+              child: const Text('章节目录'),
+            ),
+          ),
+          Expanded(
+            child: TextButton(
+              onPressed: _hasNext
+                  ? () {
+                      _setPanel(null);
+                      _nextChapter();
+                    }
+                  : null,
+              child: const Text('下一章'),
+            ),
+          ),
+        ],
       ),
+      if (widget.onNextComic != null)
+        Wrap(
+          spacing: 8,
+          children: [
+            TextButton(
+              onPressed: _canPrevComic && !_switchingComic
+                  ? () {
+                      _setPanel(null);
+                      _prevComic();
+                    }
+                  : null,
+              child: const Text('上一本'),
+            ),
+            TextButton(
+              onPressed: !_switchingComic
+                  ? () {
+                      _setPanel(null);
+                      _nextComic();
+                    }
+                  : null,
+              child: const Text('下一本'),
+            ),
+          ],
+        ),
+    ],
+  );
+
+  Widget _settingsContents() {
+    final sr = ref.watch(superResolutionProvider);
+    final image = _images.isEmpty ? null : _images[_currentPage];
+    final job = sr.results[image?.url];
+    final status = !sr.enabled
+        ? '超分关闭 · 原图'
+        : sr.reasons[image?.url] ??
+              job?.error ??
+              switch (job?.status) {
+                'ready' => '超分 2× 已就绪',
+                'queued' => '排队中 · 原图',
+                _ => '处理中 · 原图',
+              };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const ReaderSettingsControls(compact: true),
+        const SizedBox(height: 4),
+        Text(status, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 4),
+        Text(
+          'waifu2x · 固定 2× · 预处理后 ${sr.lookahead} 页',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton(
+              onPressed: sr.enabled && image != null
+                  ? () => _superResolutionAction('retry')
+                  : null,
+              child: const Text('重试超分'),
+            ),
+            OutlinedButton(
+              onPressed: () => _superResolutionAction('clear'),
+              child: const Text('清空超分缓存'),
+            ),
+          ],
+        ),
+        const Divider(height: 32),
+        Text('自动滚动／翻页', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 12),
+        if (_scrollReading) ...[
+          Text('滚动速度：${_scrollSpeed.round()} 像素／秒'),
+          Slider(
+            value: _scrollSpeed,
+            min: 10,
+            max: 200,
+            divisions: 19,
+            onChanged: (value) => setState(() => _scrollSpeed = value),
+          ),
+        ] else ...[
+          Text('翻页间隔：$_pageSeconds 秒'),
+          Slider(
+            value: _pageSeconds.toDouble(),
+            min: 2,
+            max: 30,
+            divisions: 28,
+            onChanged: (value) => setState(() => _pageSeconds = value.round()),
+          ),
+        ],
+        OutlinedButton.icon(
+          onPressed: image == null ? null : _startAutoReading,
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('开始自动阅读'),
+        ),
+        const Divider(height: 32),
+        Text('图片信息', style: Theme.of(context).textTheme.titleSmall),
+        const SizedBox(height: 12),
+        Text(
+          image == null
+              ? '暂无图片'
+              : '第 ${_currentPage + 1} 页 · ${image.width ?? "未知"} × ${image.height ?? "未知"}',
+        ),
+        if (image != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              image.filename,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        if (ref.watch(localReadingProgressProvider(_comicId)) != null) ...[
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: _saveProgress,
+            icon: const Icon(Icons.cloud_upload_outlined),
+            label: const Text('同步阅读进度'),
+          ),
+        ],
+      ],
     );
   }
 
@@ -1138,36 +1307,30 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _buildContinuousBody({required bool desktop}) {
-    return Stack(
-      children: [
-        _buildScrollBody(desktop: desktop),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: SafeArea(
-            top: false,
-            child: AnimatedOpacity(
-              opacity: _chromeVisible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: IgnorePointer(
-                ignoring: !_chromeVisible,
-                child: ReaderProgressBar(
-                  currentPage: _currentPage,
-                  totalPages: _images.length,
-                  onSeek: (page) {
-                    _jumpToPage(page);
-                    _onActivity();
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _buildContinuousBody({required bool desktop}) =>
+      NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification &&
+              notification.dragDetails != null) {
+            _stopAutoReading();
+          }
+          if (!desktop &&
+              notification is OverscrollNotification &&
+              notification.overscroll > 0 &&
+              !_loading &&
+              !_initialJumping &&
+              !_flowLoading) {
+            if (_flowLastChapter < _chapters.length - 1 && _flowError == null) {
+              _appendNextChapter();
+            } else if (_flowLastChapter == _chapters.length - 1 &&
+                widget.onNextComic != null) {
+              _autoContinue();
+            }
+          }
+          return false;
+        },
+        child: _buildScrollBody(desktop: desktop),
+      );
 
   Widget _buildScrollBody({required bool desktop}) {
     return LayoutBuilder(
@@ -1185,6 +1348,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           _buildExtents(width);
         }
         _updateImageLayout(Size(width, constraints.maxHeight), desktop: false);
+        final images = _scrollImages;
         return Align(
           alignment: Alignment.topCenter,
           child: SizedBox(
@@ -1207,15 +1371,48 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                 padding: EdgeInsets.zero,
                 // ignore: deprecated_member_use
                 cacheExtent: 800,
-                itemCount: _images.length,
+                itemCount: images.length + (desktop ? 0 : 1),
                 itemBuilder: (ctx, i) {
-                  final image = _images[i];
+                  if (i == images.length) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          if (_flowLoading)
+                            const CircularProgressIndicator()
+                          else if (_flowLastChapter < _chapters.length - 1)
+                            TextButton(
+                              onPressed: _appendNextChapter,
+                              child: Text(
+                                _flowError == null ? '继续向下阅读' : '下一章加载失败，点击重试',
+                              ),
+                            )
+                          else ...[
+                            const Text('已读完'),
+                            TextButton(
+                              onPressed: _exitReader,
+                              child: const Text('返回上一页'),
+                            ),
+                            if (widget.onNextComic != null)
+                              TextButton(
+                                onPressed: _nextComic,
+                                child: const Text('下一本'),
+                              ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }
+                  final image = images[i];
                   return _LazyImage(
-                    key: ValueKey(_images[i].url),
-                    provider: _imageProvider(_images[i]),
-                    enhanced: _enhancedProvider(_images[i]),
+                    key: ValueKey((
+                      desktop ? _chapterIndex : _flow[i].chapter,
+                      image.url,
+                    )),
+                    provider: _imageProvider(image),
+                    enhanced: _enhancedProvider(image),
                     onEnhancedError: _enhancedFailure(image),
-                    height: _estimatedHeight(_images[i], width),
+                    height: _estimatedHeight(image, width),
                   );
                 },
               ),
@@ -1303,24 +1500,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     ],
                   );
                 },
-              ),
-            ),
-            SafeArea(
-              top: false,
-              child: AnimatedOpacity(
-                opacity: _chromeVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 200),
-                child: IgnorePointer(
-                  ignoring: !_chromeVisible,
-                  child: ReaderProgressBar(
-                    currentPage: page,
-                    totalPages: _images.length,
-                    onSeek: (p) {
-                      _goToPage(p);
-                      _onActivity();
-                    },
-                  ),
-                ),
               ),
             ),
           ],

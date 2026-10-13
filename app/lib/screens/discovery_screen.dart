@@ -254,16 +254,6 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
           style: theme.bodyMedium?.copyWith(color: c.text2),
         ),
         const SizedBox(height: 32),
-        FilledButton.icon(
-          style: FilledButton.styleFrom(
-            minimumSize: const Size(180, 48),
-            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-          ),
-          onPressed: () => _openReader(comic),
-          icon: const Icon(Icons.menu_book_outlined, size: 20),
-          label: const Text('开始阅读'),
-        ),
-        const SizedBox(height: 16),
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -296,6 +286,16 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
         ),
         const SizedBox(height: 8),
         Text('拖拽切换 · 点击封面阅读', style: theme.bodySmall),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(
+            minimumSize: const Size(180, 48),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+          ),
+          onPressed: () => _openReader(comic),
+          icon: const Icon(Icons.menu_book_outlined, size: 20),
+          label: const Text('开始阅读'),
+        ),
       ],
     );
   }

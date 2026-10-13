@@ -13,6 +13,7 @@ class WindowTitleBar extends StatefulWidget {
 
 class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
   bool _maximized = false;
+  bool _fullscreen = false;
 
   @override
   void initState() {
@@ -44,6 +45,16 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
     if (mounted) setState(() => _maximized = false);
   }
 
+  @override
+  void onWindowEnterFullScreen() {
+    if (mounted) setState(() => _fullscreen = true);
+  }
+
+  @override
+  void onWindowLeaveFullScreen() {
+    if (mounted) setState(() => _fullscreen = false);
+  }
+
   void _minimize() => windowManager.minimize();
 
   void _toggleMaximize() {
@@ -59,6 +70,7 @@ class _WindowTitleBarState extends State<WindowTitleBar> with WindowListener {
 
   @override
   Widget build(BuildContext context) {
+    if (_fullscreen) return const SizedBox.shrink();
     final c = context.appColors;
     return Material(
       color: c.bg,

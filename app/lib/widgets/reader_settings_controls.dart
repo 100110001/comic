@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/settings_provider.dart';
 import '../theme.dart';
+import '../platform.dart';
 
 /// 两处入口共用选项与保存路径，compact 只改变排版。
 class ReaderSettingsControls extends ConsumerStatefulWidget {
@@ -42,36 +43,38 @@ class _ReaderSettingsControlsState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _row(
-          '阅读模式',
-          '跟随设备：桌面单页、手机连续；窄屏双页按单页显示',
-          _choices(
-            readerModeLabels,
-            prefs.mode,
-            (value) => _update((p) => p.copyWith(mode: value)),
+        if (isDesktopAt(MediaQuery.sizeOf(context).width)) ...[
+          _row(
+            '阅读模式',
+            '仅用于桌面；手机始终上下连续阅读',
+            _choices(
+              readerModeLabels,
+              prefs.mode,
+              (value) => _update((p) => p.copyWith(mode: value)),
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        _row(
-          '翻页方向',
-          '控制分页顺序、左右滑动与方向键',
-          _choices(
-            readingDirectionLabels,
-            prefs.direction,
-            (value) => _update((p) => p.copyWith(direction: value)),
+          if (!widget.compact) const Divider(height: 1),
+          _row(
+            '翻页方向',
+            '控制分页顺序、左右滑动与方向键',
+            _choices(
+              readingDirectionLabels,
+              prefs.direction,
+              (value) => _update((p) => p.copyWith(direction: value)),
+            ),
           ),
-        ),
-        const Divider(height: 1),
-        _row(
-          '页面适配',
-          '用于单页与双页；连续阅读始终适应宽度',
-          _choices(
-            readerFitLabels,
-            prefs.fit,
-            (value) => _update((p) => p.copyWith(fit: value)),
+          if (!widget.compact) const Divider(height: 1),
+          _row(
+            '页面适配',
+            '用于单页与双页；连续阅读始终适应宽度',
+            _choices(
+              readerFitLabels,
+              prefs.fit,
+              (value) => _update((p) => p.copyWith(fit: value)),
+            ),
           ),
-        ),
-        const Divider(height: 1),
+          if (!widget.compact) const Divider(height: 1),
+        ],
         _row(
           '阅读背景',
           '只调整阅读画布，工具栏沿用应用主题',
@@ -81,19 +84,8 @@ class _ReaderSettingsControlsState
             (value) => _update((p) => p.copyWith(background: value)),
           ),
         ),
-        const Divider(height: 1),
-        SwitchListTile(
-          contentPadding: EdgeInsets.symmetric(
-            vertical: widget.compact ? 4 : 12,
-          ),
-          title: const Text('自动隐藏工具栏'),
-          subtitle: const Text('无操作 3 秒后隐藏，点击阅读区域恢复'),
-          value: prefs.autoHide,
-          onChanged: _saving
-              ? null
-              : (value) => _update((p) => p.copyWith(autoHide: value)),
-        ),
-        const Divider(height: 1),
+        if (!widget.compact) const Divider(height: 1),
+        if (widget.compact) const Divider(height: 32),
         _row(
           '超分策略',
           switch (sr) {
@@ -116,28 +108,46 @@ class _ReaderSettingsControlsState
   }
 
   Widget _row(String title, String description, Widget control) => Padding(
-    padding: EdgeInsets.symmetric(vertical: widget.compact ? 12 : 20),
+    padding: EdgeInsets.symmetric(vertical: widget.compact ? 8 : 20),
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final label = Column(
+        final label = Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+        );
+        if (widget.compact) {
+          final caption = Tooltip(message: description, child: label);
+          if (constraints.maxWidth >= 360 &&
+              MediaQuery.textScalerOf(context).scale(14) <= 18) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 76, child: caption),
+                const SizedBox(width: 12),
+                Expanded(child: control),
+              ],
+            );
+          }
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [caption, const SizedBox(height: 6), control],
+          );
+        }
+        final descriptionLabel = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
-            ),
+            label,
             const SizedBox(height: 5),
             Text(description, style: Theme.of(context).textTheme.bodySmall),
           ],
         );
-        if (!widget.compact &&
-            constraints.maxWidth >= 600 &&
+        if (constraints.maxWidth >= 600 &&
             MediaQuery.textScalerOf(context).scale(14) <= 18) {
           return Row(
             children: [
-              Expanded(child: label),
+              Expanded(child: descriptionLabel),
               const SizedBox(width: 20),
               Flexible(child: control),
             ],
@@ -145,7 +155,7 @@ class _ReaderSettingsControlsState
         }
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: [label, const SizedBox(height: 12), control],
+          children: [descriptionLabel, const SizedBox(height: 12), control],
         );
       },
     ),
@@ -158,12 +168,15 @@ class _ReaderSettingsControlsState
   ) {
     final c = context.appColors;
     return Wrap(
-      spacing: 6,
+      spacing: widget.compact ? 4 : 6,
       runSpacing: 6,
       children: [
         for (final option in labels.entries)
           ChoiceChip(
             label: Text(option.value),
+            labelPadding: widget.compact
+                ? const EdgeInsets.symmetric(horizontal: 6)
+                : null,
             selected: selected == option.key,
             showCheckmark: false,
             selectedColor: c.accent.withValues(alpha: 0.14),
