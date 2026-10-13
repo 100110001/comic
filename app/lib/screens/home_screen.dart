@@ -14,6 +14,7 @@ import '../widgets/search_history_view.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/comic_grid.dart';
+import '../widgets/page_heading.dart';
 import '../widgets/status_views.dart';
 import 'detail_screen.dart';
 import 'reader_screen.dart';
@@ -167,7 +168,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final showContinue = _continueVisible && recentEntry != null;
     final continueBottomPadding = !showContinue
         ? 0.0
-        : (textScaler.scale(12) * 3 + textScaler.scale(15) * 1.5 + 46)
+        : (textScaler.scale(14) * 3 + textScaler.scale(16) * 1.5 + 46)
               .clamp(112.0, double.infinity)
               .toDouble();
 
@@ -205,7 +206,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   child: TextField(
                     controller: _searchController,
-                    style: TextStyle(color: c.text1, fontSize: 14),
+                    style: TextStyle(color: c.text1, fontSize: 16),
                     decoration: InputDecoration(
                       hintText: '搜索漫画、作者…',
                       hintStyle: TextStyle(color: c.text2),
@@ -279,42 +280,23 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                     desktop ? 28 : 16,
                     16,
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _keyword.isEmpty ? '随便看看' : '搜索结果',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _keyword.isEmpty
-                                  ? random == null
-                                        ? '发现下一本想读的漫画'
-                                        : '${random.total} 部漫画 · 发现下一本想读的故事'
-                                  : '“$_keyword” · ${search?.total ?? 0} 部漫画',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: c.text2, fontSize: 12),
-                            ),
-                          ],
-                        ),
+                  child: PageHeading(
+                    title: _keyword.isEmpty ? '随便看看' : '搜索结果',
+                    subtitle: _keyword.isEmpty
+                        ? random == null
+                              ? '发现下一本想读的漫画'
+                              : '${random.total} 部漫画 · 发现下一本想读的故事'
+                        : '“$_keyword” · ${search?.total ?? 0} 部漫画',
+                    action: OutlinedButton.icon(
+                      onPressed: loading ? null : _refresh,
+                      icon: Icon(
+                        _keyword.isEmpty
+                            ? Icons.shuffle_rounded
+                            : Icons.refresh,
+                        size: 18,
                       ),
-                      const SizedBox(width: 12),
-                      OutlinedButton.icon(
-                        onPressed: loading ? null : _refresh,
-                        icon: Icon(
-                          _keyword.isEmpty
-                              ? Icons.shuffle_rounded
-                              : Icons.refresh,
-                          size: 18,
-                        ),
-                        label: Text(_keyword.isEmpty ? '换一批' : '刷新结果'),
-                      ),
-                    ],
+                      label: Text(_keyword.isEmpty ? '换一批' : '刷新结果'),
+                    ),
                   ),
                 ),
                 Expanded(
@@ -432,7 +414,7 @@ class _FloatingContinueBar extends StatelessWidget {
                   children: [
                     Text(
                       '继续阅读',
-                      style: TextStyle(color: c.accent, fontSize: 12),
+                      style: TextStyle(color: c.accent, fontSize: 14),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -441,7 +423,7 @@ class _FloatingContinueBar extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         color: c.text1,
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -450,7 +432,7 @@ class _FloatingContinueBar extends StatelessWidget {
                       '${entry.chapterTitle} · 第${entry.pageNumber + 1}页',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: c.text2, fontSize: 12),
+                      style: TextStyle(color: c.text2, fontSize: 14),
                     ),
                   ],
                 ),

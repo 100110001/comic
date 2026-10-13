@@ -120,7 +120,7 @@ class _ReaderSettingsControlsState
         if (widget.compact) {
           final caption = Tooltip(message: description, child: label);
           if (constraints.maxWidth >= 360 &&
-              MediaQuery.textScalerOf(context).scale(14) <= 18) {
+              MediaQuery.textScalerOf(context).scale(16) <= 18) {
             return Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -144,7 +144,7 @@ class _ReaderSettingsControlsState
           ],
         );
         if (constraints.maxWidth >= 600 &&
-            MediaQuery.textScalerOf(context).scale(14) <= 18) {
+            MediaQuery.textScalerOf(context).scale(16) <= 18) {
           return Row(
             children: [
               Expanded(child: descriptionLabel),

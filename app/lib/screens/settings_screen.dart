@@ -150,12 +150,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: Theme.of(context).textTheme.bodySmall),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: context.appColors.surface1,
+            border: Border.all(color: context.appColors.border),
             borderRadius: BorderRadius.circular(kRadiusCard),
           ),
           child: Column(
@@ -189,7 +190,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ],
         );
         if (constraints.maxWidth >= 560 &&
-            MediaQuery.textScalerOf(context).scale(14) <= 18) {
+            MediaQuery.textScalerOf(context).scale(16) <= 18) {
           return Row(
             children: [
               Expanded(child: label),
@@ -255,14 +256,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           '服务器地址',
           style: TextStyle(
             color: c.text1,
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           '当前生效：${session.url}',
-          style: TextStyle(color: c.text2, fontSize: 13),
+          style: TextStyle(color: c.text2, fontSize: 14),
         ),
         const SizedBox(height: 12),
         LayoutBuilder(
@@ -311,7 +312,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             );
             if (constraints.maxWidth >= 560 &&
-                MediaQuery.textScalerOf(context).scale(14) <= 18) {
+                MediaQuery.textScalerOf(context).scale(16) <= 18) {
               return Row(
                 children: [
                   Expanded(child: field),
@@ -330,14 +331,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           const SizedBox(height: 10),
           Text(
             _serverTestMessage!,
-            style: TextStyle(color: testColor, fontSize: 13),
+            style: TextStyle(color: testColor, fontSize: 14),
           ),
         ],
         if (_serverSaveMessage != null) ...[
           const SizedBox(height: 6),
           Text(
             _serverSaveMessage!,
-            style: TextStyle(color: c.text2, fontSize: 13),
+            style: TextStyle(color: c.text2, fontSize: 14),
           ),
         ],
       ],
@@ -457,7 +458,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ];
       case _UpdateStatus.latest:
-        return [Text('已是最新版本', style: TextStyle(color: c.text2, fontSize: 13))];
+        return [Text('已是最新版本', style: TextStyle(color: c.text2, fontSize: 14))];
       case _UpdateStatus.available:
         final info = _info!;
         return [
@@ -465,7 +466,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             '发现新版本 v${info.latestVersion}',
             style: TextStyle(
               color: c.accent,
-              fontSize: 13,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -473,7 +474,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             const SizedBox(height: 6),
             Text(
               info.releaseNotes!,
-              style: TextStyle(color: c.text2, fontSize: 13),
+              style: TextStyle(color: c.text2, fontSize: 14),
             ),
           ],
           const SizedBox(height: 12),
@@ -487,14 +488,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         return [
           Text(
             _error ?? '检查更新失败',
-            style: TextStyle(color: c.text2, fontSize: 13),
+            style: TextStyle(color: c.text2, fontSize: 14),
           ),
           const SizedBox(height: 8),
           OutlinedButton(onPressed: _checkUpdate, child: const Text('重试')),
         ];
       case _UpdateStatus.downloading:
         return [
-          Text('正在下载更新…', style: TextStyle(color: c.text2, fontSize: 13)),
+          Text('正在下载更新…', style: TextStyle(color: c.text2, fontSize: 14)),
           const SizedBox(height: 8),
           const LinearProgressIndicator(minHeight: 2),
         ];

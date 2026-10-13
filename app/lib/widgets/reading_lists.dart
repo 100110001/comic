@@ -174,7 +174,7 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                   builder: (context, constraints) {
                     final columns =
                         constraints.maxWidth >= 640 &&
-                            MediaQuery.textScalerOf(context).scale(14) <= 20
+                            MediaQuery.textScalerOf(context).scale(16) <= 20
                         ? 2
                         : 1;
                     final rows = (items.length / columns).ceil();
@@ -234,7 +234,10 @@ class _EntryTile extends StatelessWidget {
     final c = context.appColors;
     return Material(
       color: c.surface1,
-      borderRadius: BorderRadius.circular(kRadiusCard),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        side: BorderSide(color: c.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
@@ -277,7 +280,7 @@ class _EntryTile extends StatelessWidget {
                         author!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: c.text2, fontSize: 12),
+                        style: TextStyle(color: c.text2, fontSize: 14),
                       ),
                     ],
                     const SizedBox(height: 6),
@@ -294,7 +297,7 @@ class _EntryTile extends StatelessWidget {
                         subtitle,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: c.accent, fontSize: 12),
+                        style: TextStyle(color: c.accent, fontSize: 14),
                       ),
                     ),
                   ],
@@ -363,7 +366,10 @@ class _AuthorCard extends ConsumerWidget {
     );
     return Material(
       color: c.surface1,
-      borderRadius: BorderRadius.circular(kRadiusCard),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(kRadiusCard),
+        side: BorderSide(color: c.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: const EdgeInsets.all(20),

@@ -11,9 +11,9 @@ class ComicCard extends StatefulWidget {
   /// 与网格共享文字区高度，预留单行标题和单行作者。
   static double textAreaHeight(TextScaler scaler) =>
       20 +
-      (scaler.scale(14) * 1.4).ceilToDouble() +
+      (scaler.scale(16) * 1.4).ceilToDouble() +
       6 +
-      (scaler.scale(12) * 1.4).ceilToDouble();
+      (scaler.scale(14) * 1.4).ceilToDouble();
 
   @override
   State<ComicCard> createState() => _ComicCardState();
@@ -102,7 +102,7 @@ class _ComicCardState extends State<ComicCard> {
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                 ),
                               ),
                             ),
@@ -129,7 +129,7 @@ class _ComicCardState extends State<ComicCard> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: c.text1,
-                              fontSize: 14,
+                              fontSize: 16,
                               height: 1.4,
                               fontWeight: FontWeight.w500,
                             ),
@@ -143,7 +143,7 @@ class _ComicCardState extends State<ComicCard> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: c.text2,
-                            fontSize: 12,
+                            fontSize: 14,
                             height: 1.4,
                           ),
                         ),
