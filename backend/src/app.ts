@@ -4,6 +4,7 @@ import cors from "cors";
 import morgan from "morgan";
 import { router } from "./routes/index";
 import { config } from "./config";
+import { imageTransferLimit } from "./middleware/image-transfer-limit";
 
 const app: express.Express = express();
 
@@ -26,6 +27,7 @@ app.get("/", (_req, res) => {
 app.use(express.static(path.join(process.cwd(), "public")));
 app.use(
   "/static",
+  imageTransferLimit({ concurrency: config.imageMaxConcurrentReads }),
   express.static(config.comicRoot, {
     maxAge: "1h",
   }),

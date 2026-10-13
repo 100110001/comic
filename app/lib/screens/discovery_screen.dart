@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../widgets/loading_placeholders.dart';
 import '../widgets/display_network_image.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/comic.dart';
@@ -112,7 +113,7 @@ class _DiscoveryScreenState extends ConsumerState<DiscoveryScreen> {
     final comic = state?.current;
     final Widget body;
     if (async.isLoading && comic == null) {
-      body = const Center(child: CircularProgressIndicator());
+      body = const ComicInfoSkeleton();
     } else if (async.hasError && comic == null) {
       body = StatusView(
         icon: Icons.cloud_off,

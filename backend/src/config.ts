@@ -58,6 +58,7 @@ export const config = {
   },
   port: parseInt(env("PORT") ?? "8888"),
   comicRoot: env("COMIC_ROOT") ?? "",
+  imageMaxConcurrentReads: positiveEnv("IMAGE_MAX_CONCURRENT_READS", 1),
   db: {
     host: env("DB_HOST") ?? "",
     port: parseInt(env("DB_PORT") ?? "3306"),

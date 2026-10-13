@@ -10,6 +10,7 @@ import '../providers/reading_progress_provider.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
+import '../widgets/loading_placeholders.dart';
 import 'reader_screen.dart';
 import 'search_screen.dart';
 
@@ -159,9 +160,9 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
             ),
         ],
       ),
-      body: detailAsync.isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : detailAsync.hasError
+      body: detail == null && detailAsync.isLoading
+          ? const ComicInfoSkeleton(chapters: true)
+          : detail == null && detailAsync.hasError
           ? StatusView(
               icon: Icons.cloud_off,
               message: userMessageFor(detailAsync.error, fallback: '加载失败'),

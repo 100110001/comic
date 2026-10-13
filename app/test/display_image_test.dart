@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:comic/utils/display_image_provider.dart';
 import 'package:comic/widgets/display_network_image.dart';
+import 'package:comic/theme.dart';
+import 'package:comic/widgets/loading_placeholders.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'helpers/image_http.dart';
@@ -41,6 +43,80 @@ Future<ImageInfo> decodeImage(ImageProvider provider) {
 void main() {
   final fixture = ImageHttpOverrides();
   setUpAll(() => HttpOverrides.global = fixture);
+
+  testWidgets('慢封面延迟启用动效，首帧后呈现，缓存命中不闪骨架', (tester) async {
+    const url = 'http://example.com/delayed.png';
+    final release = Completer<void>();
+    fixture.delays[url] = release;
+    await tester.runAsync(() async {
+      fixture.images[url] = await imageBytes(64, 64);
+    });
+    Widget page({bool reduceMotion = false}) => MaterialApp(
+      theme: buildAppTheme(Brightness.light),
+      home: MediaQuery(
+        data: MediaQueryData(disableAnimations: reduceMotion),
+        child: const Center(
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: DisplayNetworkImage(url),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(page());
+    expect(find.byType(SkeletonPulse), findsOneWidget);
+    final fade = find.descendant(
+      of: find.byType(SkeletonPulse),
+      matching: find.byType(FadeTransition),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 1);
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.widget<FadeTransition>(fade).opacity.value, lessThan(1));
+    await tester.pumpWidget(page(reduceMotion: true));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FadeTransition>(fade).opacity.value, 1);
+    release.complete();
+    await tester.runAsync(() async {
+      final image = tester.widget<Image>(find.byType(Image));
+      final decoded = await decodeImage(image.image);
+      decoded.dispose();
+    });
+    await tester.pumpAndSettle();
+    expect(find.byType(SkeletonPulse), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(page());
+    expect(find.byType(SkeletonPulse), findsNothing);
+    expect(fixture.requests[url], 1);
+  });
+
+  testWidgets('封面错误不会被首帧骨架覆盖', (tester) async {
+    const url = 'http://example.com/loading-error.png';
+    fixture.failOnce.add(url);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(Brightness.dark),
+        home: Center(
+          child: SizedBox(
+            width: 64,
+            height: 64,
+            child: DisplayNetworkImage(
+              url,
+              errorBuilder: (_, _, _) => const Text('重试'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+    });
+    await tester.pumpAndSettle();
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.byType(SkeletonPulse), findsNothing);
+  });
 
   test('同档复用缓存，跨档和来源版本变化隔离，DPR 使用物理像素', () async {
     ImageProvider provider(String url, double width, {double ratio = 1}) =>
@@ -152,15 +228,18 @@ void main() {
       fixture.images[url] = await imageBytes(256, 256);
     });
     await tester.pumpWidget(
-      const MediaQuery(
-        data: MediaQueryData(devicePixelRatio: 2),
-        child: Directionality(
-          textDirection: TextDirection.ltr,
-          child: Center(
-            child: SizedBox(
-              width: 100,
-              height: 100,
-              child: DisplayNetworkImage(url, width: 300, height: 300),
+      Theme(
+        data: buildAppTheme(Brightness.light),
+        child: const MediaQuery(
+          data: MediaQueryData(devicePixelRatio: 2),
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: Center(
+              child: SizedBox(
+                width: 100,
+                height: 100,
+                child: DisplayNetworkImage(url, width: 300, height: 300),
+              ),
             ),
           ),
         ),

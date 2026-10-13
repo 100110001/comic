@@ -19,6 +19,99 @@ void main() {
     timeout: timeout,
   );
 
+  test('相同在途查询共享网络请求，完成后可再次查询', () async {
+    final responses = <Completer<http.Response>>[];
+    final client = clientWith((_) {
+      final response = Completer<http.Response>();
+      responses.add(response);
+      return response.future;
+    });
+    final first = client.getComics(keyword: '漫画');
+    final duplicate = client.getComics(keyword: '漫画');
+    final other = client.getComics(keyword: '其他');
+    await Future<void>.delayed(Duration.zero);
+    expect(responses, hasLength(2));
+    for (final response in responses) {
+      response.complete(http.Response('{"code":0,"data":[],"total":0}', 200));
+    }
+    await Future.wait([first, duplicate, other]);
+    final refresh = client.getComics(keyword: '漫画');
+    await Future<void>.delayed(Duration.zero);
+    expect(responses, hasLength(3));
+    responses.last.complete(
+      http.Response('{"code":0,"data":[],"total":0}', 200),
+    );
+    await refresh;
+  });
+
+  test('共享请求失败后解除合并，不缓存失败', () async {
+    var calls = 0;
+    final response = Completer<http.Response>();
+    final client = clientWith((_) {
+      calls++;
+      return calls == 1
+          ? response.future
+          : Future.value(http.Response('{"code":0,"data":[],"total":0}', 200));
+    });
+    final first = expectLater(
+      client.getComics(),
+      throwsA(isA<UserVisibleException>()),
+    );
+    final second = expectLater(
+      client.getComics(),
+      throwsA(isA<UserVisibleException>()),
+    );
+    response.complete(http.Response('error', 500));
+    await Future.wait([first, second]);
+    await client.getComics();
+    expect(calls, 2);
+  });
+
+  test('变更前后隔离查询，旧请求完成不删除新请求', () async {
+    final reads = <Completer<http.Response>>[];
+    final write = Completer<http.Response>();
+    final client = clientWith((request) {
+      if (request.method != 'GET') return write.future;
+      final response = Completer<http.Response>();
+      reads.add(response);
+      return response.future;
+    });
+    final before = client.getComics();
+    final mutation = client.setFavorite(1, true);
+    final during = client.getComics();
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, hasLength(2));
+    reads.first.complete(http.Response('{"code":0,"data":[],"total":0}', 200));
+    await before;
+    final duplicate = client.getComics();
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, hasLength(2));
+    write.complete(http.Response('{"code":0}', 200));
+    await mutation;
+    final after = client.getComics();
+    await Future<void>.delayed(Duration.zero);
+    expect(reads, hasLength(3));
+    reads[1].complete(http.Response('{"code":0,"data":[],"total":0}', 200));
+    reads[2].complete(http.Response('{"code":0,"data":[],"total":0}', 200));
+    await Future.wait([during, duplicate, after]);
+  });
+
+  test('不同服务器会话不会共享在途查询', () async {
+    var calls = 0;
+    final response = Completer<http.Response>();
+    Future<http.Response> handler(http.Request _) {
+      calls++;
+      return response.future;
+    }
+
+    final first = clientWith(handler).getComics();
+    final second = clientWith(handler).getComics();
+    await Future<void>.delayed(Duration.zero);
+    expect(calls, 2);
+    response.complete(http.Response('{"code":0,"data":[],"total":0}', 200));
+    await Future.wait([first, second]);
+  });
+
   test('GPU 预处理策略必须是二到十页的整数', () async {
     for (final value in [4, 0, 11, '4']) {
       final client = clientWith((request) async {

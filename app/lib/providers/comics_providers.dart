@@ -121,6 +121,7 @@ class RandomLibraryState {
 class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   int _queryGeneration = 0;
   int _pageSize = 30;
+  Future<void>? _refreshFuture;
 
   bool _isCurrent(ApiClient client, int queryGeneration) =>
       ref.mounted &&
@@ -130,6 +131,7 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   @override
   Future<RandomLibraryState> build() async {
     final client = ref.watch(apiClientProvider);
+    _refreshFuture = null;
     _queryGeneration++;
     final seed = ref.read(randomSeedProvider);
     final result = await _fetch(
@@ -207,7 +209,19 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
     }
   }
 
-  Future<void> reshuffle() async {
+  Future<void> reshuffle() {
+    if (state.isLoading) return future.then((_) {});
+    final existing = _refreshFuture;
+    if (existing != null) return existing;
+    late final Future<void> pending;
+    pending = _reshuffle().whenComplete(() {
+      if (identical(_refreshFuture, pending)) _refreshFuture = null;
+    });
+    _refreshFuture = pending;
+    return pending;
+  }
+
+  Future<void> _reshuffle() async {
     ref.read(randomSeedProvider.notifier).reshuffle();
     if (state.value == null) {
       ref.invalidateSelf();

@@ -17,6 +17,7 @@ import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/theme.dart';
 import 'package:comic/widgets/comic_grid.dart';
 import 'package:comic/widgets/comic_card.dart';
+import 'package:comic/widgets/loading_placeholders.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -58,6 +59,38 @@ class _PreviewDiscovery extends DiscoveryNotifier {
 }
 
 void main() {
+  testWidgets('加载骨架在深浅主题、窄矮窗口及大字体下保持可用', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    for (final brightness in Brightness.values) {
+      for (final size in [const Size(320, 280), const Size(1200, 700)]) {
+        tester.view.physicalSize = size;
+        for (final child in <Widget>[
+          const ComicGrid(comics: [], loading: true),
+          const ComicInfoSkeleton(chapters: true),
+          const ReadingListSkeleton(),
+          const ImageLoadingPlaceholder(),
+        ]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: buildAppTheme(brightness),
+              home: MediaQuery(
+                data: const MediaQueryData(
+                  textScaler: TextScaler.linear(2),
+                  disableAnimations: true,
+                ),
+                child: Scaffold(body: child),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+          expect(tester.binding.hasScheduledFrame, isFalse);
+        }
+      }
+    }
+  });
   testWidgets('收藏封面网格与作者作品卡片在窄屏和双倍字体下可导航', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.devicePixelRatio = 1;

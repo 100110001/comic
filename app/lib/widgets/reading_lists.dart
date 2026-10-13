@@ -12,6 +12,7 @@ import '../theme.dart';
 import '../utils/user_error.dart';
 import 'status_views.dart';
 import 'comic_grid.dart';
+import 'loading_placeholders.dart';
 
 class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
@@ -33,7 +34,7 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(recentReadingProvider),
           child: loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ReadingListSkeleton()
               : async.hasError && items.isEmpty
               ? StatusView(
                   icon: Icons.cloud_off,
@@ -96,7 +97,7 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(favoritesProvider),
           child: loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ComicGrid(comics: [], loading: true)
               : async.hasError && items.isEmpty
               ? StatusView(
                   icon: Icons.cloud_off,
@@ -159,7 +160,7 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
         child: RefreshIndicator(
           onRefresh: () async => ref.invalidate(favoriteAuthorsProvider),
           child: loading
-              ? const Center(child: CircularProgressIndicator())
+              ? const ReadingListSkeleton()
               : async.hasError && items.isEmpty
               ? StatusView(
                   icon: Icons.cloud_off,

@@ -6,6 +6,7 @@ class ImageHttpOverrides extends HttpOverrides {
   final images = <String, Uint8List>{};
   final requests = <String, int>{};
   final failOnce = <String>{};
+  final delays = <String, Completer<void>>{};
 
   @override
   HttpClient createHttpClient(SecurityContext? context) => _Client(this);
@@ -34,6 +35,7 @@ class _Request implements HttpClientRequest {
   @override
   Future<HttpClientResponse> close() async {
     fixture.requests.update(url, (n) => n + 1, ifAbsent: () => 1);
+    await fixture.delays[url]?.future;
     return _Response(
       fixture.images[url] ?? Uint8List(0),
       fixture.failOnce.remove(url) ? 503 : 200,

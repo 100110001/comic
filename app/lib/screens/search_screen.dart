@@ -200,7 +200,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             onAction: () => _search(keyword, remember: false),
                           )
                         : loading
-                        ? const Center(child: CircularProgressIndicator())
+                        ? const ComicGrid(comics: [], loading: true)
                         : comics.isEmpty
                         ? const EmptyListView(message: '没有找到相关漫画')
                         : ComicGrid(

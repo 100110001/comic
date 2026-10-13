@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../widgets/loading_placeholders.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1281,7 +1282,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 章节主体的统一状态分支：加载中 / 加载失败 / 空章 / 正常阅读。
   Widget _buildChapterBody(bool desktop) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loading) return const ImageLoadingPlaceholder(label: '正在加载章节');
     if (_loadFailed) return _buildLoadError();
     if (_images.isEmpty) return _buildEmptyChapter();
     return _scrollReading
@@ -1531,9 +1532,16 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           image: _imageProvider(image),
           key: ValueKey('page-img-$page-$_imageRetryTick'),
           fit: fit == BoxFit.none ? BoxFit.contain : fit,
+          frameBuilder: (context, child, frame, synchronous) => imageFrame(
+            context,
+            child,
+            frame,
+            synchronous,
+            placeholder: const ImageLoadingPlaceholder(),
+          ),
           loadingBuilder: (_, child, progress) => progress == null
               ? child
-              : const Center(child: CircularProgressIndicator()),
+              : ImageLoadingPlaceholder(progress: progress),
           errorBuilder: (_, _, _) => GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () => _retryPageImage(page),
@@ -1618,6 +1626,14 @@ class _LazyImageState extends State<_LazyImage> {
                   width: double.infinity,
                   height: widget.height,
                   fit: BoxFit.fitWidth,
+                  frameBuilder: (context, child, frame, synchronous) =>
+                      imageFrame(
+                        context,
+                        child,
+                        frame,
+                        synchronous,
+                        placeholder: const ImageLoadingPlaceholder(),
+                      ),
                   loadingBuilder: (_, child, progress) {
                     if (progress == null) return child;
                     return _loadingBox(progress: progress);
@@ -1640,17 +1656,8 @@ class _LazyImageState extends State<_LazyImage> {
     setState(() => _retryTick++);
   }
 
-  Widget _loadingBox({ImageChunkEvent? progress}) => ColoredBox(
-    color: context.appColors.readerBar,
-    child: Center(
-      child: progress != null && progress.expectedTotalBytes != null
-          ? CircularProgressIndicator(
-              value:
-                  progress.cumulativeBytesLoaded / progress.expectedTotalBytes!,
-            )
-          : const CircularProgressIndicator(),
-    ),
-  );
+  Widget _loadingBox({ImageChunkEvent? progress}) =>
+      ImageLoadingPlaceholder(progress: progress);
 }
 
 /// 单图失败占位：显示可点击的"重试"提示。

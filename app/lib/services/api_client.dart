@@ -29,12 +29,38 @@ class ApiClient {
   final Duration timeout;
   final http.Client _client;
   final bool _ownsClient;
+  final _pendingReads = <String, Future<Map<String, dynamic>>>{};
 
   void close() {
     if (_ownsClient) _client.close();
   }
 
   Future<Map<String, dynamic>> _request(
+    String method,
+    String path, {
+    Object? body,
+  }) {
+    if (method != 'GET') {
+      // 变更前及变更完成后的读取不能共享旧结果。
+      _pendingReads.clear();
+      return _sendRequest(
+        method,
+        path,
+        body: body,
+      ).whenComplete(_pendingReads.clear);
+    }
+    final existing = _pendingReads[path];
+    if (existing != null) return existing;
+    late final Future<Map<String, dynamic>> pending;
+    pending = _sendRequest(method, path).whenComplete(() {
+      // 清表后可能已有新的同路径请求，旧请求只清理自己。
+      if (identical(_pendingReads[path], pending)) _pendingReads.remove(path);
+    });
+    _pendingReads[path] = pending;
+    return pending;
+  }
+
+  Future<Map<String, dynamic>> _sendRequest(
     String method,
     String path, {
     Object? body,
