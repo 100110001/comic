@@ -24,6 +24,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _showHistory = true;
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
+  final _searchSession = Object();
+  late final _searchProvider = searchSessionProvider(_searchSession);
 
   @override
   void initState() {
@@ -62,6 +64,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _search(String keyword, {bool remember = true}) async {
     final word = keyword.trim();
+    if (word != ref.read(_searchProvider).value?.keyword &&
+        _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
     setState(() => _showHistory = word.isEmpty);
     if (remember && word.isNotEmpty) {
       final source = ref.read(serverSessionProvider).url;
@@ -83,7 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     }
     try {
-      await ref.read(searchProvider.notifier).search(word);
+      await ref.read(_searchProvider.notifier).search(word);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,7 +100,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _loadMore() async {
     try {
-      await ref.read(searchProvider.notifier).loadMore();
+      await ref.read(_searchProvider.notifier).loadMore();
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +114,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final searchAsync = ref.watch(searchProvider);
+    final searchAsync = ref.watch(_searchProvider);
     final state = searchAsync.value;
     final comics = state?.comics ?? const <Comic>[];
     final keyword = state?.keyword ?? '';

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/user_error.dart';
+import '../services/preference_writes.dart';
 
 const _themeModeKey = 'themeMode';
 const kCloseToTrayKey = 'closeToTray';
@@ -21,17 +23,35 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() => initial;
 
-  Future<void> setMode(ThemeMode mode) async {
-    state = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_themeModeKey, mode.name);
+  Future<void> _pending = Future<void>.value();
+
+  Future<void> setMode(ThemeMode mode) {
+    final operation = _pending.then((_) async {
+      if (!ref.mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!await writePreference(
+        prefs,
+        () => prefs.setString(_themeModeKey, mode.name),
+      )) {
+        throw const UserVisibleException(
+          UserErrorKind.persistence,
+          '主题保存失败，请重试',
+        );
+      }
+      if (ref.mounted) state = mode;
+    });
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return operation;
   }
 }
 
 /// 启动时读取持久化的外观偏好，无记录时默认跟随系统。
 Future<ThemeMode> loadThemeMode() async {
   final prefs = await SharedPreferences.getInstance();
-  final stored = prefs.getString(_themeModeKey);
+  final stored = prefs.get(_themeModeKey);
   return ThemeMode.values.firstWhere(
     (m) => m.name == stored,
     orElse: () => ThemeMode.system,
@@ -51,26 +71,47 @@ class CloseToTrayNotifier extends Notifier<bool> {
   @override
   bool build() => initial;
 
-  Future<void> setEnabled(bool value) async {
-    state = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(kCloseToTrayKey, value);
+  Future<void> _pending = Future<void>.value();
+
+  Future<void> setEnabled(bool value) {
+    final operation = _pending.then((_) async {
+      if (!ref.mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!await writePreference(
+        prefs,
+        () => prefs.setBool(kCloseToTrayKey, value),
+      )) {
+        throw const UserVisibleException(
+          UserErrorKind.persistence,
+          '托盘设置保存失败，请重试',
+        );
+      }
+      if (ref.mounted) state = value;
+    });
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return operation;
   }
 }
 
 /// 启动时读取托盘偏好，无记录时默认开启。
 Future<bool> loadCloseToTray() async {
   final prefs = await SharedPreferences.getInstance();
-  return prefs.getBool(kCloseToTrayKey) ?? true;
+  final stored = prefs.get(kCloseToTrayKey);
+  return stored is bool ? stored : true;
 }
 
 /// 读取上次保存的窗口位置与尺寸（无记录返回 null）。
 Future<Rect?> loadWindowBounds() async {
   final prefs = await SharedPreferences.getInstance();
-  final raw = prefs.getString(kWindowBoundsKey);
-  if (raw == null) return null;
+  final raw = prefs.get(kWindowBoundsKey);
+  if (raw is! String) return null;
   final parts = raw.split(',').map(double.tryParse).toList();
-  if (parts.length != 4 || parts.any((p) => p == null)) return null;
+  if (parts.length != 4 || parts.any((p) => p == null || !p.isFinite)) {
+    return null;
+  }
   final rect = Rect.fromLTWH(parts[0]!, parts[1]!, parts[2]!, parts[3]!);
   // 校验坐标合法性：尺寸过小或位置异常（如最小化占位 -32000）直接忽略
   if (rect.width < 200 ||
@@ -84,9 +125,12 @@ Future<Rect?> loadWindowBounds() async {
 
 Future<void> saveWindowBounds(Rect bounds) async {
   final prefs = await SharedPreferences.getInstance();
-  await prefs.setString(
-    kWindowBoundsKey,
-    '${bounds.left},${bounds.top},${bounds.width},${bounds.height}',
+  await writePreference(
+    prefs,
+    () => prefs.setString(
+      kWindowBoundsKey,
+      '${bounds.left},${bounds.top},${bounds.width},${bounds.height}',
+    ),
   );
 }
 
@@ -119,7 +163,10 @@ class SuperResolutionDefaultNotifier extends Notifier<SuperResolutionMode> {
     final operation = _pending.then((_) async {
       if (!ref.mounted) return;
       final prefs = await SharedPreferences.getInstance();
-      if (!await prefs.setString(kSuperResolutionModeKey, value.name)) {
+      if (!await writePreference(
+        prefs,
+        () => prefs.setString(kSuperResolutionModeKey, value.name),
+      )) {
         throw StateError('超分设置保存失败');
       }
       if (ref.mounted) state = value;
@@ -265,9 +312,9 @@ class ReaderPreferencesNotifier extends Notifier<ReaderPreferences> {
       if (!ref.mounted) return;
       final next = change(state);
       final prefs = await SharedPreferences.getInstance();
-      if (!await prefs.setString(
-        kReaderPreferencesKey,
-        jsonEncode(next.toJson()),
+      if (!await writePreference(
+        prefs,
+        () => prefs.setString(kReaderPreferencesKey, jsonEncode(next.toJson())),
       )) {
         throw StateError('阅读设置保存失败');
       }

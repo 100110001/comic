@@ -174,8 +174,12 @@ final localReadingProgressProvider =
     });
 
 /// 远端查询仍独立缓存，本机位置变化只重新合并，不重新请求 API。
-final recentReadingWithLocalProvider =
-    FutureProvider<List<ReadingProgressEntry>>((ref) async {
+class RecentReadingWithLocal
+    extends ServerQueryNotifier<List<ReadingProgressEntry>> {
+  @override
+  Future<List<ReadingProgressEntry>> build() {
+    final client = ref.watch(apiClientProvider);
+    return trackSource(client, () async {
       final url = ref.watch(serverSessionProvider).url;
       final local =
           (ref.watch(readingProgressQueueProvider).value ?? [])
@@ -184,7 +188,8 @@ final recentReadingWithLocalProvider =
             ..sort((a, b) => b.revision.compareTo(a.revision));
       final remoteState = ref.watch(recentReadingProvider);
       // 待同步断点无需等网络超时才可用于续读。
-      if (local.isNotEmpty && !remoteState.hasValue) {
+      if (local.isNotEmpty &&
+          (currentSourceState.value == null || !remoteState.hasValue)) {
         return local.map((p) => p.entry).toList();
       }
       final remote = ref.watch(recentReadingProvider.future);
@@ -199,4 +204,21 @@ final recentReadingWithLocalProvider =
         if (local.isNotEmpty) return local.map((p) => p.entry).toList();
         rethrow;
       }
+    });
+  }
+}
+
+final recentReadingWithLocalProvider =
+    AsyncNotifierProvider<RecentReadingWithLocal, List<ReadingProgressEntry>>(
+      RecentReadingWithLocal.new,
+      retry: (_, _) => null,
+    );
+
+final currentRecentReadingWithLocalProvider =
+    Provider<AsyncValue<List<ReadingProgressEntry>>>((ref) {
+      ref.watch(recentReadingWithLocalProvider);
+      ref.watch(apiClientProvider);
+      return ref
+          .read(recentReadingWithLocalProvider.notifier)
+          .currentSourceState;
     });

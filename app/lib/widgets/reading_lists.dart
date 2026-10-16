@@ -6,6 +6,7 @@ import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reading_progress_provider.dart';
+import '../providers/server_provider.dart';
 import '../screens/detail_screen.dart';
 import '../screens/search_screen.dart';
 import '../theme.dart';
@@ -13,6 +14,33 @@ import '../utils/user_error.dart';
 import 'status_views.dart';
 import 'comic_grid.dart';
 import 'loading_placeholders.dart';
+
+Future<void> _runCollectionAction(
+  BuildContext context,
+  WidgetRef ref,
+  Future<void> Function() action, {
+  required String failure,
+  String? success,
+}) async {
+  final generation = ref.read(serverSessionProvider).generation;
+  try {
+    await action();
+    if (success != null &&
+        context.mounted &&
+        ref.read(serverSessionProvider).generation == generation) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(success)));
+    }
+  } catch (error) {
+    if (context.mounted &&
+        ref.read(serverSessionProvider).generation == generation) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: failure))),
+      );
+    }
+  }
+}
 
 class RecentReadingList extends ConsumerStatefulWidget {
   const RecentReadingList({super.key});
@@ -24,18 +52,21 @@ class RecentReadingList extends ConsumerStatefulWidget {
 class _RecentReadingListState extends ConsumerState<RecentReadingList> {
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(recentReadingWithLocalProvider);
+    final async = ref.watch(currentRecentReadingWithLocalProvider);
     final items = async.value ?? const <ReadingProgressEntry>[];
-    final loading = async.isLoading && items.isEmpty;
+    final loading = async.isLoading && !async.hasValue;
 
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 960),
         child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(recentReadingProvider),
+          onRefresh: () => _runCollectionAction(context, ref, () async {
+            ref.invalidate(recentReadingProvider);
+            await ref.read(recentReadingProvider.future);
+          }, failure: '刷新最近阅读失败'),
           child: loading
               ? const ReadingListSkeleton()
-              : async.hasError && items.isEmpty
+              : async.hasError && !async.hasValue
               ? StatusView(
                   icon: Icons.cloud_off,
                   message: userMessageFor(async.error, fallback: '加载失败'),
@@ -45,6 +76,7 @@ class _RecentReadingListState extends ConsumerState<RecentReadingList> {
               : items.isEmpty
               ? const EmptyListView(message: '暂无最近阅读')
               : ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   itemCount: items.length + 1,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -87,18 +119,22 @@ class FavoritesList extends ConsumerStatefulWidget {
 class _FavoritesListState extends ConsumerState<FavoritesList> {
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(favoritesProvider);
+    final async = ref.watch(currentFavoritesProvider);
+    final mutations = ref.watch(favoriteMutationsProvider);
     final items = async.value ?? const <Comic>[];
-    final loading = async.isLoading && items.isEmpty;
+    final loading = async.isLoading && !async.hasValue;
 
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 960),
         child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(favoritesProvider),
+          onRefresh: () => _runCollectionAction(context, ref, () async {
+            ref.invalidate(favoritesProvider);
+            await ref.read(favoritesProvider.future);
+          }, failure: '刷新收藏失败'),
           child: loading
               ? const ComicGrid(comics: [], loading: true)
-              : async.hasError && items.isEmpty
+              : async.hasError && !async.hasValue
               ? StatusView(
                   icon: Icons.cloud_off,
                   message: userMessageFor(async.error, fallback: '加载失败'),
@@ -123,6 +159,22 @@ class _FavoritesListState extends ConsumerState<FavoritesList> {
                             .map((comic) => comic.withFavorited(true))
                             .toList(),
                         loading: false,
+                        removingFavoriteIds: {
+                          for (final comic in items)
+                            if (mutations.comicBusy(comic.id)) comic.id,
+                        },
+                        onRemoveFavorite: (comic) => _runCollectionAction(
+                          context,
+                          ref,
+                          () => ref
+                              .read(favoriteMutationsProvider.notifier)
+                              .setComicFavorite(
+                                comicId: comic.id,
+                                favorited: false,
+                              ),
+                          failure: '取消收藏失败',
+                          success: '已取消收藏',
+                        ),
                         onTap: (comic) => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -150,18 +202,23 @@ class FavoriteAuthorsList extends ConsumerStatefulWidget {
 class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(favoriteAuthorsProvider);
+    final async = ref.watch(currentFavoriteAuthorsProvider);
+    final mutations = ref.watch(favoriteMutationsProvider);
+    final feedbackContext = context;
     final items = async.value ?? const <FavoriteAuthor>[];
-    final loading = async.isLoading && items.isEmpty;
+    final loading = async.isLoading && !async.hasValue;
 
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 960),
         child: RefreshIndicator(
-          onRefresh: () async => ref.invalidate(favoriteAuthorsProvider),
+          onRefresh: () => _runCollectionAction(context, ref, () async {
+            ref.invalidate(favoriteAuthorsProvider);
+            await ref.read(favoriteAuthorsProvider.future);
+          }, failure: '刷新收藏作者失败'),
           child: loading
               ? const ReadingListSkeleton()
-              : async.hasError && items.isEmpty
+              : async.hasError && !async.hasValue
               ? StatusView(
                   icon: Icons.cloud_off,
                   message: userMessageFor(async.error, fallback: '加载失败'),
@@ -179,6 +236,7 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                         : 1;
                     final rows = (items.length / columns).ceil();
                     return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                       itemCount: rows + 1,
                       separatorBuilder: (_, _) => const SizedBox(height: 16),
@@ -198,7 +256,31 @@ class _FavoriteAuthorsListState extends ConsumerState<FavoriteAuthorsList> {
                               if (col > 0) const SizedBox(width: 16),
                               Expanded(
                                 child: start + col < items.length
-                                    ? _AuthorCard(author: items[start + col])
+                                    ? _AuthorCard(
+                                        key: ValueKey(
+                                          items[start + col].author,
+                                        ),
+                                        author: items[start + col],
+                                        removing: mutations.authorBusy(
+                                          items[start + col].author,
+                                        ),
+                                        onRemove: () => _runCollectionAction(
+                                          feedbackContext,
+                                          ref,
+                                          () => ref
+                                              .read(
+                                                favoriteMutationsProvider
+                                                    .notifier,
+                                              )
+                                              .setAuthorFavorite(
+                                                author:
+                                                    items[start + col].author,
+                                                favorited: false,
+                                              ),
+                                          failure: '取消收藏作者失败',
+                                          success: '已取消收藏作者',
+                                        ),
+                                      )
                                     : const SizedBox.shrink(),
                               ),
                             ],
@@ -352,8 +434,15 @@ class _CollectionHeading extends StatelessWidget {
 }
 
 class _AuthorCard extends ConsumerWidget {
-  const _AuthorCard({required this.author});
+  const _AuthorCard({
+    super.key,
+    required this.author,
+    required this.onRemove,
+    required this.removing,
+  });
   final FavoriteAuthor author;
+  final VoidCallback onRemove;
+  final bool removing;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.appColors;
@@ -406,7 +495,16 @@ class _AuthorCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.star_outline, color: c.star, size: 18),
+                IconButton(
+                  tooltip: removing ? '正在取消收藏作者' : '取消收藏作者',
+                  onPressed: removing ? null : onRemove,
+                  icon: removing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(Icons.star, color: c.star, size: 20),
+                ),
               ],
             ),
             const SizedBox(height: 20),

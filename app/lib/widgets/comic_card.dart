@@ -6,7 +6,15 @@ import '../theme.dart';
 class ComicCard extends StatefulWidget {
   final Comic comic;
   final VoidCallback? onTap;
-  const ComicCard({super.key, required this.comic, this.onTap});
+  final VoidCallback? onRemoveFavorite;
+  final bool removingFavorite;
+  const ComicCard({
+    super.key,
+    required this.comic,
+    this.onTap,
+    this.onRemoveFavorite,
+    this.removingFavorite = false,
+  });
 
   /// 与网格共享文字区高度，预留单行标题和单行作者。
   static double textAreaHeight(TextScaler scaler) =>
@@ -39,7 +47,7 @@ class _ComicCardState extends State<ComicCard> {
           shape: const RoundedRectangleBorder(),
           clipBehavior: Clip.none,
           child: InkWell(
-            onTap: widget.onTap,
+            onTap: widget.removingFavorite ? null : widget.onTap,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -65,18 +73,42 @@ class _ComicCardState extends State<ComicCard> {
                             top: 8,
                             right: 8,
                             child: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: EdgeInsets.all(
+                                widget.onRemoveFavorite == null ? 6 : 0,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.black.withValues(alpha: 0.65),
                                 borderRadius: BorderRadius.circular(
                                   kRadiusThumb,
                                 ),
                               ),
-                              child: Icon(
-                                Icons.favorite,
-                                color: c.favorite,
-                                size: 16,
-                              ),
+                              child: widget.onRemoveFavorite != null
+                                  ? IconButton(
+                                      tooltip: widget.removingFavorite
+                                          ? '正在取消收藏'
+                                          : '取消收藏',
+                                      onPressed: widget.removingFavorite
+                                          ? null
+                                          : widget.onRemoveFavorite,
+                                      icon: widget.removingFavorite
+                                          ? const SizedBox.square(
+                                              dimension: 18,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white,
+                                              ),
+                                            )
+                                          : Icon(
+                                              Icons.favorite,
+                                              color: c.favorite,
+                                              size: 20,
+                                            ),
+                                    )
+                                  : Icon(
+                                      Icons.favorite,
+                                      color: c.favorite,
+                                      size: 16,
+                                    ),
                             ),
                           ),
                         Positioned(

@@ -75,7 +75,9 @@ Future<void> installAndroidUpdate(String apkPath) async {
 /// 当前平台的下载地址（Windows/Android）。
 String? updateUrlFor(UpdateInfo info) {
   if (kIsWeb) return null;
-  return defaultTargetPlatform == TargetPlatform.android
-      ? info.androidUrl
-      : info.windowsUrl;
+  return switch (defaultTargetPlatform) {
+    TargetPlatform.android => info.androidUrl,
+    TargetPlatform.windows => info.windowsUrl,
+    _ => null,
+  };
 }

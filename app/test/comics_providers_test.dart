@@ -39,6 +39,9 @@ class _DelayedClient extends ApiClient {
   final requests = <_Request>[];
 
   @override
+  Future<void> setFavorite(int comicId, bool favorited) async {}
+
+  @override
   Future<_Page> getComics({
     int pageOffset = 1,
     int pageSize = 20,
@@ -135,6 +138,37 @@ void main() {
       isolated.read(favoriteAuthorBooksProvider('作者')).requireValue.single.id,
       100,
     );
+  });
+
+  test('嵌套搜索会话独立，收藏同步所有活跃查询且刷新不覆盖确认角标', () async {
+    final parent = searchSessionProvider(Object());
+    final child = searchSessionProvider(Object());
+    final parentSubscription = container.listen(parent, (_, _) {});
+    final childSubscription = container.listen(child, (_, _) {});
+    addTearDown(parentSubscription.close);
+    addTearDown(childSubscription.close);
+    final parentSearch = container.read(parent.notifier).search('标题');
+    client.requests.last.complete();
+    await parentSearch;
+    final childSearch = container.read(child.notifier).search('作者');
+    client.requests.last.complete();
+    await childSearch;
+    final refresh = container.read(parent.notifier).search('标题');
+    await container
+        .read(favoriteMutationsProvider.notifier)
+        .setComicFavorite(comicId: 1, favorited: true);
+    expect(container.read(parent).requireValue.comics[1].favorited, isTrue);
+    expect(container.read(child).requireValue.comics[1].favorited, isTrue);
+    client.requests.last.complete();
+    await refresh;
+    expect(container.read(parent).requireValue.keyword, '标题');
+    expect(container.read(child).requireValue.keyword, '作者');
+    expect(container.read(parent).requireValue.comics[1].favorited, isTrue);
+    // 已结束的请求不留下永久覆盖；后续显式刷新可读取其他客户端的新状态。
+    final externalRefresh = container.read(parent.notifier).search('标题');
+    client.requests.last.complete();
+    await externalRefresh;
+    expect(container.read(parent).requireValue.comics[1].favorited, isFalse);
   });
 
   test('新搜索先返回时忽略旧搜索的成功与失败', () async {

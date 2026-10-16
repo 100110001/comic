@@ -24,6 +24,8 @@ class ComicGrid extends StatelessWidget {
   final double bottomPadding;
   final ScrollController? controller;
   final void Function(Comic comic)? onTap;
+  final ValueChanged<Comic>? onRemoveFavorite;
+  final Set<int> removingFavoriteIds;
   final ValueChanged<int>? onColumnsChanged;
   final String emptyMessage;
   const ComicGrid({
@@ -33,6 +35,8 @@ class ComicGrid extends StatelessWidget {
     this.bottomPadding = 0,
     this.controller,
     this.onTap,
+    this.onRemoveFavorite,
+    this.removingFavoriteIds = const {},
     this.onColumnsChanged,
     this.emptyMessage = '书库里还没有漫画',
   });
@@ -114,8 +118,13 @@ class ComicGrid extends StatelessWidget {
                     }
                     final comic = comics[i];
                     return ComicCard(
+                      key: ValueKey(comic.id),
                       comic: comic,
                       onTap: onTap == null ? null : () => onTap!(comic),
+                      onRemoveFavorite: onRemoveFavorite == null
+                          ? null
+                          : () => onRemoveFavorite!(comic),
+                      removingFavorite: removingFavoriteIds.contains(comic.id),
                     );
                   },
                 ),

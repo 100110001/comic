@@ -132,6 +132,8 @@ void main() {
     double pixelRatio = 1,
     double textScale = 1,
     SuperResolutionMode? defaultMode,
+    MemoryProgressStorage? progressStorage,
+    bool routed = false,
     ReaderPreferences preferences = const ReaderPreferences(),
   }) async {
     final client = srClient ?? _ProgressClient();
@@ -174,12 +176,15 @@ void main() {
             ),
           ),
           apiClientProvider.overrideWithValue(client),
-          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          progressStorageProvider.overrideWithValue(
+            progressStorage ?? MemoryProgressStorage(),
+          ),
           serverSessionProvider.overrideWith(
             () => ServerSessionNotifier(initialUrl: 'http://example.com'),
           ),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => loadDetail == null ? detail : await loadDetail(),
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async =>
+                loadDetail == null ? detail : await loadDetail(),
           ),
           chapterImagesProvider.overrideWith(
             (ref, id) async =>
@@ -194,16 +199,35 @@ void main() {
             ).copyWith(textScaler: TextScaler.linear(textScale)),
             child: child!,
           ),
-          home: ReaderScreen(
-            comicId: 1,
-            chapterId: initialChapter,
-            title: '测试漫画',
-            initialPage: initialPage,
-            onNextComic: onNextComic,
-          ),
+          home: routed
+              ? const Scaffold(body: Text('阅读入口'))
+              : ReaderScreen(
+                  comicId: 1,
+                  chapterId: initialChapter,
+                  title: '测试漫画',
+                  initialPage: initialPage,
+                  onNextComic: onNextComic,
+                ),
         ),
       ),
     );
+    if (routed) {
+      unawaited(
+        tester
+            .state<NavigatorState>(find.byType(Navigator))
+            .push<void>(
+              MaterialPageRoute(
+                builder: (_) => ReaderScreen(
+                  comicId: 1,
+                  chapterId: initialChapter,
+                  title: '测试漫画',
+                  initialPage: initialPage,
+                  onNextComic: onNextComic,
+                ),
+              ),
+            ),
+      );
+    }
     await settleReader(tester);
   }
 
@@ -883,6 +907,149 @@ void main() {
     expect(find.text('2× 超分'), findsNothing);
   });
 
+  testWidgets(
+    '换书前本机写入失败保留当前漫画，恢复后可重试',
+    (tester) async {
+      final storage = MemoryProgressStorage();
+      var calls = 0;
+      await pumpReader(
+        tester,
+        width: 1200,
+        progressStorage: storage,
+        onNextComic: () async {
+          calls++;
+          return null;
+        },
+      );
+      storage.failWrite = true;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      await openReaderMenu(tester);
+      await tester.tap(find.text('下一本'));
+      await tester.pumpAndSettle();
+      expect(calls, 0);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(find.text('阅读进度无法保存在本机，请重试'), findsOneWidget);
+      storage.failWrite = false;
+      await openReaderMenu(tester);
+      await tester.tap(find.text('下一本'));
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    '路由返回先关面板，保存失败不退出，恢复后只补传一次',
+    (tester) async {
+      final storage = MemoryProgressStorage();
+      final client = _ProgressClient();
+      await pumpReader(
+        tester,
+        width: 1200,
+        progressStorage: storage,
+        srClient: client,
+        routed: true,
+      );
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+      await openReaderMenu(tester);
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.text('阅读设置'), findsNothing);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(client.positions, isEmpty);
+      storage.failWrite = true;
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await settleReader(tester);
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(client.positions, isEmpty);
+      storage.failWrite = false;
+      await navigator.maybePop();
+      await navigator.maybePop();
+      await tester.pumpAndSettle();
+      expect(find.byType(ReaderScreen), findsNothing);
+      expect(find.text('阅读入口'), findsOneWidget);
+      expect(client.positions, [(comicId: 1, chapterId: 1, pageNumber: 1)]);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'iOS 边缘返回先关面板，保存失败保留阅读器并可重试',
+    (tester) async {
+      final storage = MemoryProgressStorage()..failWrite = true;
+      final client = _ProgressClient();
+      await pumpReader(
+        tester,
+        progressStorage: storage,
+        srClient: client,
+        routed: true,
+      );
+      await tester.dragFrom(const Offset(100, 300), const Offset(150, 0));
+      await settleReader(tester);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      await tester.dragFrom(const Offset(8, 400), const Offset(0, -150));
+      await settleReader(tester);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      await openReaderMenu(tester);
+      await tester.dragFrom(const Offset(8, 100), const Offset(150, 0));
+      await settleReader(tester);
+      expect(find.text('阅读设置'), findsNothing);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      await tester.dragFrom(const Offset(8, 300), const Offset(150, 0));
+      await settleReader(tester);
+      expect(find.byType(ReaderScreen), findsOneWidget);
+      expect(client.positions, isEmpty);
+      storage.failWrite = false;
+      await tester.dragFrom(const Offset(8, 300), const Offset(150, 0));
+      await tester.pumpAndSettle();
+      expect(find.byType(ReaderScreen), findsNothing);
+      expect(find.text('阅读入口'), findsOneWidget);
+      expect(client.positions, hasLength(1));
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  for (final action in ['快捷键', '滚轮', '拖动']) {
+    testWidgets(
+      '分页自动阅读遇到人工$action停止',
+      (tester) async {
+        await pumpReader(tester, width: 1200);
+        await openReaderMenu(tester);
+        final start = find.text('开始自动阅读');
+        await tester.ensureVisible(start);
+        await tester.tap(start);
+        await tester.pump();
+        expect(find.text('停止自动阅读'), findsOneWidget);
+        switch (action) {
+          case '快捷键':
+            await tester.sendKeyEvent(LogicalKeyboardKey.end);
+          case '滚轮':
+            await tester.sendEventToBinding(
+              const PointerScrollEvent(
+                position: Offset(400, 300),
+                scrollDelta: Offset(0, 50),
+              ),
+            );
+          case '拖动':
+            await tester.fling(
+              find.byType(ReaderScreen),
+              const Offset(-300, 0),
+              1000,
+            );
+        }
+        await tester.pump();
+        expect(find.text('停止自动阅读'), findsNothing);
+        final page = positionOf(tester).pageNumber;
+        await tester.pump(const Duration(seconds: 6));
+        expect(positionOf(tester).pageNumber, page);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
+
   testWidgets('换书请求失败后恢复按钮并可再次请求', (tester) async {
     var calls = 0;
     await pumpReader(
@@ -1066,10 +1233,19 @@ void main() {
               () => ServerSessionNotifier(initialUrl: 'http://example.com'),
             ),
             apiClientProvider.overrideWithValue(client),
-            comicDetailProvider.overrideWith(
-              (ref, id) async => ComicDetail(
-                comic: Comic(id: id, title: '漫画$id'),
-                chapters: [Chapter(id: id * 10, title: '章节$id', sortOrder: 0)],
+            comicDetailProvider.overrideWithBuild(
+              (ref, notifier) async => ComicDetail(
+                comic: Comic(
+                  id: notifier.comicId,
+                  title: '漫画${notifier.comicId}',
+                ),
+                chapters: [
+                  Chapter(
+                    id: notifier.comicId * 10,
+                    title: '章节${notifier.comicId}',
+                    sortOrder: 0,
+                  ),
+                ],
                 favorited: false,
                 authorFavorited: false,
               ),

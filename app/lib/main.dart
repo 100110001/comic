@@ -174,8 +174,26 @@ class DesktopShell extends ConsumerStatefulWidget {
   ConsumerState<DesktopShell> createState() => _DesktopShellState();
 }
 
-class _DesktopShellState extends ConsumerState<DesktopShell> {
+class _DesktopShellState extends ConsumerState<DesktopShell>
+    with SingleTickerProviderStateMixin {
   int _index = 0;
+  late final AnimationController _transition = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 220),
+    value: 1,
+  );
+
+  @override
+  void dispose() {
+    _transition.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) _transition.value = 1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +203,14 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
           _DesktopSidebar(
             selectedIndex: _index,
             onSelect: (i) {
-              setState(() => _index = i);
+              if (_index != i) {
+                setState(() => _index = i);
+                if (MediaQuery.disableAnimationsOf(context)) {
+                  _transition.value = 1;
+                } else {
+                  _transition.forward(from: 0);
+                }
+              }
               // 切换侧栏入口时后台刷新对应列表
               switch (i) {
                 case 1:
@@ -201,18 +226,18 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
             },
           ),
           Expanded(
-            child: TweenAnimationBuilder<double>(
-              key: ValueKey('page-$_index'),
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
-              builder: (context, value, child) => Opacity(
-                opacity: value,
-                child: Transform.translate(
-                  offset: Offset(0, 6 * (1 - value)),
-                  child: child,
-                ),
-              ),
+            child: AnimatedBuilder(
+              animation: _transition,
+              builder: (context, child) {
+                final value = Curves.easeOutCubic.transform(_transition.value);
+                return Opacity(
+                  opacity: value,
+                  child: Transform.translate(
+                    offset: Offset(0, 6 * (1 - value)),
+                    child: child,
+                  ),
+                );
+              },
               child: IndexedStack(
                 index: _index,
                 children: [

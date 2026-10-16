@@ -100,17 +100,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ThemeMode.dark: '深色',
                     },
                     themeMode,
-                    (mode) =>
-                        ref.read(themeModeProvider.notifier).setMode(mode),
+                    (mode) => _savePreference(
+                      () => ref.read(themeModeProvider.notifier).setMode(mode),
+                    ),
                   ),
                 ),
-                if (defaultTargetPlatform == TargetPlatform.windows) ...[
+                if (!kIsWeb &&
+                    defaultTargetPlatform == TargetPlatform.windows) ...[
                   const Divider(),
                   SwitchListTile(
                     value: closeToTray,
-                    onChanged: (value) => ref
-                        .read(closeToTrayProvider.notifier)
-                        .setEnabled(value),
+                    onChanged: (value) => _savePreference(
+                      () => ref
+                          .read(closeToTrayProvider.notifier)
+                          .setEnabled(value),
+                    ),
                     title: const Text('关闭后留在系统托盘'),
                     subtitle: Text(
                       closeToTray ? '关闭窗口后继续运行，便于下次阅读' : '关闭窗口时直接退出应用',
@@ -143,6 +147,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _savePreference(Future<void> Function() save) async {
+    try {
+      await save();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(userMessageFor(error, fallback: '设置保存失败，请重试'))),
+      );
+    }
   }
 
   Widget _settingsGroup(String title, List<Widget> children) => Padding(
@@ -270,6 +285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           builder: (context, constraints) {
             final field = TextField(
               controller: _serverController,
+              enabled: !_serverSaving,
               keyboardType: TextInputType.url,
               autocorrect: false,
               enableSuggestions: false,
@@ -553,6 +569,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (!mounted) return;
       if (defaultTargetPlatform == TargetPlatform.android) {
         await installAndroidUpdate(path);
+        if (!mounted) return;
         setState(() => _status = _UpdateStatus.idle);
       } else {
         await installWindowsUpdate(path);

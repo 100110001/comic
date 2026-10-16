@@ -83,13 +83,13 @@ void main() {
       for (final scale in [1.0, 2.0]) {
         final container = ProviderContainer(
           overrides: [
-            favoritesProvider.overrideWith(
-              (ref) async => const [
+            favoritesProvider.overrideWithBuild(
+              (ref, notifier) async => const [
                 Comic(id: 1, title: '收藏作品', author: '测试作者', favorited: true),
               ],
             ),
-            favoriteAuthorsProvider.overrideWith(
-              (ref) async => const [
+            favoriteAuthorsProvider.overrideWithBuild(
+              (ref, notifier) async => const [
                 FavoriteAuthor(author: '测试作者', comicCount: 2),
               ],
             ),
@@ -98,8 +98,8 @@ void main() {
                 Comic(id: 1, title: '作者作品', author: '测试作者'),
               ],
             ),
-            comicDetailProvider.overrideWith(
-              (ref, id) async => const ComicDetail(
+            comicDetailProvider.overrideWithBuild(
+              (ref, notifier) async => const ComicDetail(
                 comic: Comic(id: 1, title: '漫画详情'),
                 chapters: [],
                 favorited: true,
@@ -175,8 +175,8 @@ void main() {
               ),
             ],
           ),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => const ComicDetail(
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => const ComicDetail(
               comic: Comic(id: 1, title: '漫画详情'),
               chapters: [],
               favorited: false,
@@ -363,8 +363,8 @@ void main() {
       ProviderScope(
         overrides: [
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => ComicDetail(
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => ComicDetail(
               comic: const Comic(
                 id: 1,
                 title: '很长的漫画标题也不应该让章节目录消失',
@@ -403,8 +403,8 @@ void main() {
       ProviderScope(
         overrides: [
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => const ComicDetail(
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => const ComicDetail(
               comic: Comic(id: 1, title: '暂无章节的漫画'),
               chapters: [],
               favorited: false,
@@ -436,8 +436,8 @@ void main() {
       final c = ProviderContainer(
         overrides: [
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => const ComicDetail(
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => const ComicDetail(
               comic: Comic(id: 1, title: '测试漫画'),
               chapters: [Chapter(id: 10, title: '第一话', sortOrder: 0)],
               favorited: false,
