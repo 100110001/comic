@@ -22,11 +22,12 @@ scope: convention
 - 开发启动前复用 stop 清理端口；Windows 精确匹配本地 TCP 监听端口、去重进程 ID，
   查询或结束进程失败时返回失败，不继续开发启动。其他平台提示跳过自动清理并成功
   返回，不阻止开发启动；端口占用时由用户手动停止旧服务。
-- 后端质量命令仅保留 `npm run lint` 与 `npm run fix`。lint 依次执行只读格式
-  检查、lint、TypeScript 构建和后端测试，任一步失败即停止；构建同时完成类型检查，
-  生成 dist，不额外执行 tsc --noEmit。测试可启动本机临时 HTTP 服务，不连接业务数据库。
+- 后端 lint、fix、test 分别负责代码检查、自动修复和测试。`npm run lint` 依次执行
+  只读格式检查、ESLint 和 tsc --noEmit 类型检查，任一步失败即停止；不生成 dist、
+  不运行测试、不操作漫画数据。`npm run test` 先构建再运行测试，保证使用最新产物；
+  测试可启动本机临时 HTTP 服务、操作临时测试文件，不扫描真实漫画库或连接业务数据库。
 - fix 先自动修复 lint，再格式化源码；lint 剩余错误或警告使其失败并停止后续格式化。
-  修复后仍须执行 lint；build 保留为独立构建入口，不保留 check、test、format、format:check、
+  修复后仍须执行 lint 和 test；build 保留为独立构建入口，不保留 check、format、format:check、
   lint:fix 等旧质量入口。
 - 仓库根目录只承载两个项目共享的规范、CI、文档、变更工具、发布协调脚本和发布
   元数据，不同时充当某个项目的构建根目录。
@@ -43,7 +44,7 @@ scope: convention
 - Flutter CI 固定使用 3.38.9，并从 `app/` 执行依赖恢复、`lib/` 与 `test/` 的只读
   格式检查、静态分析（包含 `flutter_lints`）和测试；格式或分析问题使检查失败。
 - 后端 CI 独立使用 Node.js 24.11.1、pnpm 10.24.0，从 `backend/` 按
-  `pnpm-lock.yaml` 冻结恢复依赖，执行 `pnpm run lint`，与本地使用相同完整门禁；
+  `pnpm-lock.yaml` 冻结恢复依赖，分别执行 `pnpm run lint` 和 `pnpm run test`，与本地使用相同完整门禁；
   lint 的错误和警告均使检查失败。CI 不执行会修改源码的 fix。
 - lint 与 fix 中的 Prettier 均覆盖 `src/**/*.ts`，ESLint 覆盖 src 并使用 TypeScript
   推荐规则。TypeScript 文件检出时使用 LF，避免 Windows 换行转换造成格式误报。

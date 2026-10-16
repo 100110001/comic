@@ -57,8 +57,11 @@ npm run comics:organize -- --dry-run
 # 自动修复 lint 并格式化代码
 npm run fix
 
-# 完整检查：格式、lint、构建（含类型检查）、测试；与 CI 一致
+# 只检查代码：格式、ESLint、类型；不构建、不运行测试
 npm run lint
+
+# 独立测试：先构建，测试仅使用临时文件，不扫描真实漫画库
+npm run test
 
 # 构建（生产环境）
 npm run build

@@ -83,7 +83,7 @@ Pop-Location
 ## 后端终端命令
 
 以下命令均从 `backend/` 执行。CI 使用 Node.js **24.11.1** 和 pnpm **10.24.0**，
-通过 `pnpm install --frozen-lockfile` 恢复依赖，运行 `pnpm run lint` 完成后端门禁。
+通过 `pnpm install --frozen-lockfile` 恢复依赖，分别运行 `pnpm run lint` 与 `pnpm run test` 完成后端门禁。
 
 首次开发执行 `pnpm install` 安装依赖。下表按 `package.json` 的 `scripts` 顺序列出，每个入口只出现一次。
 
@@ -94,8 +94,9 @@ Pop-Location
 | `npm run stop` | Windows 结束配置端口上的监听进程；其他平台提示跳过，需手动停止旧服务 |
 | `npm run build` | 编译 TypeScript 到 `dist/` |
 | `npm run start` | 运行已编译的 `dist/server.js`，需先构建 |
-| `npm run lint` | 依次执行格式检查、lint、构建（含类型检查）、测试；生成 dist，测试可启动本机临时 HTTP 服务，不连接业务数据库；CI 门禁 |
+| `npm run lint` | 只执行格式、ESLint 和类型检查；不生成 dist、不运行测试、不操作漫画数据；CI 门禁 |
 | `npm run fix` | 先自动修复 lint，再格式化 src 下的 TypeScript 文件；lint 仍有错误或警告时返回失败并停止后续格式化 |
+| `npm run test` | 先构建生成 dist，再运行测试；使用临时目录中的测试文件，可启动本机临时 HTTP 服务，不扫描真实漫画库或连接业务数据库；CI 门禁 |
 | `npm run setup` | 初始化数据库、扫描并增量导入漫画、可选清理项目 Redis 缓存；保留已有 ID |
 | `npm run setup:waifu2x` | 重新下载与更新 Windows 超分引擎，日常启动不需要执行 |
 | `npm run db:init` | 初始化数据库并补齐既有表约束；需要 MySQL |
@@ -133,9 +134,10 @@ npm run comics:organize -- --root "<漫画库>" --dry-run
 端口清理命令作用于配置端口上的监听进程，
 并不限于本项目启动的服务。
 
-日常只使用 `npm run fix` 与 `npm run lint`。lint 任一步失败即停止，构建同时
-完成类型检查，不再重复执行 tsc --noEmit；后端测试不需要 MySQL、Redis 或漫画目录。
-fix 会修改源码，不能自动修复的问题需按输出手动修正；修复后仍须运行 lint。
+代码检查使用 `npm run lint`，类型检查通过 tsc --noEmit 完成，任一步失败即停止。
+测试独立使用 `npm run test`；不需要 MySQL、Redis 或真实漫画目录，日志中的漫画
+整理操作针对临时测试文件。fix 会修改源码，不能自动修复的问题需按输出手动修正；
+修复后仍须分别运行 lint 和 test。
 `.gitattributes` 将 TypeScript 文件的检出换行固定为 LF，与 Prettier 保持一致。
 
 ## PowerShell 手动发版
@@ -153,6 +155,7 @@ flutter test
 Pop-Location
 Push-Location backend
 npm run lint
+npm run test
 Pop-Location
 # 全部检查通过后再继续
 .\scripts\release.ps1 -Version 1.0.6 -Notes "本次更新内容"
