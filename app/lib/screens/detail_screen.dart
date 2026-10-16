@@ -12,11 +12,13 @@ import '../utils/user_error.dart';
 import '../widgets/status_views.dart';
 import '../widgets/loading_placeholders.dart';
 import 'reader_screen.dart';
+import '../services/library_reading_session.dart';
 import 'search_screen.dart';
 
 class DetailScreen extends ConsumerStatefulWidget {
   final int comicId;
-  const DetailScreen({super.key, required this.comicId});
+  final LibraryReadingSession? readingSession;
+  const DetailScreen({super.key, required this.comicId, this.readingSession});
 
   @override
   ConsumerState<DetailScreen> createState() => _DetailScreenState();
@@ -122,6 +124,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
           chapterId: progress.chapterId,
           title: chapterTitle,
           initialPage: progress.pageNumber,
+          readingSession: widget.readingSession,
         ),
       ),
     );
@@ -207,6 +210,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                                       chapterId: first.id,
                                       title: first.title,
                                       initialPage: 0,
+                                      readingSession: widget.readingSession,
                                     ),
                                   ),
                                 );
@@ -229,6 +233,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                     SliverPadding(
                       padding: EdgeInsets.symmetric(horizontal: inset),
                       sliver: _ChapterList(
+                        readingSession: widget.readingSession,
                         comicId: widget.comicId,
                         chapters: detail.chapters,
                         currentChapterId: progress?.chapterId,
@@ -486,11 +491,13 @@ class _Header extends StatelessWidget {
 }
 
 class _ChapterList extends StatelessWidget {
+  final LibraryReadingSession? readingSession;
   final int comicId;
   final List<Chapter> chapters;
   final int? currentChapterId;
   final bool asSliver;
   const _ChapterList({
+    this.readingSession,
     required this.comicId,
     required this.chapters,
     this.currentChapterId,
@@ -571,6 +578,7 @@ class _ChapterList extends StatelessWidget {
                   ctx,
                   MaterialPageRoute(
                     builder: (_) => ReaderScreen(
+                      readingSession: readingSession,
                       comicId: comicId,
                       chapterId: ch.id,
                       title: ch.title,
