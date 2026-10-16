@@ -82,7 +82,12 @@ test("链接漫画库保留配置路径，图片相对路径与打开目录校�
     assert.equal(image.path, path.join(alias, "book", "001.jpg"));
     assert.equal(path.relative(alias, image.path), path.join("book", "001.jpg"));
     assert.equal(fs.readFileSync(image.path, "utf8"), "image");
-    assert.equal(await resolveComicDirectory(alias, image.path), fs.realpathSync(path.join(actual, "book")));
+    const resolved = await resolveComicDirectory(alias, image.path);
+    // Windows runner 的 TEMP 可能使用 8.3 短路径；两边均用原生解析比较实际目录。
+    assert.equal(
+      fs.realpathSync.native(resolved),
+      fs.realpathSync.native(path.join(actual, "book")),
+    );
   } finally {
     fs.unlinkSync(alias);
   }
