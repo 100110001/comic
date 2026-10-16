@@ -21,12 +21,14 @@ function fixture({ comics = [], chapters = [], images = [], fail } = {}) {
       return [state.comics.filter(c => c.title.toLowerCase() === params[0].toLowerCase()).map(c => ({ ...c }))];
     }
     if (sql === "SELECT id, title, author FROM comics") return [structuredClone(state.comics)];
-    if (sql.startsWith("SELECT id, title, sort_order FROM chapters")) {
-      return [structuredClone(state.chapters.filter(c => c.comic_id === params[0]))];
+    if (sql.startsWith("SELECT id, comic_id, title, sort_order FROM chapters")) {
+      return [structuredClone(state.chapters.filter(c => params.includes(c.comic_id)))];
     }
     if (sql.includes("FROM images INNER JOIN chapters")) {
-      const ids = new Set(state.chapters.filter(c => c.comic_id === params[0]).map(c => c.id));
-      return [structuredClone(state.images.filter(i => ids.has(i.chapter_id) && (params.length === 1 || i.chapter_id === params[1])))];
+      const chapterFilter = sql.includes("AND images.chapter_id");
+      const comicIds = chapterFilter ? params.slice(0, -1) : params;
+      const ids = new Set(state.chapters.filter(c => comicIds.includes(c.comic_id)).map(c => c.id));
+      return [structuredClone(state.images.filter(i => ids.has(i.chapter_id) && (!chapterFilter || i.chapter_id === params.at(-1))))];
     }
     if (sql.startsWith("INSERT INTO comics")) {
       const id = nextId++;
@@ -111,21 +113,27 @@ function book(count, chapterCount = 1) {
   };
 }
 
-test("401 张新图片分三批直接写入尺寸，重导入零写入但仍逐张串行读尺寸", async () => {
+test("401 张新图片分三批写入空尺寸，重导入零写入且不读取尺寸", async () => {
   const h = fixture();
   const input = book(401);
   await h.seed([input]);
   assert.equal(h.state.images.length, 401);
   assert.equal(h.writes().filter(c => c.sql.startsWith("INSERT INTO images")).length, 3);
   assert.equal(h.writes().filter(c => c.sql.startsWith("UPDATE images")).length, 0);
-  assert(h.state.images.every(i => i.width === 800 && i.height === 1200));
+  assert(h.state.images.every(i => i.width === null && i.height === null));
+  assert.equal(h.reads.length, 0);
+  h.state.images[0].width = 800;
+  h.state.images[0].height = 1200;
   assert.match(h.logs.at(-1), /新增漫画: 1  新增章节: 1  新增图片: 401/);
   const before = structuredClone(h.state);
   h.calls.length = 0; h.reads.length = 0;
   await h.seed([input]);
   assert.equal(h.writes().length, 0);
-  assert.deepEqual(h.reads, input.chapters[0].images.map(i => i.path));
-  assert.equal(h.maxActive, 1);
+  assert.equal(h.reads.length, 0);
+  assert.equal(h.maxActive, 0);
+  assert.equal(input.chapters[0].images[0].width, 800);
+  assert.equal(input.chapters[0].images[0].height, 1200);
+  assert.equal(input.chapters[0].images[1].width, null);
   assert.deepEqual(h.state, before);
   assert.equal(h.closed, 2);
 });
@@ -142,15 +150,16 @@ test("图片按漫画集中查询，保留缺失索引、ID与入库时间，NUL
   await h.seed([input]);
   assert.equal(h.calls.filter(c => c.sql.includes("FROM images INNER JOIN chapters")).length, 1);
   assert.equal(h.writes().length, 0);
-  assert.equal(h.reads.length, 6);
+  assert.equal(h.reads.length, 0);
   assert.deepEqual(h.state, before);
   assert(h.logs.some(log => log.includes("[missing]") && log.includes("磁盘缺失")));
 });
 
-test("路径页码尺寸变化与读取失败仅更新对应图片，章节重排只写变化项", async () => {
+test("路径变化清空尺寸，页码重排保留已知尺寸，章节重排只写变化项", async () => {
   const h = fixture();
   const input = book(3, 3);
   await h.seed([input]);
+  h.state.images.forEach(image => { image.width = 800; image.height = 1200; });
   const ids = h.state.images.map(i => i.id);
   const firstChapter = h.state.chapters[0].id;
   input.chapters[0].images.reverse();
@@ -169,7 +178,9 @@ test("路径页码尺寸变化与读取失败仅更新对应图片，章节重�
   assert.equal(rows[1].path, "/new-path.jpg");
   assert.equal(rows[1].width, null);
   assert.equal(rows[1].height, null);
-  assert.equal(rows[2].width, 600);
+  assert.equal(rows[2].width, 800);
+  assert.equal(rows[2].height, 1200);
+  assert.equal(h.reads.length, 0);
   assert.deepEqual(h.state.images.map(i => i.id), ids);
   const chapterUpdate = h.writes().find(c => c.sql.startsWith("UPDATE chapters"));
   assert.equal(chapterUpdate.params.length / 3, 2);
@@ -205,13 +216,30 @@ test("重复已有章节后一次读取前次写入，同名图片不重复插�
   assert.equal(h.calls.filter(c => c.sql.includes("FROM images INNER JOIN chapters")).length, 2);
 });
 
-test("批次失败停止并关闭连接，成功批次保留且没有继续探测余下图片", async () => {
+test("批次失败停止并关闭连接，成功批次保留且全程不探测图片", async () => {
   let inserts = 0;
   const h = fixture({ fail: sql => sql.startsWith("INSERT INTO images") && ++inserts === 2 });
   await assert.rejects(h.seed([book(401)]), /数据库失败/);
   assert.equal(h.state.images.length, 200);
-  assert.equal(h.reads.length, 400);
+  assert.equal(h.reads.length, 0);
   assert.equal(h.closed, 1);
   assert(!h.logs.some(log => log.includes("导入完成")));
+});
+
+test("章节和图片按二十本分组查询，重复漫画仍能看到前次写入", async () => {
+  const h = fixture();
+  const inputs = Array.from({length: 41}, (_, i) => ({...book(1), title: `漫画${i}`}));
+  await h.seed(inputs);
+  assert.equal(h.state.images.length, 41);
+  assert.equal(h.calls.filter(c => c.sql.includes("FROM images INNER JOIN chapters")).length, 3);
+  assert.equal(h.calls.filter(c => c.sql.startsWith("SELECT id, comic_id")).length, 3);
+  h.calls.length = 0;
+  await h.seed(inputs);
+  assert.equal(h.writes().length, 0);
+  const duplicate = structuredClone(inputs[0]);
+  duplicate.chapters[0].images[0].path = "/changed.jpg";
+  await h.seed([inputs[0], duplicate]);
+  assert.equal(h.state.images.length, 41);
+  assert.equal(h.state.images[0].path, "/changed.jpg");
 });
 

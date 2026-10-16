@@ -1,4 +1,4 @@
-import { scan } from "./scan";
+import { scan, saveScan } from "./scan";
 import { seed } from "./seed";
 import { clearCache } from "./clear-cache";
 
@@ -7,6 +7,7 @@ async function main() {
     throw new Error("用法: comics:sync（不接受参数）");
   const comics = scan();
   await seed(comics);
+  saveScan(comics);
   await clearCache(true);
 }
 

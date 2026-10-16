@@ -10,6 +10,8 @@ const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"]);
 interface ImageFile {
   filename: string;
   path: string;
+  width?: number | null;
+  height?: number | null;
 }
 
 interface Chapter {
@@ -44,7 +46,7 @@ function collectImages(dir: string): ImageFile[] {
     .filter((f) => fs.statSync(path.join(dir, f)).isFile())
     .map((f) => {
       const fullPath = path.join(dir, f);
-      return { filename: f, path: fullPath };
+      return { filename: f, path: fullPath, width: null, height: null };
     });
 }
 
@@ -124,13 +126,17 @@ function printTree(comics: Comic[]) {
 
 const OUTPUT = path.join(__dirname, "../../data/scan.json");
 
+export function saveScan(comics: Comic[]) {
+  fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
+  fs.writeFileSync(OUTPUT, JSON.stringify(comics, null, 2), "utf-8");
+}
+
 export function scan() {
   const comics = scanComics(COMIC_ROOT);
   done("扫描完成");
   printTree(comics);
 
-  fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-  fs.writeFileSync(OUTPUT, JSON.stringify(comics, null, 2), "utf-8");
+  saveScan(comics);
   console.log(`已保存到 ${OUTPUT}`);
   return comics;
 }
