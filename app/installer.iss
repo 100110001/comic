@@ -1,6 +1,6 @@
 [Setup]
 AppName=Comic
-AppVersion=1.2.0
+AppVersion=1.2.1
 AppPublisher=comic
 DefaultDirName={autopf}\comic
 DefaultGroupName=Comic

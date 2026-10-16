@@ -1,12 +1,12 @@
 {
+  "latestVersion": "1.2.1",
   "platforms": {
-    "windows": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.0/comic-setup.exe"
-    },
     "android": {
-      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.0/app-release.apk"
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.1/app-release.apk"
+    },
+    "windows": {
+      "downloadUrl": "https://github.com/100110001/comic/releases/download/v1.2.1/comic-setup.exe"
     }
   },
-  "latestVersion": "1.2.0",
-  "releaseNotes": "统一蓝灰工作台风格与明暗双主题，优化桌面和手机阅读体验；改善漫画加载动效并限制机械硬盘原图并发；重设计后台看板，扩展缓存管理与 API 调试；修复特殊字符图片地址导致的 404、大章节加载阻塞和失效图片索引问题。"
+  "releaseNotes": "合并首页与发现，新增最近入库排序和连续阅读；完善收藏管理、跨页面状态同步与操作失败恢复，优化阅读进度保存；优化漫画同步，按需读取图片尺寸、批量查询并复用本地扫描快照；统一后端维护命令与检查流程。"
 }
