@@ -18,7 +18,7 @@ interface Chapter {
   images: ImageFile[];
 }
 
-interface Comic {
+export interface Comic {
   name: string; // 原始文件夹名
   title: string; // 解析后的漫画名
   author: string | null;
@@ -48,7 +48,12 @@ function collectImages(dir: string): ImageFile[] {
     });
 }
 
-function scanComics(root: string): Comic[] {
+export function scanComics(root: string): Comic[] {
+  if (!root || !fs.statSync(root).isDirectory()) {
+    throw new Error(`漫画库目录无效: ${root || "未设置 COMIC_ROOT"}`);
+  }
+  // 入库路径保留配置入口，确保与静态 URL 及目录归属校验使用同一个根目录。
+  root = path.resolve(root);
   const comics: Comic[] = [];
   const allDirs = fs
     .readdirSync(root)
@@ -119,10 +124,22 @@ function printTree(comics: Comic[]) {
 
 const OUTPUT = path.join(__dirname, "../../data/scan.json");
 
-const comics = scanComics(COMIC_ROOT);
-done("扫描完成");
-printTree(comics);
+export function scan() {
+  const comics = scanComics(COMIC_ROOT);
+  done("扫描完成");
+  printTree(comics);
 
-fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
-fs.writeFileSync(OUTPUT, JSON.stringify(comics, null, 2), "utf-8");
-console.log(`已保存到 ${OUTPUT}`);
+  fs.mkdirSync(path.dirname(OUTPUT), { recursive: true });
+  fs.writeFileSync(OUTPUT, JSON.stringify(comics, null, 2), "utf-8");
+  console.log(`已保存到 ${OUTPUT}`);
+  return comics;
+}
+
+if (require.main === module) {
+  try {
+    scan();
+  } catch (err) {
+    console.error("扫描失败:", err);
+    process.exitCode = 1;
+  }
+}

@@ -1,33 +1,42 @@
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { config } from "../config";
 
-function killPort(port: number) {
-  let output: string;
-  try {
-    output = execSync(`netstat -ano | findstr :${port}`).toString();
-  } catch {
-    return; // 端口没被占用
+export function listeningPids(output: string, port: number): number[] {
+  const pids = new Set<number>();
+  for (const line of output.split(/\r?\n/)) {
+    const [protocol, local, , state, pidText] = line.trim().split(/\s+/);
+    if (protocol !== "TCP" || state !== "LISTENING") continue;
+    if (Number(local?.slice(local.lastIndexOf(":") + 1)) !== port) continue;
+    const pid = Number(pidText);
+    if (Number.isSafeInteger(pid) && pid > 0 && pid !== process.pid)
+      pids.add(pid);
   }
+  return [...pids];
+}
 
-  const pids = new Set(
-    output
-      .split("\n")
-      .filter((line) => line.includes("LISTENING"))
-      .map((line) => line.trim().split(/\s+/).pop())
-      .filter((pid): pid is string => !!pid && pid !== "0"),
-  );
-
+function killPort(port: number) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535)
+    throw new Error(`端口无效: ${port}`);
+  if (process.platform !== "win32") {
+    console.log("当前平台跳过自动端口清理；如端口被占用，请手动停止旧服务");
+    return;
+  }
+  const output = execFileSync("netstat", ["-ano"], {
+    encoding: "utf8",
+  });
+  const pids = listeningPids(output, port);
+  if (!pids.length) console.log(`端口 ${port} 没有监听进程`);
   for (const pid of pids) {
-    if (pid === String(process.pid)) continue;
-    console.log(
-      `[kill-port] 端口 ${port} 被旧进程 (pid ${pid}) 占用，正在结束`,
-    );
-    try {
-      execSync(`taskkill /PID ${pid} /F`);
-    } catch (err) {
-      console.warn(`[kill-port] 结束 pid ${pid} 失败:`, (err as Error).message);
-    }
+    console.log(`正在结束端口 ${port} 的监听进程 (pid ${pid})`);
+    execFileSync("taskkill", ["/PID", String(pid), "/F"], { stdio: "inherit" });
   }
 }
 
-killPort(config.port);
+if (require.main === module) {
+  try {
+    killPort(config.port);
+  } catch (err) {
+    console.error("端口清理失败:", err);
+    process.exitCode = 1;
+  }
+}

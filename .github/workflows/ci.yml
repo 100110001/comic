@@ -85,10 +85,6 @@ jobs:
         if: steps.scope.outputs.backend == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Prettier format check
-        if: steps.scope.outputs.backend == 'true'
-        run: pnpm run format:check
-
-      - name: ESLint
+      - name: Backend lint
         if: steps.scope.outputs.backend == 'true'
         run: pnpm run lint

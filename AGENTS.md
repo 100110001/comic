@@ -29,21 +29,22 @@ flutter test
 并从 `backend/` 运行：
 
 ```bash
-npm run format:check
 npm run lint
 ```
 
 GitHub Actions 位于 `.github/workflows/`：push/PR 使用固定的 Flutter **3.38.9**
 运行格式检查、`flutter analyze`（包含 `flutter_lints`）与 `flutter test`；后端
-独立使用 Node.js **24.11.1**、pnpm **10.24.0** 运行格式与 ESLint 校验，不启动
-服务或连接业务数据库。推送 `v*` 标签后自动构建 Windows 和 Android，并上传
+独立使用 Node.js **24.11.1**、pnpm **10.24.0** 运行 `lint`：格式与 ESLint 校验、
+TypeScript 构建（含类型检查）、后端测试。构建生成 `dist/`，测试可启动本机临时
+HTTP 服务，不连接业务数据库。`npm run fix` 用于自动修复 lint 后格式化；修复后
+仍需运行 `lint`。推送 `v*` 标签后自动构建 Windows 和 Android，并上传
 GitHub Release。依赖分别由已提交的 `app/pubspec.lock` 与
 `backend/pnpm-lock.yaml` 锁定。
 
 CI 在工作流内部判断改动范围：`app/` 改动执行 Flutter 门禁，`backend/` 改动执行
 后端门禁；仅明确的仓库 Markdown 文档改动免检，CI、共享配置和未知文件改动检查
 两边。文档白名单、差异范围与失败处理以 `specs/project-layout.convention.md` 为准。
-所有范围仍生成 `check` 状态；本地 `br-work` 完成门禁仍须执行以上五项命令。
+所有范围仍生成 `check` 状态；本地 `br-work` 完成门禁仍须执行以上四项命令。
 
 ## 提交约定
 

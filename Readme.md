@@ -48,11 +48,16 @@ npm run dev                  # http://localhost:8888
 # 初始化数据库 + 扫描文件 + 导入数据（首次或重新导入时使用）
 npm run setup
 
-# 格式化代码
-npm run format
+# 已有数据库，日常扫描、导入并清缓存
+npm run comics:sync
 
-# 校验格式和 lint（CI 同样执行）
-npm run format:check
+# 预览目录整理（去掉 --dry-run 执行）
+npm run comics:organize -- --dry-run
+
+# 自动修复 lint 并格式化代码
+npm run fix
+
+# 完整检查：格式、lint、构建（含类型检查）、测试；与 CI 一致
 npm run lint
 
 # 构建（生产环境）
@@ -68,7 +73,7 @@ npm run start
 需要单独清理本项目缓存时运行：
 
 ```bash
-npm run clear-cache
+npm run cache:clear
 ```
 
 手动命令在 Redis 不可用时返回失败，方便脚本和运维发现缓存并未清理。
