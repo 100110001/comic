@@ -31,3 +31,5 @@ origin: specs/changes/2026-10-16-import-db-batching/define.md
 ## 风险与范围
 
 不消除读图耗时，不承诺未经测量的端到端加速倍数。不连接业务数据库。按用户约定在同一分支完成全循环并创建 master PR。
+
+状态：U1 实现完成，PR #77；Flutter 格式、静态分析、122 项测试与后端 lint、22 项测试全部通过。
