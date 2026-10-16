@@ -14,6 +14,7 @@ class MineScreen extends ConsumerStatefulWidget {
 class _MineScreenState extends ConsumerState<MineScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _controller;
+  int _lastTab = 0;
 
   @override
   void initState() {
@@ -21,7 +22,8 @@ class _MineScreenState extends ConsumerState<MineScreen>
     _controller = TabController(length: 3, vsync: this);
     _controller.addListener(() {
       // 切 tab 时后台刷新对应列表，避免展示旧状态
-      if (_controller.indexIsChanging) {
+      if (_controller.index != _lastTab) {
+        _lastTab = _controller.index;
         switch (_controller.index) {
           case 0:
             ref.invalidate(recentReadingProvider);

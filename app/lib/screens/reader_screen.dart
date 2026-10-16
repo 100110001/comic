@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import '../widgets/loading_placeholders.dart';
 import 'package:flutter/services.dart';
@@ -87,6 +88,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   String? _panel;
   bool _fullscreen = false;
   bool _exiting = false;
+  bool _allowPop = false;
+  double? _edgeBackDistance;
   Timer? _autoTimer;
   bool _autoReading = false;
   double _scrollSpeed = 50;
@@ -202,13 +205,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     unawaited(_progressQueue.sync(_progressClient).catchError((_) {}));
     if (!mounted) return;
-    setState(() => _panel = null);
+    setState(() {
+      _panel = null;
+      _allowPop = true;
+    });
     if (_fullscreen && isWindowsPlatform) {
       await windowManager.setFullScreen(false);
     }
     if (mounted) {
       await WidgetsBinding.instance.endOfFrame;
-      if (mounted) Navigator.of(context).pop();
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
@@ -217,6 +225,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     setState(() {
       _panel = panel;
     });
+  }
+
+  void _requestBack() {
+    if (_panel != null) {
+      _setPanel(null);
+    } else {
+      _exitReader();
+    }
   }
 
   void _stopAutoReading() {
@@ -355,7 +371,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   /// 桌面形态的键盘翻页与换章绑定；边界行为复用对应操作。
   Map<ShortcutActivator, VoidCallback> _desktopShortcutBindings() {
-    return {
+    final bindings = <ShortcutActivator, VoidCallback>{
       const SingleActivator(LogicalKeyboardKey.arrowLeft): _rightToLeft
           ? _nextPage
           : _prevPage,
@@ -369,6 +385,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       const SingleActivator(LogicalKeyboardKey.end): () =>
           _goToPage(_images.length - 1),
     };
+    return bindings.map(
+      (key, action) => MapEntry(key, () {
+        _stopAutoReading();
+        action();
+      }),
+    );
   }
 
   /// 自动续章：主体形态在越过本章最后一页时调用。
@@ -398,7 +420,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _switchComic(Future<Comic?> Function() adjacent) async {
     setState(() => _switchingComic = true);
     try {
-      await _saveProgress();
+      await _checkpoint();
+      unawaited(_progressQueue.sync(_progressClient).catchError((_) {}));
       final comic = await adjacent();
       if (!mounted) return;
       if (comic == null) {
@@ -1007,21 +1030,35 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       ),
     );
     return PopScope(
-      canPop: _panel == null,
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, _) {
-        if (didPop) {
-          if (!_exiting) _saveProgress();
-          if (_fullscreen && isWindowsPlatform) {
-            unawaited(windowManager.setFullScreen(false));
-          }
-        } else if (_panel != null) {
-          _setPanel(null);
-        }
+        if (didPop) return;
+        _requestBack();
       },
       child: desktop
           ? CallbackShortcuts(
               bindings: _panel == null ? _desktopShortcutBindings() : {},
               child: Focus(autofocus: true, child: scaffold),
+            )
+          : defaultTargetPlatform == TargetPlatform.iOS
+          ? GestureDetector(
+              // PopScope 的保存门禁会禁用 iOS 原生返回手势，改为先保存再返回。
+              // 仅左侧 24px 起手且右滑至少 72px 生效；纵向手势仍交给正文。
+              onHorizontalDragDown: (details) {
+                _edgeBackDistance = details.localPosition.dx <= 24 ? 0 : null;
+              },
+              onHorizontalDragUpdate: (details) {
+                if (_edgeBackDistance != null) {
+                  _edgeBackDistance = _edgeBackDistance! + details.delta.dx;
+                }
+              },
+              onHorizontalDragEnd: (_) {
+                final distance = _edgeBackDistance;
+                _edgeBackDistance = null;
+                if (distance != null && distance >= 72) _requestBack();
+              },
+              onHorizontalDragCancel: () => _edgeBackDistance = null,
+              child: scaffold,
             )
           : scaffold,
     );
@@ -1379,6 +1416,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             width: width,
             child: Listener(
               onPointerSignal: (event) {
+                if (event is PointerScrollEvent) _stopAutoReading();
                 if (desktop &&
                     event is PointerScrollEvent &&
                     event.scrollDelta.dy > 0 &&
@@ -1457,6 +1495,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     ];
     final ordered = _rightToLeft ? pages.reversed.toList() : pages;
     return GestureDetector(
+      onHorizontalDragStart: (_) => _stopAutoReading(),
       onHorizontalDragEnd: (details) {
         final velocity = details.primaryVelocity ?? 0;
         if (velocity.abs() < 100) return;
@@ -1469,6 +1508,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       child: Listener(
         onPointerSignal: (event) {
           if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
+            _stopAutoReading();
             GestureBinding.instance.pointerSignalResolver.register(event, (_) {
               if (event.scrollDelta.dy > 0) {
                 _nextPage();

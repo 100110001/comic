@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import '../providers/settings_provider.dart';
@@ -59,8 +58,7 @@ class _CloseHandler extends WindowListener {
       final bounds = await windowManager.getBounds();
       await saveWindowBounds(bounds);
     }
-    final prefs = await SharedPreferences.getInstance();
-    final minimizeToTray = prefs.getBool(kCloseToTrayKey) ?? true;
+    final minimizeToTray = await loadCloseToTray();
     if (minimizeToTray) {
       await windowManager.hide();
     } else {

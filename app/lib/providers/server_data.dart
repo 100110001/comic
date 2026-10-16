@@ -5,18 +5,23 @@ import 'reader_providers.dart';
 import 'server_provider.dart';
 
 /// 保存新服务器并销毁所有绑定旧数据源的会话状态。
-Future<bool> saveServerUrl(WidgetRef ref, String input) async {
-  final changed = await ref.read(serverSessionProvider.notifier).save(input);
-  if (!changed) return false;
+Future<bool> saveServerUrl(WidgetRef ref, String input) =>
+    ref.read(_saveServerUrlProvider)(input);
 
-  ref.read(randomSeedProvider.notifier).reshuffle();
-  ref.invalidate(randomLibraryProvider);
-  ref.invalidate(searchProvider);
-  ref.invalidate(favoritesProvider);
-  ref.invalidate(favoriteAuthorsProvider);
-  ref.invalidate(favoriteAuthorBooksProvider);
-  ref.invalidate(recentReadingProvider);
-  ref.invalidate(comicDetailProvider);
-  ref.invalidate(chapterImagesProvider);
-  return true;
-}
+final _saveServerUrlProvider = Provider<Future<bool> Function(String)>((ref) {
+  return (input) async {
+    final changed = await ref.read(serverSessionProvider.notifier).save(input);
+    if (!changed || !ref.mounted) return changed;
+
+    ref.read(randomSeedProvider.notifier).reshuffle();
+    ref.invalidate(randomLibraryProvider);
+    ref.invalidate(searchProvider);
+    ref.invalidate(favoritesProvider);
+    ref.invalidate(favoriteAuthorsProvider);
+    ref.invalidate(favoriteAuthorBooksProvider);
+    ref.invalidate(recentReadingProvider);
+    ref.invalidate(comicDetailProvider);
+    ref.invalidate(chapterImagesProvider);
+    return true;
+  };
+});

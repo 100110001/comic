@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config.dart';
 import '../services/api_client.dart';
+import '../services/preference_writes.dart';
 import '../utils/user_error.dart';
 
 const _serverUrlKey = 'serverUrl';
@@ -38,8 +39,8 @@ String normalizeServerUrl(String input) {
 
 Future<String> loadServerUrl() async {
   final prefs = await SharedPreferences.getInstance();
-  final stored = prefs.getString(_serverUrlKey);
-  if (stored == null) return defaultServerUrl;
+  final stored = prefs.get(_serverUrlKey);
+  if (stored is! String) return defaultServerUrl;
   try {
     return normalizeServerUrl(stored);
   } catch (_) {
@@ -61,18 +62,33 @@ class ServerSessionNotifier extends Notifier<ServerSession> {
   @override
   ServerSession build() => ServerSession(url: _initialUrl, generation: 0);
 
-  Future<bool> save(String input) async {
-    final normalized = normalizeServerUrl(input);
+  Future<void> _pending = Future<void>.value();
+
+  Future<bool> save(String input) {
+    final operation = _pending.then((_) => _save(normalizeServerUrl(input)));
+    _pending = operation.then<void>(
+      (_) {},
+      onError: (Object error, StackTrace stack) {},
+    );
+    return operation;
+  }
+
+  Future<bool> _save(String normalized) async {
+    if (!ref.mounted) return false;
     if (normalized == state.url) return false;
 
     final prefs = await SharedPreferences.getInstance();
-    final saved = await prefs.setString(_serverUrlKey, normalized);
+    final saved = await writePreference(
+      prefs,
+      () => prefs.setString(_serverUrlKey, normalized),
+    );
     if (!saved) {
       throw const UserVisibleException(
         UserErrorKind.persistence,
         '服务器地址保存失败，请重试',
       );
     }
+    if (!ref.mounted) return false;
     state = ServerSession(url: normalized, generation: state.generation + 1);
     return true;
   }

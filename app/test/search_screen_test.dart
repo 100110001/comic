@@ -86,6 +86,34 @@ Widget _historyApp(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('嵌套作者搜索返回后恢复原页面关键字与结果标题', (tester) async {
+    final client = _SearchClient()..fail = false;
+    addTearDown(client.close);
+    final container = _historyContainer(client);
+    addTearDown(container.dispose);
+    await tester.pumpWidget(
+      _historyApp(container, const SearchScreen(initialKeyword: '原查询')),
+    );
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(SearchScreen));
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const SearchScreen(initialKeyword: '作者查询'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('「作者查询」 · 0 本漫画'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('「原查询」 · 0 本漫画'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '原查询',
+    );
+    expect(client.keywords, ['原查询', '作者查询']);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('作者入口首帧后搜索，失败重试保留关键字', (tester) async {
     final client = _SearchClient();
     addTearDown(client.close);

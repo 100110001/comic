@@ -23,6 +23,9 @@ class HistoryPreferences implements SharedPreferences {
   }
 
   @override
+  Future<void> reload() async {}
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => null;
 }
 

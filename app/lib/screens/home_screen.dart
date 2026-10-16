@@ -29,6 +29,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class HomeScreenState extends ConsumerState<HomeScreen> {
   final _scrollController = ScrollController();
+  final _searchSession = Object();
+  late final _searchProvider = searchSessionProvider(_searchSession);
   final _searchController = TextEditingController();
   String _keyword = '';
   Timer? _continueTimer;
@@ -42,7 +44,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
       _searchController.clear();
       setState(() => _keyword = '');
     });
-    ref.listenManual(recentReadingWithLocalProvider, (_, next) {
+    ref.listenManual(currentRecentReadingWithLocalProvider, (_, next) {
       final entries = next.value;
       final entry = entries != null && entries.isNotEmpty
           ? entries.first
@@ -93,7 +95,11 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _search(String keyword, {bool remember = true}) async {
-    _keyword = keyword.trim();
+    final nextKeyword = keyword.trim();
+    if (nextKeyword != _keyword && _scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
+    _keyword = nextKeyword;
     setState(() {});
     if (remember && _keyword.isNotEmpty) {
       final source = ref.read(serverSessionProvider).url;
@@ -107,7 +113,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
       );
     }
     try {
-      await ref.read(searchProvider.notifier).search(_keyword);
+      await ref.read(_searchProvider.notifier).search(_keyword);
     } catch (error) {
       if (mounted) _showRequestError(error, '搜索失败');
     }
@@ -118,7 +124,7 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
       if (_keyword.isEmpty) {
         await ref.read(randomLibraryProvider.notifier).loadMore();
       } else {
-        await ref.read(searchProvider.notifier).loadMore();
+        await ref.read(_searchProvider.notifier).loadMore();
       }
     } catch (error) {
       if (mounted) {
@@ -133,15 +139,22 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _refresh() async {
+    final generation = ref.read(serverSessionProvider).generation;
     try {
       if (_keyword.isEmpty) {
         await ref.read(randomLibraryProvider.notifier).reshuffle();
       } else {
-        await ref.read(searchProvider.notifier).search(_keyword);
+        await ref.read(_searchProvider.notifier).search(_keyword);
+      }
+      if (!mounted ||
+          ref.read(serverSessionProvider).generation != generation) {
+        return;
       }
       ref.invalidate(recentReadingProvider);
     } catch (error) {
-      if (mounted) _showRequestError(error, '刷新失败');
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        _showRequestError(error, '刷新失败');
+      }
     }
   }
 
@@ -156,9 +169,9 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
     final sort = ref.watch(librarySortProvider);
     final isRecent = sort == LibrarySort.recent;
-    final randomAsync = ref.watch(randomLibraryProvider);
-    final searchAsync = ref.watch(searchProvider);
-    final recentAsync = ref.watch(recentReadingWithLocalProvider);
+    final randomAsync = ref.watch(currentRandomLibraryProvider);
+    final searchAsync = ref.watch(_searchProvider);
+    final recentAsync = ref.watch(currentRecentReadingWithLocalProvider);
 
     final random = randomAsync.value?.sort == sort ? randomAsync.value : null;
     final search = searchAsync.value;

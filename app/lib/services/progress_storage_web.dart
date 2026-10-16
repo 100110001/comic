@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'progress_storage.dart';
+import 'preference_writes.dart';
 
 ProgressStorage createProgressStorage() => WebProgressStorage();
 
@@ -12,9 +13,10 @@ class WebProgressStorage implements ProgressStorage {
 
   @override
   Future<void> write(String contents) async {
-    final saved = await (await SharedPreferences.getInstance()).setString(
-      _key,
-      contents,
+    final prefs = await SharedPreferences.getInstance();
+    final saved = await writePreference(
+      prefs,
+      () => prefs.setString(_key, contents),
     );
     if (!saved) throw StateError('本机阅读断点保存失败');
   }

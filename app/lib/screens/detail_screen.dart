@@ -60,44 +60,45 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
     }
   }
 
-  bool _favoriteBusy = false;
-  bool _authorFavoriteBusy = false;
-
   Future<void> _toggleFavorite() async {
-    if (_favoriteBusy) return;
-    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
+    if (ref.read(favoriteMutationsProvider).comicBusy(widget.comicId)) return;
+    final detail = ref.read(currentComicDetailProvider(widget.comicId)).value;
     if (detail == null) return;
-    setState(() => _favoriteBusy = true);
+    final generation = ref.read(serverSessionProvider).generation;
     try {
-      await setComicFavorite(
-        ref,
-        comicId: widget.comicId,
-        favorited: !detail.favorited,
-      );
+      await ref
+          .read(favoriteMutationsProvider.notifier)
+          .setComicFavorite(
+            comicId: widget.comicId,
+            favorited: !detail.favorited,
+          );
     } catch (error) {
-      if (mounted) _showError(error, '收藏操作失败');
-    } finally {
-      if (mounted) setState(() => _favoriteBusy = false);
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        _showError(error, '收藏操作失败');
+      }
     }
   }
 
   Future<void> _toggleAuthorFavorite() async {
-    if (_authorFavoriteBusy) return;
-    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
+    final detail = ref.read(currentComicDetailProvider(widget.comicId)).value;
     final author = detail?.comic.author;
-    if (detail == null || author == null) return;
-    setState(() => _authorFavoriteBusy = true);
+    if (detail == null ||
+        author == null ||
+        ref.read(favoriteMutationsProvider).authorBusy(author)) {
+      return;
+    }
+    final generation = ref.read(serverSessionProvider).generation;
     try {
-      await setAuthorFavorite(
-        ref,
-        author: author,
-        favorited: !detail.authorFavorited,
-        comicId: widget.comicId,
-      );
+      await ref
+          .read(favoriteMutationsProvider.notifier)
+          .setAuthorFavorite(
+            author: author,
+            favorited: !detail.authorFavorited,
+          );
     } catch (error) {
-      if (mounted) _showError(error, '作者收藏操作失败');
-    } finally {
-      if (mounted) setState(() => _authorFavoriteBusy = false);
+      if (mounted && ref.read(serverSessionProvider).generation == generation) {
+        _showError(error, '作者收藏操作失败');
+      }
     }
   }
 
@@ -108,7 +109,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
   }
 
   void _continueReading(({int chapterId, int pageNumber}) progress) {
-    final detail = ref.read(comicDetailProvider(widget.comicId)).value;
+    final detail = ref.read(currentComicDetailProvider(widget.comicId)).value;
     var chapterTitle = '';
     for (final c in detail?.chapters ?? const <Chapter>[]) {
       if (c.id == progress.chapterId) {
@@ -132,8 +133,11 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final detailAsync = ref.watch(comicDetailProvider(widget.comicId));
+    final detailAsync = ref.watch(currentComicDetailProvider(widget.comicId));
     final detail = detailAsync.value;
+    final mutations = ref.watch(favoriteMutationsProvider);
+    final favoriteBusy = mutations.comicBusy(widget.comicId);
+    final authorFavoriteBusy = mutations.authorBusy(detail?.comic.author ?? '');
     final pending = ref.watch(localReadingProgressProvider(widget.comicId));
     final local = pending?.position;
     final progress =
@@ -159,7 +163,7 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                 detail.favorited ? Icons.favorite : Icons.favorite_border,
                 color: detail.favorited ? c.favorite : c.text1,
               ),
-              onPressed: _favoriteBusy ? null : _toggleFavorite,
+              onPressed: favoriteBusy ? null : _toggleFavorite,
             ),
         ],
       ),
@@ -182,8 +186,8 @@ class _DetailScreenState extends ConsumerState<DetailScreen> {
                   comic: detail!.comic,
                   favorited: detail.favorited,
                   authorFavorited: detail.authorFavorited,
-                  onToggleFavorite: _favoriteBusy ? null : _toggleFavorite,
-                  onToggleAuthorFavorite: _authorFavoriteBusy
+                  onToggleFavorite: favoriteBusy ? null : _toggleFavorite,
+                  onToggleAuthorFavorite: authorFavoriteBusy
                       ? null
                       : _toggleAuthorFavorite,
                   onAuthorTap: (author) => Navigator.push(
@@ -379,7 +383,7 @@ class _Header extends StatelessWidget {
             color: favorited ? c.favorite : c.text2,
             size: 18,
           ),
-          label: Text(favorited ? '已收藏' : '收藏漫画'),
+          label: Text(favorited ? '取消收藏' : '收藏漫画'),
           onPressed: onToggleFavorite,
         ),
         const SizedBox(height: 10),

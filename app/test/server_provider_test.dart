@@ -3,6 +3,7 @@ import 'package:comic/providers/settings_provider.dart';
 import 'dart:async';
 
 import 'package:comic/providers/server_provider.dart';
+import 'package:comic/providers/server_data.dart';
 import 'package:comic/providers/super_resolution_provider.dart';
 import 'package:comic/models/image_item.dart';
 import 'package:comic/models/super_resolution_job.dart';
@@ -10,7 +11,10 @@ import 'package:comic/services/api_client.dart';
 import 'package:comic/utils/user_error.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
+import 'package:comic/config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
 class _DelayedApiClient extends ApiClient {
   _DelayedApiClient(this.completer)
@@ -26,7 +30,201 @@ class _DelayedApiClient extends ApiClient {
   void close() => closed = true;
 }
 
+class _FailingPreferencesStore extends InMemorySharedPreferencesStore {
+  _FailingPreferencesStore() : super.empty();
+  bool fail = true;
+  Completer<void>? block;
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    await block?.future;
+    if (fail) return false;
+    return super.setValue(valueType, key, value);
+  }
+}
+
+class _ReloadingPreferencesStore extends InMemorySharedPreferencesStore {
+  _ReloadingPreferencesStore() : super.empty();
+  final reloadStarted = Completer<void>();
+  final releaseReload = Completer<void>();
+  final writes = <String>[];
+  bool holdReload = false;
+
+  @override
+  Future<Map<String, Object>> getAll() async {
+    final snapshot = await super.getAll();
+    if (holdReload) {
+      if (!reloadStarted.isCompleted) reloadStarted.complete();
+      await releaseReload.future;
+    }
+    return snapshot;
+  }
+
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async {
+    writes.add(key);
+    if (key == 'flutter.themeMode') return false;
+    return super.setValue(valueType, key, value);
+  }
+}
+
 void main() {
+  test('一种偏好失败恢复期间另一种偏好等待，成功值不被旧快照覆盖', () async {
+    SharedPreferences.setMockInitialValues({});
+    final previous = SharedPreferencesStorePlatform.instance;
+    final store = _ReloadingPreferencesStore();
+    SharedPreferencesStorePlatform.instance = store;
+    addTearDown(() {
+      SharedPreferencesStorePlatform.instance = previous;
+      SharedPreferences.resetStatic();
+    });
+    await SharedPreferences.getInstance();
+    store.holdReload = true;
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final theme = container.read(themeModeProvider.notifier);
+    final tray = container.read(closeToTrayProvider.notifier);
+    final failure = expectLater(
+      theme.setMode(ThemeMode.dark),
+      throwsA(isA<UserVisibleException>()),
+    );
+    await store.reloadStarted.future;
+    final success = tray.setEnabled(false);
+    await Future<void>.delayed(Duration.zero);
+    expect(store.writes, ['flutter.themeMode']);
+    store.releaseReload.complete();
+    await Future.wait([failure, success]);
+    expect(container.read(themeModeProvider), ThemeMode.system);
+    expect(container.read(closeToTrayProvider), isFalse);
+    expect(await loadCloseToTray(), isFalse);
+  });
+
+  test('主题、托盘和服务器写入失败保留旧值与缓存，失败后仍能重试', () async {
+    SharedPreferences.setMockInitialValues({});
+    final previous = SharedPreferencesStorePlatform.instance;
+    final store = _FailingPreferencesStore();
+    SharedPreferencesStorePlatform.instance = store;
+    addTearDown(() {
+      SharedPreferencesStorePlatform.instance = previous;
+      SharedPreferences.resetStatic();
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final theme = container.read(themeModeProvider.notifier);
+    final tray = container.read(closeToTrayProvider.notifier);
+    final server = container.read(serverSessionProvider.notifier);
+    await expectLater(
+      server.save('http://new.example.test'),
+      throwsA(isA<UserVisibleException>()),
+    );
+    expect(container.read(serverSessionProvider).url, defaultServerUrl);
+    expect(await loadServerUrl(), defaultServerUrl);
+    await expectLater(
+      theme.setMode(ThemeMode.dark),
+      throwsA(isA<UserVisibleException>()),
+    );
+    await expectLater(
+      tray.setEnabled(false),
+      throwsA(isA<UserVisibleException>()),
+    );
+    expect(container.read(themeModeProvider), ThemeMode.system);
+    expect(container.read(closeToTrayProvider), isTrue);
+    expect(await loadThemeMode(), ThemeMode.system);
+    expect(await loadCloseToTray(), isTrue);
+    store.fail = false;
+    await server.save('http://new.example.test');
+    expect(
+      container.read(serverSessionProvider).url,
+      'http://new.example.test',
+    );
+    expect(await loadServerUrl(), 'http://new.example.test');
+    await theme.setMode(ThemeMode.dark);
+    await tray.setEnabled(false);
+    expect(container.read(themeModeProvider), ThemeMode.dark);
+    expect(container.read(closeToTrayProvider), isFalse);
+    expect(await loadThemeMode(), ThemeMode.dark);
+    expect(await loadCloseToTray(), isFalse);
+  });
+
+  testWidgets('服务器保存期间离开页面仍完成切源和状态清理', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final previous = SharedPreferencesStorePlatform.instance;
+    final block = Completer<void>();
+    final store = _FailingPreferencesStore()
+      ..fail = false
+      ..block = block;
+    SharedPreferencesStorePlatform.instance = store;
+    addTearDown(() {
+      SharedPreferencesStorePlatform.instance = previous;
+      SharedPreferences.resetStatic();
+    });
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    Future<bool>? pending;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          home: Consumer(
+            builder: (context, ref, child) => TextButton(
+              onPressed: () {
+                pending = saveServerUrl(ref, 'http://new.example.test');
+              },
+              child: const Text('保存'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('保存'));
+    await tester.pump();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(container: container, child: const SizedBox()),
+    );
+    block.complete();
+    await tester.pump();
+    expect(await pending, isTrue);
+    expect(
+      container.read(serverSessionProvider).url,
+      'http://new.example.test',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  test('损坏类型的启动偏好及非有限窗口尺寸安全回退', () async {
+    SharedPreferences.setMockInitialValues({
+      'serverUrl': true,
+      'themeMode': 1,
+      kCloseToTrayKey: 'false',
+      kWindowBoundsKey: true,
+    });
+    expect(await loadServerUrl(), defaultServerUrl);
+    expect(await loadThemeMode(), ThemeMode.system);
+    expect(await loadCloseToTray(), isTrue);
+    expect(await loadWindowBounds(), isNull);
+    for (final bounds in ['NaN,0,800,600', '0,0,Infinity,600']) {
+      SharedPreferences.setMockInitialValues({kWindowBoundsKey: bounds});
+      expect(await loadWindowBounds(), isNull);
+    }
+  });
+
+  test('快速修改外观和托盘偏好按顺序保存并发布', () async {
+    SharedPreferences.setMockInitialValues({});
+    final container = ProviderContainer();
+    addTearDown(container.dispose);
+    final theme = container.read(themeModeProvider.notifier);
+    final tray = container.read(closeToTrayProvider.notifier);
+    await Future.wait([
+      theme.setMode(ThemeMode.dark),
+      theme.setMode(ThemeMode.light),
+      tray.setEnabled(false),
+      tray.setEnabled(true),
+    ]);
+    expect(container.read(themeModeProvider), ThemeMode.light);
+    expect(await loadThemeMode(), ThemeMode.light);
+    expect(container.read(closeToTrayProvider), isTrue);
+    expect(await loadCloseToTray(), isTrue);
+  });
+
   test('两入口的阅读偏好串行合并，重启恢复且损坏项独立回退', () async {
     SharedPreferences.setMockInitialValues({});
     final container = ProviderContainer();

@@ -52,6 +52,57 @@ ProviderContainer container(MemoryProgressStorage storage) => ProviderContainer(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('最近阅读切换来源后等待与失败均不显示旧来源，当前本机记录仍可续读', () async {
+    final nextRemote = Completer<List<ReadingProgressEntry>>();
+    final c = ProviderContainer(
+      overrides: [
+        progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: origin),
+        ),
+        recentReadingProvider.overrideWith((ref) {
+          final url = ref.watch(serverSessionProvider).url;
+          return url == origin
+              ? Future.value([position(2)])
+              : nextRemote.future;
+        }),
+      ],
+    );
+    addTearDown(c.dispose);
+    final sub = c.listen(currentRecentReadingWithLocalProvider, (_, _) {});
+    addTearDown(sub.close);
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      2,
+    );
+    await c.read(serverSessionProvider.notifier).save('http://next.test');
+    expect(c.read(currentRecentReadingWithLocalProvider).value, isNull);
+    final failed = expectLater(
+      c.read(recentReadingWithLocalProvider.future),
+      throwsException,
+    );
+    nextRemote.completeError(Exception('新来源离线'));
+    await failed;
+    expect(c.read(currentRecentReadingWithLocalProvider).value, isNull);
+    expect(c.read(currentRecentReadingWithLocalProvider).hasError, isTrue);
+    await c
+        .read(readingProgressQueueProvider.notifier)
+        .record(position(8, url: 'http://next.test'));
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      8,
+    );
+    expect(
+      c
+          .read(currentRecentReadingWithLocalProvider)
+          .value!
+          .single
+          .comic
+          .serverUrl,
+      'http://next.test',
+    );
+  });
+
   test('断网后重启恢复，成功确认后清空已同步版本', () async {
     final storage = MemoryProgressStorage();
     var c = container(storage);

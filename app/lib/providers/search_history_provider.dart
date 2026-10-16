@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/user_error.dart';
+import '../services/preference_writes.dart';
 import 'server_provider.dart';
 
 const searchHistoryKey = 'searchHistory.v1';
@@ -66,9 +67,12 @@ class SearchHistoryStore extends AsyncNotifier<Map<String, List<String>>> {
         next[url] = words;
       }
       final prefs = await ref.read(searchHistoryPreferencesProvider);
-      final saved = await prefs.setString(
-        searchHistoryKey,
-        jsonEncode({'version': 1, 'sources': next}),
+      final saved = await writePreference(
+        prefs,
+        () => prefs.setString(
+          searchHistoryKey,
+          jsonEncode({'version': 1, 'sources': next}),
+        ),
       );
       if (!saved) {
         throw const UserVisibleException(

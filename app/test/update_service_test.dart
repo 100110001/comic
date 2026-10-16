@@ -1,7 +1,26 @@
 import 'package:comic/services/update_service.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/foundation.dart';
+import 'package:comic/models/update_info.dart';
 
 void main() {
+  test('更新包严格匹配支持的平台', () {
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    const info = UpdateInfo(
+      latestVersion: '1.0.1',
+      windowsUrl: 'windows.exe',
+      androidUrl: 'android.apk',
+    );
+    for (final platform in TargetPlatform.values) {
+      debugDefaultTargetPlatformOverride = platform;
+      expect(updateUrlFor(info), switch (platform) {
+        TargetPlatform.windows => 'windows.exe',
+        TargetPlatform.android => 'android.apk',
+        _ => null,
+      });
+    }
+  });
+
   group('isNewerVersion', () {
     test('新版本更高时返回 true', () {
       expect(isNewerVersion('1.0.1', '1.0.0'), isTrue);

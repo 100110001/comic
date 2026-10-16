@@ -53,11 +53,13 @@ void main() {
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           randomLibraryProvider.overrideWith(_SmallLibrary.new),
           recentReadingProvider.overrideWith((ref) async => []),
-          favoritesProvider.overrideWith((ref) async => []),
-          favoriteAuthorsProvider.overrideWith((ref) async => []),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => ComicDetail(
-              comic: Comic(id: id, title: '第一本'),
+          favoritesProvider.overrideWithBuild((ref, notifier) async => []),
+          favoriteAuthorsProvider.overrideWithBuild(
+            (ref, notifier) async => [],
+          ),
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => ComicDetail(
+              comic: Comic(id: notifier.comicId, title: '第一本'),
               chapters: const [Chapter(id: 10, title: '第一话', sortOrder: 0)],
               favorited: false,
               authorFavorited: false,
@@ -119,8 +121,8 @@ void main() {
           progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
           randomLibraryProvider.overrideWith(_EmptyLibrary.new),
           recentReadingProvider.overrideWith((ref) async => [entry]),
-          comicDetailProvider.overrideWith(
-            (ref, id) async => const ComicDetail(
+          comicDetailProvider.overrideWithBuild(
+            (ref, notifier) async => const ComicDetail(
               comic: Comic(id: 1, title: '续读测试漫画'),
               chapters: [Chapter(id: 10, title: '第一话', sortOrder: 0)],
               favorited: false,

@@ -33,6 +33,8 @@ flowchart TD
 
 ### U1. 修复 Flutter 跨页面操作与失败恢复
 
+- 状态：已完成，五项门禁通过，PR #78。
+
 - 依赖：无。沿用当前分支完成完整变更循环，最终使用同一个面向 master 的 PR。
 - 文件：`app/lib/providers/comics_providers.dart`、`app/lib/screens/home_screen.dart`、`app/lib/screens/search_screen.dart`、`app/lib/screens/detail_screen.dart`、`app/lib/screens/mine_screen.dart`、`app/lib/widgets/reading_lists.dart`、`app/lib/widgets/comic_card.dart`、`app/lib/widgets/comic_grid.dart`、`app/lib/screens/reader_screen.dart`、`app/lib/main.dart`、设置和服务器 provider、设置页及更新服务。
 - 方法：按上述技术决策修复；保留后端接口和既有数据模型。仅对确实需要稳定状态的区域调整数据层。
