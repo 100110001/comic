@@ -29,14 +29,17 @@ flutter test
 并从 `backend/` 运行：
 
 ```bash
-npm run format:check
 npm run lint
+npm run test
 ```
 
 GitHub Actions 位于 `.github/workflows/`：push/PR 使用固定的 Flutter **3.38.9**
 运行格式检查、`flutter analyze`（包含 `flutter_lints`）与 `flutter test`；后端
-独立使用 Node.js **24.11.1**、pnpm **10.24.0** 运行格式与 ESLint 校验，不启动
-服务或连接业务数据库。推送 `v*` 标签后自动构建 Windows 和 Android，并上传
+独立使用 Node.js **24.11.1**、pnpm **10.24.0** 分别运行 `lint` 与 `test`。
+lint 只执行格式、ESLint 和 TypeScript 类型检查，不生成构建产物、不运行测试。
+test 先构建生成 `dist/`，再运行测试；测试可启动本机临时 HTTP 服务、使用临时目录
+中的测试文件，不扫描真实漫画库或连接业务数据库。`npm run fix` 用于自动修复 lint
+后格式化；修复后仍需运行 `lint` 与 `test`。推送 `v*` 标签后自动构建 Windows 和 Android，并上传
 GitHub Release。依赖分别由已提交的 `app/pubspec.lock` 与
 `backend/pnpm-lock.yaml` 锁定。
 

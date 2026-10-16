@@ -83,33 +83,61 @@ Pop-Location
 ## 后端终端命令
 
 以下命令均从 `backend/` 执行。CI 使用 Node.js **24.11.1** 和 pnpm **10.24.0**，
-通过 `pnpm install --frozen-lockfile` 恢复依赖，独立检查后端格式与 lint。
+通过 `pnpm install --frozen-lockfile` 恢复依赖，分别运行 `pnpm run lint` 与 `pnpm run test` 完成后端门禁。
+
+首次开发执行 `pnpm install` 安装依赖。下表按 `package.json` 的 `scripts` 顺序列出，每个入口只出现一次。
 
 | 命令 | 用途及实际影响 |
 | --- | --- |
-| `pnpm install` | 安装后端依赖 |
-| `npm run dev` | 自动结束配置端口上的旧监听进程，再启动支持热重载的开发服务 |
-| `npm run stop` | 结束配置端口上的监听进程 |
+| `predev`（自动钩子） | 执行 `npm run dev` 前自动调用 stop，无需手动执行 |
+| `npm run dev` | Windows 自动清理配置端口后启动热重载开发服务；其他平台提示跳过清理后启动 |
+| `npm run stop` | Windows 结束配置端口上的监听进程；其他平台提示跳过，需手动停止旧服务 |
 | `npm run build` | 编译 TypeScript 到 `dist/` |
 | `npm run start` | 运行已编译的 `dist/server.js`，需先构建 |
+| `npm run lint` | 只执行格式、ESLint 和类型检查；不生成 dist、不运行测试、不操作漫画数据；CI 门禁 |
+| `npm run fix` | 先自动修复 lint，再格式化 src 下的 TypeScript 文件；lint 仍有错误或警告时返回失败并停止后续格式化 |
+| `npm run test` | 先构建生成 dist，再运行测试；使用临时目录中的测试文件，可启动本机临时 HTTP 服务，不扫描真实漫画库或连接业务数据库；CI 门禁 |
 | `npm run setup` | 初始化数据库、扫描并增量导入漫画、可选清理项目 Redis 缓存；保留已有 ID |
-| `npm run clear-cache` | 清理本项目 Redis 缓存；Redis 不可用时失败 |
-| `npm run format` | 使用 Prettier 格式化 `src/**/*.ts` |
-| `npm run format:check` | 只检查格式，格式不符时失败；CI 门禁 |
-| `npm run lint` | ESLint 与 TypeScript 推荐规则检查；错误或警告均使校验失败，CI 门禁 |
-| `npm run lint:fix` | 自动修复可修复的 lint 问题；剩余问题仍返回失败 |
-| `npm run reorganize-chapters` | 将无子目录漫画的根目录图片移动到 `第1話/`，改变实际文件路径 |
-| `npm run flatten-original` | 批量将漫画 `original/` 的内容上移，删除腾空的 `original/`；同名目标跳过 |
-| `npm run flatten-original -- "<目录>"` | 对指定漫画目录或库目录执行上移 |
-| `npm run fix-chapter-order` | 按章节标题重排数据库章节顺序，并更新封面 |
+| `npm run setup:waifu2x` | 重新下载与更新 Windows 超分引擎，日常启动不需要执行 |
+| `npm run db:init` | 初始化数据库并补齐既有表约束；需要 MySQL |
+| `npm run comics:sync` | 扫描漫画目录、增量导入本次结果、可选清缓存；用于已有数据库的日常更新 |
+| `npm run comics:organize` | 先展开 original，再将无子目录漫画的根图片归入第1話；不更新数据库 |
+| `npm run comics:fix-chapter-order` | 不重扫磁盘，修复数据库章节排序和封面，再可选清缓存 |
+| `npm run cache:clear` | 清理本项目 Redis 缓存；Redis 不可用时失败；加 `-- --optional` 可在不可用时跳过 |
+
+`comics:organize` 的参数示例（同一个命令，不是额外入口）：
+
+```powershell
+# 预览配置的漫画库，不修改文件
+npm run comics:organize -- --dry-run
+
+# 预览单个漫画
+npm run comics:organize -- --comic "<漫画目录>" --dry-run
+
+# 预览指定漫画库；--root 与 --comic 互斥
+npm run comics:organize -- --root "<漫画库>" --dry-run
+```
+
+去掉 `--dry-run` 即实际执行整理。
+
+维护命令按 `db:*`、`comics:*`、`cache:*` 分组，各入口直接执行对应脚本，不保留旧名称别名。
+`setup` 组合 `db:init` 与 `comics:sync`；同步内部依次扫描、导入和可选清缓存，必需阶段失败即停止。
+同步使用本次扫描结果，`data/scan.json` 仅保留供检查，不作为下一次同步的输入。
+目录整理遇到同名目标不覆盖，保留冲突项和未清空的 original，报告非零退出状态；
+单个漫画出错后继续处理其余漫画，已完成的移动不回滚。含直接符号链接的漫画跳过并报错，
+不跟随库内的链接目录；已有子目录或第1話同名目标时不归章。
 
 目录整理命令直接移动磁盘文件；执行前确认 `backend/.env` 中的漫画目录及数据备份，
-整理后运行 `npm run setup` 同步数据库。端口清理命令作用于配置端口上的监听进程，
+整理后运行 `npm run comics:sync` 同步数据库。导入不删除旧章节或旧图片索引，
+已导入的漫画改路径后仍可能需要人工核对旧索引。Windows 端口清理精确匹配本地监听端口；清理失败时返回失败并阻止开发启动。
+其他平台提示跳过自动清理并成功返回，不阻止 dev 启动；端口已被占用时需手动停止旧服务。
+端口清理命令作用于配置端口上的监听进程，
 并不限于本项目启动的服务。
 
-后端格式与 lint 检查不启动服务，不需要 MySQL、Redis 或漫画目录。格式或 lint
-失败时，在 `backend/` 执行 `npm run format`、`npm run lint:fix`，再重新检查；
-不能自动修复的问题需按输出手动修正。
+代码检查使用 `npm run lint`，类型检查通过 tsc --noEmit 完成，任一步失败即停止。
+测试独立使用 `npm run test`；不需要 MySQL、Redis 或真实漫画目录，日志中的漫画
+整理操作针对临时测试文件。fix 会修改源码，不能自动修复的问题需按输出手动修正；
+修复后仍须分别运行 lint 和 test。
 `.gitattributes` 将 TypeScript 文件的检出换行固定为 LF，与 Prettier 保持一致。
 
 ## PowerShell 手动发版
@@ -126,8 +154,8 @@ flutter analyze
 flutter test
 Pop-Location
 Push-Location backend
-npm run format:check
 npm run lint
+npm run test
 Pop-Location
 # 全部检查通过后再继续
 .\scripts\release.ps1 -Version 1.0.6 -Notes "本次更新内容"
