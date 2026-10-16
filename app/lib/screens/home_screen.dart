@@ -154,11 +154,13 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final desktop = isDesktopAt(MediaQuery.of(context).size.width);
+    final sort = ref.watch(librarySortProvider);
+    final isRecent = sort == LibrarySort.recent;
     final randomAsync = ref.watch(randomLibraryProvider);
     final searchAsync = ref.watch(searchProvider);
     final recentAsync = ref.watch(recentReadingWithLocalProvider);
 
-    final random = randomAsync.value;
+    final random = randomAsync.value?.sort == sort ? randomAsync.value : null;
     final search = searchAsync.value;
     final recent = recentAsync.value;
     final recentEntry = (recent != null && recent.isNotEmpty)
@@ -281,21 +283,76 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                     16,
                   ),
                   child: PageHeading(
-                    title: _keyword.isEmpty ? '随便看看' : '搜索结果',
+                    title: _keyword.isEmpty
+                        ? (isRecent ? '最近入库' : '随便看看')
+                        : '搜索结果',
                     subtitle: _keyword.isEmpty
                         ? random == null
                               ? '发现下一本想读的漫画'
-                              : '${random.total} 部漫画 · 发现下一本想读的故事'
+                              : '${random.total} 部漫画 · ${isRecent ? '最新入库的漫画排在前面' : '发现下一本想读的故事'}'
                         : '“$_keyword” · ${search?.total ?? 0} 部漫画',
-                    action: OutlinedButton.icon(
-                      onPressed: loading ? null : _refresh,
-                      icon: Icon(
-                        _keyword.isEmpty
-                            ? Icons.shuffle_rounded
-                            : Icons.refresh,
-                        size: 18,
-                      ),
-                      label: Text(_keyword.isEmpty ? '换一批' : '刷新结果'),
+                    action: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        if (_keyword.isEmpty)
+                          PopupMenuButton<LibrarySort>(
+                            tooltip: '漫画排序',
+                            initialValue: sort,
+                            onSelected: (value) {
+                              if (value == sort) return;
+                              if (_scrollController.hasClients) {
+                                _scrollController.jumpTo(0);
+                              }
+                              ref
+                                  .read(librarySortProvider.notifier)
+                                  .select(value);
+                            },
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
+                                value: LibrarySort.random,
+                                child: Text('随机推荐'),
+                              ),
+                              PopupMenuItem(
+                                value: LibrarySort.recent,
+                                child: Text('最近入库'),
+                              ),
+                            ],
+                            icon: textScaler.scale(16) > 22
+                                ? const Icon(Icons.sort)
+                                : null,
+                            child: textScaler.scale(16) > 22
+                                ? null
+                                : Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.sort, size: 18),
+                                        const SizedBox(width: 8),
+                                        Text(isRecent ? '最近入库' : '随机推荐'),
+                                        const Icon(Icons.arrow_drop_down),
+                                      ],
+                                    ),
+                                  ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: loading ? null : _refresh,
+                          icon: Icon(
+                            _keyword.isEmpty && !isRecent
+                                ? Icons.shuffle_rounded
+                                : Icons.refresh,
+                            size: 18,
+                          ),
+                          label: Text(
+                            _keyword.isEmpty && !isRecent ? '换一批' : '刷新结果',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -323,12 +380,22 @@ class HomeScreenState extends ConsumerState<HomeScreen> {
                           onColumnsChanged: (columns) => ref
                               .read(randomLibraryProvider.notifier)
                               .setPageSize(columns * 6),
-                          onTap: (comic) => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => DetailScreen(comicId: comic.id),
-                            ),
-                          ),
+                          onTap: (comic) {
+                            final session = _keyword.isEmpty
+                                ? ref
+                                      .read(randomLibraryProvider.notifier)
+                                      .readingSession()
+                                : null;
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailScreen(
+                                  comicId: comic.id,
+                                  readingSession: session,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                 ),
               ],

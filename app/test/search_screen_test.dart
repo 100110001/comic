@@ -28,6 +28,7 @@ class _SearchClient extends ApiClient {
     String keyword = '',
     bool random = false,
     int? seed,
+    bool recent = false,
   }) async {
     keywords.add(keyword);
     if (fail) throw Exception('测试搜索失败');

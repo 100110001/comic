@@ -11,12 +11,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 typedef _Page = ({List<Comic> list, int total});
 
 class _Request {
-  _Request(this.page, this.size, this.keyword, this.seed);
+  _Request(this.page, this.size, this.keyword, this.seed, this.recent);
 
   final int page;
   final int size;
   final String keyword;
   final int? seed;
+  final bool recent;
   final result = Completer<_Page>();
 
   void complete({int total = 90, int firstId = 0}) {
@@ -44,8 +45,9 @@ class _DelayedClient extends ApiClient {
     String keyword = '',
     bool random = false,
     int? seed,
+    bool recent = false,
   }) {
-    final request = _Request(pageOffset, pageSize, keyword, seed);
+    final request = _Request(pageOffset, pageSize, keyword, seed, recent);
     requests.add(request);
     return request.result.future;
   }
@@ -265,6 +267,62 @@ void main() {
     expect(state.comics.first.favorited, isTrue);
   });
 
+  test('切换最近入库淘汰旧分页，刷新与续页保持最近排序', () async {
+    final notifier = await randomLibrary();
+    final old = notifier.loadMore();
+    container.read(librarySortProvider.notifier).select(LibrarySort.recent);
+    final ready = container.read(randomLibraryProvider.future);
+    expect(client.requests.last.recent, isTrue);
+    expect(client.requests.last.seed, isNull);
+    client.requests.last.complete(firstId: 100);
+    await ready;
+    client.requests[1].complete();
+    await old;
+    expect(
+      container.read(randomLibraryProvider).requireValue.comics.first.id,
+      100,
+    );
+    final more = notifier.loadMore();
+    expect(client.requests.last.recent, isTrue);
+    client.requests.last.complete(firstId: 100);
+    await more;
+    expect(
+      container.read(randomLibraryProvider).requireValue.comics,
+      hasLength(60),
+    );
+    final seed = container.read(randomSeedProvider);
+    final refresh = notifier.reshuffle();
+    expect(client.requests.last.recent, isTrue);
+    expect(client.requests.last.page, 1);
+    client.requests.last.complete(firstId: 200);
+    await refresh;
+    expect(container.read(randomSeedProvider), seed);
+    expect(
+      container.read(randomLibraryProvider).requireValue.comics.first.id,
+      200,
+    );
+  });
+
+  test('快速切换排序不接受过期首屏或刷新失败', () async {
+    final notifier = await randomLibrary();
+    final oldRefresh = notifier.reshuffle();
+    container.read(librarySortProvider.notifier).select(LibrarySort.recent);
+    container.read(randomLibraryProvider);
+    final recentRequest = client.requests.last;
+    container.read(librarySortProvider.notifier).select(LibrarySort.random);
+    final ready = container.read(randomLibraryProvider.future);
+    client.requests.last.complete(firstId: 300);
+    await ready;
+    recentRequest.complete(firstId: 100);
+    client.requests[1].result.completeError(Exception('过期刷新失败'));
+    await oldRefresh;
+    await container.pump();
+    final current = container.read(randomLibraryProvider).requireValue;
+    expect(current.sort, LibrarySort.random);
+    expect(current.comics.first.id, 300);
+    expect(current.error, isNull);
+  });
+
   test('随机分页互斥且失败后可再次加载', () async {
     final notifier = await randomLibrary();
     final more = notifier.loadMore();
@@ -288,6 +346,52 @@ void main() {
       container.read(randomLibraryProvider).requireValue.comics,
       hasLength(60),
     );
+  });
+
+  test('阅读快照跨不整页续接，失败可重试且不受首页换排序影响', () async {
+    final notifier = await randomLibrary();
+    notifier.setPageSize(18);
+    final session = notifier.readingSession();
+    expect((await session.prev(10))?.id, 9);
+    final failed = expectLater(session.next(29), throwsException);
+    expect(client.requests.last.page, 2);
+    expect(client.requests.last.size, 18);
+    client.requests.last.result.completeError(Exception('续页失败'));
+    await failed;
+    container.read(librarySortProvider.notifier).select(LibrarySort.recent);
+    final ready = container.read(randomLibraryProvider.future);
+    client.requests.last.complete(firstId: 100);
+    await ready;
+    final next = session.next(29);
+    expect(client.requests.last.recent, isFalse);
+    client.requests.last.complete(total: 32);
+    expect((await next)?.id, 30);
+    // 详情加载失败后，重试仍指向同一本，不提前移动游标。
+    expect((await session.next(29))?.id, 30);
+    expect((await session.next(30))?.id, 31);
+    expect(session.canNext(31), isFalse);
+    final count = client.requests.length;
+    expect(await session.next(31), isNull);
+    expect(client.requests, hasLength(count));
+    expect(session.canPrev(0), isFalse);
+  });
+
+  test('最近阅读序列续页保留排序，服务器变化淘汰在途响应', () async {
+    SharedPreferences.setMockInitialValues({});
+    container.read(librarySortProvider.notifier).select(LibrarySort.recent);
+    final notifier = await randomLibrary();
+    final session = notifier.readingSession();
+    final next = session.next(29);
+    final request = client.requests.last;
+    expect(request.recent, isTrue);
+    expect(request.seed, isNull);
+    await container
+        .read(serverSessionProvider.notifier)
+        .save('http://new.test');
+    request.complete();
+    expect(await next, isNull);
+    expect(await session.prev(10), isNull);
+    expect(session.canNext(10), isFalse);
   });
 
   test('洗牌淘汰旧分页且旧失败不解除新分页的互斥', () async {

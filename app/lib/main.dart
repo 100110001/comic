@@ -7,7 +7,6 @@ import 'providers/comics_providers.dart';
 import 'providers/progress_lifecycle_provider.dart';
 import 'providers/server_provider.dart';
 import 'providers/settings_provider.dart';
-import 'screens/discovery_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/mine_screen.dart';
 import 'screens/settings_screen.dart';
@@ -129,7 +128,7 @@ class _AdaptiveShell extends StatelessWidget {
   }
 }
 
-/// 手机壳：底部"首页 / 发现 / 我的"三个 tab。
+/// 手机壳：底部"首页 / 我的"两个 tab。
 class MobileShell extends StatefulWidget {
   const MobileShell({super.key});
 
@@ -145,7 +144,7 @@ class _MobileShellState extends State<MobileShell> {
     return Scaffold(
       body: IndexedStack(
         index: _index,
-        children: const [HomeScreen(), DiscoveryScreen(), MineScreen()],
+        children: const [HomeScreen(), MineScreen()],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
@@ -155,11 +154,6 @@ class _MobileShellState extends State<MobileShell> {
             icon: Icon(Icons.menu_book_outlined),
             selectedIcon: Icon(Icons.menu_book),
             label: '首页',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore),
-            label: '发现',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -172,7 +166,7 @@ class _MobileShellState extends State<MobileShell> {
   }
 }
 
-/// 桌面壳：左侧边栏（首页/发现/最近阅读/收藏/收藏作者）+ 内容区。
+/// 桌面壳：左侧边栏（首页/最近阅读/收藏/收藏作者）+ 内容区。
 class DesktopShell extends ConsumerStatefulWidget {
   const DesktopShell({super.key});
 
@@ -194,13 +188,13 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
               setState(() => _index = i);
               // 切换侧栏入口时后台刷新对应列表
               switch (i) {
-                case 2:
+                case 1:
                   ref.invalidate(recentReadingProvider);
                   break;
-                case 3:
+                case 2:
                   ref.invalidate(favoritesProvider);
                   break;
-                case 4:
+                case 3:
                   ref.invalidate(favoriteAuthorsProvider);
                   break;
               }
@@ -223,7 +217,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
                 index: _index,
                 children: [
                   const HomeScreen(),
-                  const DiscoveryScreen(),
                   const _PageScaffold(
                     title: '最近阅读',
                     subtitle: '回到你上次看到的故事',
@@ -253,7 +246,6 @@ class _DesktopShellState extends ConsumerState<DesktopShell> {
 /// 主侧栏导航项（不含底部固定的"设置"）。
 const _mainNavItems = [
   (icon: Icons.menu_book_outlined, selectedIcon: Icons.menu_book, label: '首页'),
-  (icon: Icons.explore_outlined, selectedIcon: Icons.explore, label: '发现'),
   (icon: Icons.history, selectedIcon: Icons.history, label: '最近阅读'),
   (icon: Icons.favorite_border, selectedIcon: Icons.favorite, label: '收藏'),
   (icon: Icons.star_border, selectedIcon: Icons.star, label: '收藏作者'),
@@ -326,7 +318,7 @@ class _DesktopSidebar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               children: [
                 for (var i = 0; i < _mainNavItems.length; i++) ...[
-                  if (i == 0 || i == 2)
+                  if (i == 0 || i == 1)
                     Padding(
                       padding: EdgeInsets.fromLTRB(12, i == 0 ? 0 : 28, 12, 10),
                       child: Text(

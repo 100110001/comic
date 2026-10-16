@@ -6,6 +6,8 @@ import 'package:comic/providers/reader_providers.dart';
 import 'package:comic/providers/reading_progress_provider.dart';
 import 'helpers/progress_storage.dart';
 import 'package:comic/screens/home_screen.dart';
+import 'package:comic/main.dart';
+import 'package:comic/screens/detail_screen.dart';
 import 'package:comic/screens/reader_screen.dart';
 import 'package:comic/theme.dart';
 import 'package:comic/widgets/comic_grid.dart';
@@ -24,7 +26,86 @@ class _EmptyLibrary extends RandomLibraryNotifier {
   );
 }
 
+class _SmallLibrary extends RandomLibraryNotifier {
+  @override
+  Future<RandomLibraryState> build() async => RandomLibraryState(
+    sort: ref.watch(librarySortProvider),
+    seed: 1,
+    pageOffset: 1,
+    total: 2,
+    pageSize: 30,
+    comics: const [
+      Comic(id: 1, title: '第一本'),
+      Comic(id: 2, title: '第二本'),
+    ],
+  );
+}
+
 void main() {
+  testWidgets('首页合并发现，最近排序开读及章节入口保留列表会话', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          progressStorageProvider.overrideWithValue(MemoryProgressStorage()),
+          randomLibraryProvider.overrideWith(_SmallLibrary.new),
+          recentReadingProvider.overrideWith((ref) async => []),
+          favoritesProvider.overrideWith((ref) async => []),
+          favoriteAuthorsProvider.overrideWith((ref) async => []),
+          comicDetailProvider.overrideWith(
+            (ref, id) async => ComicDetail(
+              comic: Comic(id: id, title: '第一本'),
+              chapters: const [Chapter(id: 10, title: '第一话', sortOrder: 0)],
+              favorited: false,
+              authorFavorited: false,
+            ),
+          ),
+          chapterImagesProvider.overrideWith((ref, id) async => []),
+        ],
+        child: MaterialApp(
+          theme: buildAppTheme(Brightness.light),
+          home: const MobileShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('发现'), findsNothing);
+    expect(find.byType(NavigationDestination), findsNWidgets(2));
+    await tester.tap(find.byTooltip('漫画排序'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('最近入库'));
+    await tester.pumpAndSettle();
+    expect(find.text('刷新结果'), findsOneWidget);
+    expect(find.text('换一批'), findsNothing);
+    await tester.tap(find.text('第一本'));
+    await tester.pumpAndSettle();
+    final detail = tester.widget<DetailScreen>(find.byType(DetailScreen));
+    expect(detail.readingSession?.recent, isTrue);
+    expect((await detail.readingSession!.next(1))?.id, 2);
+    await tester.ensureVisible(find.text('开始阅读'));
+    await tester.tap(find.text('开始阅读'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ReaderScreen>(find.byType(ReaderScreen)).readingSession,
+      same(detail.readingSession),
+    );
+    final context = tester.element(find.byType(ReaderScreen));
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('第一话').last);
+    await tester.tap(find.text('第一话').last);
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<ReaderScreen>(find.byType(ReaderScreen)).readingSession,
+      same(detail.readingSession),
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('续读提示显示期间可点击并传递原章节与页码', (tester) async {
     const entry = ReadingProgressEntry(
       comic: Comic(id: 1, title: '续读测试漫画'),
