@@ -202,6 +202,7 @@ class ApiClient {
     String keyword = '',
     bool random = false,
     int? seed,
+    bool recent = false,
   }) async {
     final query = <String, String>{
       'pageOffset': '$pageOffset',
@@ -209,6 +210,7 @@ class ApiClient {
       if (keyword.isNotEmpty) 'keyword': keyword,
       if (random) 'random': '1',
       if (seed != null) 'seed': '$seed',
+      if (recent) 'sort': 'recent',
     };
     final path = Uri(path: '/api/comics', queryParameters: query).toString();
     final data = await _request('GET', path);

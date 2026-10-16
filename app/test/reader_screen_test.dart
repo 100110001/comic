@@ -883,7 +883,29 @@ void main() {
     expect(find.text('2× 超分'), findsNothing);
   });
 
-  testWidgets('320px 发现阅读器只有一个阅读设置入口且不溢出', (tester) async {
+  testWidgets('换书请求失败后恢复按钮并可再次请求', (tester) async {
+    var calls = 0;
+    await pumpReader(
+      tester,
+      onNextComic: () async {
+        calls++;
+        if (calls == 1) throw Exception('续页失败');
+        return null;
+      },
+    );
+    await openReaderMenu(tester);
+    await tester.tap(find.text('下一本'));
+    await settleReader(tester);
+    expect(calls, 1);
+    expect(tester.takeException(), isNull);
+    await openReaderMenu(tester);
+    await tester.tap(find.text('下一本'));
+    await settleReader(tester);
+    expect(calls, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('320px 连续阅读器只有一个阅读设置入口且不溢出', (tester) async {
     await pumpReader(tester, width: 320, onNextComic: () async => null);
     expect(tester.takeException(), isNull);
     await openReaderMenu(tester);
@@ -1027,7 +1049,7 @@ void main() {
   });
 
   testWidgets(
-    '发现连续换书与返回保存当前漫画的章节和页码',
+    '连续换书与返回保存当前漫画的章节和页码',
     (tester) async {
       final client = _ProgressClient();
       addTearDown(client.close);

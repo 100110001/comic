@@ -5,6 +5,7 @@ import '../models/comic.dart';
 import '../models/favorite_author.dart';
 import '../models/reading_progress_entry.dart';
 import '../services/api_client.dart';
+import '../services/library_reading_session.dart';
 import 'server_provider.dart';
 
 // ---- 简单查询（会话内缓存） ----
@@ -63,7 +64,20 @@ final comicDetailProvider = FutureProvider.family<ComicDetail, int>((
   );
 });
 
-// ---- 首页随机分页（seed 独立持有，失效不重排） ----
+// ---- 首页分页（排序与 seed 独立持有，收藏变更不重排） ----
+
+enum LibrarySort { random, recent }
+
+class LibrarySortNotifier extends Notifier<LibrarySort> {
+  @override
+  LibrarySort build() => LibrarySort.random;
+
+  void select(LibrarySort sort) => state = sort;
+}
+
+final librarySortProvider = NotifierProvider<LibrarySortNotifier, LibrarySort>(
+  LibrarySortNotifier.new,
+);
 
 class RandomSeedNotifier extends Notifier<int> {
   @override
@@ -77,6 +91,7 @@ final randomSeedProvider = NotifierProvider<RandomSeedNotifier, int>(
 );
 
 class RandomLibraryState {
+  final LibrarySort sort;
   final int seed;
   final int pageOffset;
   final int total;
@@ -87,6 +102,7 @@ class RandomLibraryState {
   final Object? error;
 
   const RandomLibraryState({
+    this.sort = LibrarySort.random,
     required this.seed,
     required this.pageOffset,
     required this.total,
@@ -107,6 +123,7 @@ class RandomLibraryState {
     Object? error,
     bool clearError = false,
   }) => RandomLibraryState(
+    sort: sort,
     seed: seed,
     pageOffset: pageOffset ?? this.pageOffset,
     total: total ?? this.total,
@@ -123,6 +140,22 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   int _pageSize = 30;
   Future<void>? _refreshFuture;
 
+  LibraryReadingSession readingSession() {
+    final s = state.requireValue;
+    final client = ref.read(apiClientProvider);
+    return LibraryReadingSession(
+      client: client,
+      isCurrent: () =>
+          ref.mounted &&
+          ref.read(serverSessionProvider).generation == client.generation,
+      comics: s.comics,
+      total: s.total,
+      pageSize: s.pageSize,
+      seed: s.seed,
+      recent: s.sort == LibrarySort.recent,
+    );
+  }
+
   bool _isCurrent(ApiClient client, int queryGeneration) =>
       ref.mounted &&
       _queryGeneration == queryGeneration &&
@@ -131,11 +164,13 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   @override
   Future<RandomLibraryState> build() async {
     final client = ref.watch(apiClientProvider);
+    final sort = ref.watch(librarySortProvider);
     _refreshFuture = null;
     _queryGeneration++;
     final seed = ref.read(randomSeedProvider);
     final result = await _fetch(
       client: client,
+      sort: sort,
       seed: seed,
       pageOffset: 1,
       pageSize: _pageSize,
@@ -145,16 +180,20 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
 
   Future<RandomLibraryState> _fetch({
     required ApiClient client,
+    required LibrarySort sort,
     required int seed,
     required int pageOffset,
     required int pageSize,
   }) async {
-    final r = await client.getRandomPage(
-      seed: seed,
+    final r = await client.getComics(
+      random: sort == LibrarySort.random,
+      seed: sort == LibrarySort.random ? seed : null,
+      recent: sort == LibrarySort.recent,
       pageOffset: pageOffset,
       pageSize: pageSize,
     );
     return RandomLibraryState(
+      sort: sort,
       seed: seed,
       pageOffset: pageOffset,
       total: r.total,
@@ -164,6 +203,7 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   }
 
   void setPageSize(int size) {
+    size = size.clamp(1, 100);
     _pageSize = size;
     final s = state.value;
     if (s == null || s.pageSize == size) return;
@@ -187,6 +227,7 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
     try {
       final next = await _fetch(
         client: client,
+        sort: s.sort,
         seed: s.seed,
         pageOffset: s.comics.length ~/ s.pageSize + 1,
         pageSize: s.pageSize,
@@ -222,7 +263,10 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
   }
 
   Future<void> _reshuffle() async {
-    ref.read(randomSeedProvider.notifier).reshuffle();
+    final sort = ref.read(librarySortProvider);
+    if (sort == LibrarySort.random) {
+      ref.read(randomSeedProvider.notifier).reshuffle();
+    }
     if (state.value == null) {
       ref.invalidateSelf();
       await future;
@@ -241,6 +285,7 @@ class RandomLibraryNotifier extends AsyncNotifier<RandomLibraryState> {
     try {
       final next = await _fetch(
         client: client,
+        sort: sort,
         seed: seed,
         pageOffset: 1,
         pageSize: _pageSize,

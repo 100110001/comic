@@ -14,6 +14,7 @@ import '../models/reading_progress_entry.dart';
 import '../providers/reading_progress_provider.dart';
 import '../providers/server_provider.dart';
 import '../services/api_client.dart';
+import '../services/library_reading_session.dart';
 import '../platform.dart';
 import '../providers/comics_providers.dart';
 import '../providers/reader_providers.dart';
@@ -33,6 +34,7 @@ class ReaderScreen extends ConsumerStatefulWidget {
   final int chapterId;
   final String title;
   final int? initialPage;
+  final LibraryReadingSession? readingSession;
   final Future<Comic?> Function()? onNextComic;
   final Future<Comic?> Function()? onPrevComic;
   final bool Function()? canPrevComic;
@@ -42,6 +44,7 @@ class ReaderScreen extends ConsumerStatefulWidget {
     required this.chapterId,
     required this.title,
     this.initialPage,
+    this.readingSession,
     this.onNextComic,
     this.onPrevComic,
     this.canPrevComic,
@@ -129,7 +132,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       _chapters.isEmpty ? null : _chapters[_chapterIndex];
   bool get _hasPrev => _chapterIndex > 0;
   bool get _hasNext => _chapterIndex < _chapters.length - 1;
-  bool get _canPrevComic => widget.canPrevComic?.call() ?? false;
+  bool get _hasComicSequence =>
+      widget.readingSession != null || widget.onNextComic != null;
+  bool get _canNextComic =>
+      widget.readingSession?.canNext(_comicId) ?? (widget.onNextComic != null);
+  bool get _canPrevComic =>
+      widget.readingSession?.canPrev(_comicId) ??
+      widget.canPrevComic?.call() ??
+      false;
 
   @override
   void initState() {
@@ -243,7 +253,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             return;
           }
           _appendNextChapter();
-        } else if (_hasNext || widget.onNextComic != null) {
+        } else if (_hasNext || _canNextComic) {
           _autoContinue();
         } else {
           _stopAutoReading();
@@ -252,7 +262,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _autoTicks = 0;
         if (_currentPage + _spreadCount >= _images.length &&
             !_hasNext &&
-            widget.onNextComic == null) {
+            !_canNextComic) {
           _stopAutoReading();
         } else {
           _nextPage();
@@ -365,51 +375,64 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Future<void> _autoContinue() async {
     if (_hasNext) {
       await _nextChapter();
-    } else if (widget.onNextComic != null) {
+    } else if (_canNextComic) {
       await _nextComic();
     }
   }
 
-  /// 发现模式：切到序列里的下一本漫画（从第 1 章开始）。
+  /// 连续阅读：按开读时的列表顺序切换，从目标第 1 章开始。
   Future<void> _nextComic() async {
-    final next = widget.onNextComic;
-    if (next == null || _switchingComic) return;
-    setState(() => _switchingComic = true);
-    await _saveProgress();
-    final comic = await next();
-    if (!mounted) return;
-    if (comic == null) {
-      setState(() => _switchingComic = false);
-      return;
-    }
-    await _loadComic(comic);
+    if (!_canNextComic || _switchingComic) return;
+    await _switchComic(
+      () => widget.readingSession?.next(_comicId) ?? widget.onNextComic!(),
+    );
   }
 
-  /// 发现模式：切到序列里的上一本漫画（从第 1 章开始）。
   Future<void> _prevComic() async {
-    final prev = widget.onPrevComic;
-    if (prev == null || _switchingComic || !_canPrevComic) return;
+    if (_switchingComic || !_canPrevComic) return;
+    await _switchComic(
+      () => widget.readingSession?.prev(_comicId) ?? widget.onPrevComic!(),
+    );
+  }
+
+  Future<void> _switchComic(Future<Comic?> Function() adjacent) async {
     setState(() => _switchingComic = true);
-    await _saveProgress();
-    final comic = await prev();
-    if (!mounted) return;
-    if (comic == null) {
-      setState(() => _switchingComic = false);
-      return;
+    try {
+      await _saveProgress();
+      final comic = await adjacent();
+      if (!mounted) return;
+      if (comic == null) {
+        _stopAutoReading();
+        return;
+      }
+      await _loadComic(comic);
+    } catch (error) {
+      if (!mounted) return;
+      _stopAutoReading();
+      if (widget.readingSession?.isCurrent ?? true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(userMessageFor(error, fallback: '切换漫画失败，请重试')),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _switchingComic = false);
     }
-    await _loadComic(comic);
   }
 
   /// 整体替换为另一本漫画：章节列表 + 定位到第 1 章。
   Future<void> _loadComic(Comic comic) async {
-    ComicDetail? detail;
-    try {
-      detail = await ref.read(comicDetailProvider(comic.id).future);
-    } catch (_) {
-      detail = null;
+    if (!(widget.readingSession?.isCurrent ?? true)) return;
+    final generation = ref.read(serverSessionProvider).generation;
+    final detail = await ref.read(comicDetailProvider(comic.id).future);
+    if (!mounted ||
+        ref.read(serverSessionProvider).generation != generation ||
+        !(widget.readingSession?.isCurrent ?? true)) {
+      return;
     }
-    if (!mounted) return;
-    if (detail == null || detail.chapters.isEmpty) {
+    if (detail.chapters.isEmpty) {
+      _stopAutoReading();
       setState(() => _switchingComic = false);
       ScaffoldMessenger.of(
         context,
@@ -417,7 +440,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     setState(() {
-      _comic = detail!.comic;
+      _comic = detail.comic;
       _comicId = comic.id;
       _title = comic.title;
       _chapters = detail.chapters;
@@ -792,7 +815,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _precacheAround(page);
         _recordPosition();
       }
-      if (atEnd && (_hasNext || widget.onNextComic != null)) _autoContinue();
+      if (atEnd && (_hasNext || _canNextComic)) _autoContinue();
     }
   }
 
@@ -1157,7 +1180,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
           ),
         ],
       ),
-      if (widget.onNextComic != null)
+      if (_hasComicSequence)
         Wrap(
           spacing: 8,
           children: [
@@ -1171,7 +1194,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               child: const Text('上一本'),
             ),
             TextButton(
-              onPressed: !_switchingComic
+              onPressed: _canNextComic && !_switchingComic
                   ? () {
                       _setPanel(null);
                       _nextComic();
@@ -1324,7 +1347,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
             if (_flowLastChapter < _chapters.length - 1 && _flowError == null) {
               _appendNextChapter();
             } else if (_flowLastChapter == _chapters.length - 1 &&
-                widget.onNextComic != null) {
+                _canNextComic) {
               _autoContinue();
             }
           }
@@ -1394,9 +1417,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                               onPressed: _exitReader,
                               child: const Text('返回上一页'),
                             ),
-                            if (widget.onNextComic != null)
+                            if (_hasComicSequence)
                               TextButton(
-                                onPressed: _nextComic,
+                                onPressed: _canNextComic && !_switchingComic
+                                    ? _nextComic
+                                    : null,
                                 child: const Text('下一本'),
                               ),
                           ],

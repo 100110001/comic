@@ -36,6 +36,7 @@ comicsRouter.get(
   cacheResponse(
     (req) => {
       const random = req.query.random === "1";
+      const recent = !random && req.query.sort === "recent";
       const seed = parseInt(String(req.query.seed ?? ""));
       if (random && !Number.isInteger(seed)) return null;
       return [
@@ -46,6 +47,7 @@ comicsRouter.get(
           Math.max(1, parseInt(String(req.query.pageSize ?? 20))),
         ),
         String(req.query.keyword ?? "").trim(),
+        recent,
         random,
         random ? seed : null,
       ];
@@ -59,6 +61,7 @@ comicsRouter.get(
         parseInt(String(req.query.pageOffset ?? 1)),
       );
       const random = req.query.random === "1";
+      const recent = !random && req.query.sort === "recent";
       const seed = parseInt(String(req.query.seed ?? ""));
       const hasSeed = Number.isInteger(seed);
       const pageSize = Math.min(
@@ -88,7 +91,11 @@ comicsRouter.get(
         ? hasSeed
           ? query.orderByRaw("RAND(?)", [seed])
           : query.orderByRaw("RAND()")
-        : query.orderBy("comics.title");
+        : recent
+          ? query
+              .orderBy("comics.created_at", "desc")
+              .orderBy("comics.id", "desc")
+          : query.orderBy("comics.title");
       const rows = await ordered
         .limit(pageSize)
         .offset((pageOffset - 1) * pageSize);

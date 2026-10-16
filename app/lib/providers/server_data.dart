@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'comics_providers.dart';
-import 'discovery_providers.dart';
 import 'reader_providers.dart';
 import 'server_provider.dart';
 
@@ -13,7 +12,6 @@ Future<bool> saveServerUrl(WidgetRef ref, String input) async {
   ref.read(randomSeedProvider.notifier).reshuffle();
   ref.invalidate(randomLibraryProvider);
   ref.invalidate(searchProvider);
-  ref.invalidate(discoveryProvider);
   ref.invalidate(favoritesProvider);
   ref.invalidate(favoriteAuthorsProvider);
   ref.invalidate(favoriteAuthorBooksProvider);
