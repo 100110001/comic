@@ -100,8 +100,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       if (!mounted ||
           chapter != _chapterId ||
           generation != _jumpGeneration ||
-          serverGeneration != ref.read(serverSessionProvider).generation)
+          serverGeneration != ref.read(serverSessionProvider).generation) {
         return;
+      }
       setState(() {
         for (final image in refreshed) {
           if (image.width != null &&
