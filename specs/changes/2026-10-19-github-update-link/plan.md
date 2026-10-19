@@ -11,7 +11,7 @@ date: 2026-10-19
 
 ## 实现单元
 
-### U1. 增加浏览器入口
+### U1. 已完成：增加浏览器入口（PR #86）
 
 - 依赖：无。
 - 文件：app/lib/config.dart、app/lib/screens/settings_screen.dart、app/pubspec.yaml、app/pubspec.lock 以及插件生成注册文件。
