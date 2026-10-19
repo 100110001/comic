@@ -2,6 +2,7 @@ import mysql from "mysql2/promise";
 import dotenv from "dotenv";
 import { progress, done } from "../utils/progress";
 import type { Comic } from "./scan";
+import path from "node:path";
 dotenv.config();
 
 const BATCH_SIZE = 200;
@@ -21,7 +22,14 @@ interface ChangedRow {
   values: Value[];
 }
 
-export async function seed(comics: Comic[]) {
+export async function seed(comics: Comic[], root?: string) {
+  if (root !== undefined && comics.length === 0) {
+    throw new Error(
+      "扫描未发现漫画，停止同步以避免误标整库；请检查漫画库挂载和目录结构",
+    );
+  }
+  const sourceRoot = root === undefined ? undefined : path.resolve(root);
+  const scannedIds = new Set<number>();
   const total = comics.length;
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST ?? "localhost",
@@ -48,6 +56,7 @@ export async function seed(comics: Comic[]) {
           comic.chapters[0]?.images[0]?.path ?? null,
         );
         if (comicId.new) newComicCount++;
+        scannedIds.add(comicId.id);
         resolved.push({ comic, comicId });
       }
       const ids = [...new Set(resolved.map((item) => item.comicId.id))];
@@ -160,31 +169,79 @@ export async function seed(comics: Comic[]) {
       }
     }
 
-    // 磁盘上消失的漫画只提示，不删除。
+    // 只有完整导入成功后才提交删除/恢复状态；失败时保留之前的可见状态。
     const [dbComics] = await conn.query<mysql.RowDataPacket[]>(
-      "SELECT id, title, author FROM comics",
-    );
-    const scannedKeys = new Set(
-      comics.map((c) => `${c.title}\u0000${c.author ?? ""}`),
+      "SELECT id, title, author, cover_path, source_root, deleted_at FROM comics",
     );
     let missingCount = 0;
+    const changes: Array<{ id: number; present: boolean }> = [];
     for (const row of dbComics) {
-      const key = `${row.title}\u0000${row.author ?? ""}`;
-      if (!scannedKeys.has(key)) {
+      const present = scannedIds.has(row.id);
+      const belongs =
+        sourceRoot !== undefined &&
+        (row.source_root != null
+          ? path.relative(sourceRoot, path.resolve(row.source_root)) === ""
+          : typeof row.cover_path === "string" &&
+            insideRoot(sourceRoot, row.cover_path));
+      if (present && sourceRoot !== undefined) {
+        if (
+          row.deleted_at != null ||
+          row.source_root == null ||
+          path.relative(sourceRoot, path.resolve(row.source_root)) !== ""
+        )
+          changes.push({ id: row.id, present: true });
+      } else if (!present && (belongs || sourceRoot === undefined)) {
         console.log(
           `\n[missing] 磁盘上未找到: ${row.title}${row.author ? ` (${row.author})` : ""}`,
         );
         missingCount++;
+        if (belongs && row.deleted_at == null)
+          changes.push({ id: row.id, present: false });
+      } else if (
+        !present &&
+        sourceRoot !== undefined &&
+        row.source_root == null
+      ) {
+        console.log(`\n[skip] 无法确认漫画库归属，保留: ${row.title}`);
+      }
+    }
+    if (changes.length) {
+      await conn.beginTransaction();
+      try {
+        for (const change of changes) {
+          await conn.execute(
+            change.present
+              ? "UPDATE comics SET source_root = ?, deleted_at = NULL WHERE id = ?"
+              : "UPDATE comics SET source_root = ?, deleted_at = CURRENT_TIMESTAMP WHERE id = ? AND deleted_at IS NULL",
+            [sourceRoot!, change.id],
+          );
+        }
+        await conn.commit();
+      } catch (error) {
+        await conn.rollback();
+        throw error;
       }
     }
 
     done(
       `导入完成 — 新增漫画: ${newComicCount}  新增章节: ${newChapterCount}  新增图片: ${newImageCount}` +
-        (missingCount > 0 ? `  磁盘缺失（未删除）: ${missingCount}` : ""),
+        (missingCount > 0
+          ? `  磁盘缺失${sourceRoot === undefined ? "（未标记）" : "（已软删除）"}: ${missingCount}`
+          : ""),
     );
   } finally {
     await conn.end();
   }
+}
+
+function insideRoot(root: string, file: string) {
+  const relative = path.relative(root, path.resolve(file));
+  return (
+    relative !== "" &&
+    relative !== ".." &&
+    !relative.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relative)
+  );
 }
 
 async function insertImages(conn: mysql.Connection, rows: Value[][]) {

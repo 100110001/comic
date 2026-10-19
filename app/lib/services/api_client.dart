@@ -30,6 +30,9 @@ class ApiClient {
   final http.Client _client;
   final bool _ownsClient;
   final _pendingReads = <String, Future<Map<String, dynamic>>>{};
+  Set<int> _deletedComicIds = {};
+
+  bool isComicDeleted(int id) => _deletedComicIds.contains(id);
 
   void close() {
     if (_ownsClient) _client.close();
@@ -376,13 +379,19 @@ class ApiClient {
 
   Future<List<ReadingProgressEntry>> getRecent() async {
     final data = await _request('GET', '/api/mine/recent');
-    return _parse(
+    final entries = _parse(
       () => (data['data'] as List)
           .map(
             (item) => ReadingProgressEntry.fromJson(item, serverUrl: baseUrl),
           )
           .toList(),
     );
+    _deletedComicIds = _parse(
+      () => (data['deletedComicIds'] as List? ?? [])
+          .map((id) => (id as num).toInt())
+          .toSet(),
+    );
+    return entries;
   }
 
   Future<List<Comic>> getFavorites() async {

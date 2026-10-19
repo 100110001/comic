@@ -18,6 +18,7 @@ mineRouter.get(
     try {
       const rows = await db("reading_progress as rp")
         .join("comics as c", "c.id", "rp.comic_id")
+        .whereNull("c.deleted_at")
         .join("chapters as ch", "ch.id", "rp.chapter_id")
         .select(
           "c.id",
@@ -31,7 +32,10 @@ mineRouter.get(
         )
         .orderBy("rp.updated_at", "desc");
 
-      ok(res, rows);
+      const deleted = await db("comics")
+        .whereNotNull("deleted_at")
+        .select("id");
+      ok(res, rows, { deletedComicIds: deleted.map((comic) => comic.id) });
     } catch (err) {
       console.error("[mine recent]", err);
       fail(res, "Failed to fetch recent reading", 1, 500);

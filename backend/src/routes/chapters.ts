@@ -116,6 +116,11 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
 
     const chapter = await db("chapters").where({ id }).first();
     if (!chapter) return fail(res, "章节不存在，请刷新漫画详情", 1, 404);
+    const comic = await db("comics")
+      .where({ id: chapter.comic_id })
+      .whereNull("deleted_at")
+      .first();
+    if (!comic) return fail(res, "漫画不存在或已删除，请刷新书库", 1, 404);
 
     const images = await db<ChapterImage & { chapter_id: number }>("images")
       .where({ chapter_id: id })

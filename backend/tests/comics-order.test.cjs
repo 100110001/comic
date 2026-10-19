@@ -71,7 +71,8 @@ test("最近入库按时间与 ID 降序，保留过滤及分页，缓存身份�
   const route = routeFixture();
   const query = await route.request({ sort: "recent", keyword: "漫画", pageOffset: "2", pageSize: "2" });
   assert.match(query.sql, /order by `comics`\.`created_at` desc, `comics`\.`id` desc/);
-  assert.match(query.sql, /where `comics`\.`title` like \? or `comics`\.`author` like \?/);
+  assert.match(query.sql, /where `comics`\.`deleted_at` is null and \(`comics`\.`title` like \? or `comics`\.`author` like \?\)/);
+  assert.match(route.queries[0].sql, /`comics`\.`deleted_at` is null and \(/);
   assert.deepEqual(query.bindings, ["%漫画%", "%漫画%", 2, 2]);
   const recentIdentity = route.identities.at(-1);
   const title = await route.request({ keyword: "漫画", pageOffset: "2", pageSize: "2" });

@@ -1,12 +1,13 @@
 import { scan, saveScan } from "./scan";
 import { seed } from "./seed";
 import { clearCache } from "./clear-cache";
+import { config } from "../config";
 
 async function main() {
   if (process.argv.length > 2)
     throw new Error("用法: comics:sync（不接受参数）");
   const comics = scan();
-  await seed(comics);
+  await seed(comics, config.comicRoot);
   saveScan(comics);
   await clearCache(true);
 }
