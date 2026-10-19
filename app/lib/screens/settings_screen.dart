@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../config.dart';
 import '../providers/update_provider.dart';
 import '../providers/server_data.dart';
 import '../providers/server_provider.dart';
@@ -431,12 +433,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           builder: (context, snap) => _settingRow(
             title: 'Comic',
             description: '当前版本 v${snap.data ?? '…'}',
-            control: !supportsAppUpdates
-                ? const SizedBox.shrink()
-                : FilledButton.tonal(
+            control: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (supportsAppUpdates)
+                  FilledButton.tonal(
                     onPressed: busy ? null : notifier.check,
                     child: Text(update.checking ? '检查中…' : '检查更新'),
                   ),
+                OutlinedButton.icon(
+                  onPressed: _openReleasePage,
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('在 GitHub 打开'),
+                ),
+              ],
+            ),
           ),
         ),
         if (busy) const LinearProgressIndicator(minHeight: 2),
@@ -459,6 +471,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ],
     );
+  }
+
+  Future<void> _openReleasePage() async {
+    try {
+      if (await launchUrl(
+        Uri.parse(kReleasePageUrl),
+        mode: LaunchMode.externalApplication,
+      )) {
+        return;
+      }
+    } catch (_) {
+      // 平台异常与无法唤起浏览器统一反馈，保留更新状态。
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('无法打开 GitHub，请稍后重试')));
   }
 
   Future<String> _loadVersion() async {
