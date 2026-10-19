@@ -173,6 +173,16 @@ GitHub Actions 的 `Release` 工作流将 `comic-setup.exe`、`app-release.apk` 
 上传到草稿 Release，重新下载核验后才发布并设为 latest。推送标签只是触发构建，
 三个资产就绪且正式发布才算完成。失败草稿可重试，正式 Release 禁止覆盖。
 
+现有标签构建失败时，将流程修复合并到 `master` 后手动重试，无需删除或重推标签：
+
+```powershell
+gh workflow run release.yml --ref master -f tag=v1.2.2
+```
+
+也可在 GitHub Actions 的 `Release` → `Run workflow` 中选择 `master`，填写 `tag`。
+发布工具使用主分支版本，应用及发布文件固定使用原标签提交；上一版本从已正式发布的
+稳定 Release 中按版本数值选择，不依赖标签祖先关系。已公布的目标或有更高正式版本时拒绝重试。
+
 提高最低支持版本时增加对应平台参数及原因，不能自动跟随最新版本：
 
 ```powershell
