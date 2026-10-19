@@ -42,10 +42,10 @@ argument-hint: "[X.Y.Z] [更新说明] | publish X.Y.Z"
 - 确认对应 PR 已合并到 master。未合并则返回 PR 链接并停止。
 - 获取远端状态，对合并后的发布文件运行 `scripts/validate-release.ps1 -Version <版本>`。
   版本、构建号、变更级别、最低版本或下载地址不一致时停止。
-- 已有远端标签时不重复推送，查看 Release 工作流与发布状态。
+- 已有远端标签时不重复推送，查看 Release 工作流与发布状态。已正式发布则报告结果；失败且用户要求重试时，在流程修复已合并后运行 `gh workflow run release.yml --ref master -f tag=vX.Y.Z`，使用现有标签源码及主分支流程，不移动标签。
 - 没有远端标签时优先用准备阶段的本地标签，确认指向已合并的发布提交且发布文件与合并提交一致。
   标签不存在才在核实的 PR 合并提交创建；不移动或覆盖已有标签。
-- 只推送对应标签，CI 校验上一发布版本、构建 Windows/Android，上传安装包与 update.json 到 draft，
+- 新标签只推送对应标签，CI 从正式稳定 Release 中选择低于目标的最高版本作基线（不依赖 Git 祖先关系），构建 Windows/Android，上传安装包与 update.json 到 draft，
   重新下载核验后才发布并设置 latest。正式 Release 禁止覆盖，失败草稿可重试。
 - 返回工作流和 Release 链接；只有非草稿正式 Release 的三个资产完整且工作流成功，才报告发布成功。
   构建或上传失败时说明失败阶段，不宣称清单已对新客户端生效。

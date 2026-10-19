@@ -159,6 +159,10 @@ Windows 静默安装、Android 唤起系统安装器；取消安装不会解除�
 
 在 Claude Code 中使用 `/release X.Y.Z 更新说明` 准备发版 PR；自行合并到 `master`
 后，使用 `/release publish X.Y.Z` 推送标签，触发 CI 自动构建并上传安装包。
+
+标签构建失败时，先将流程修复合并到 `master`，再运行
+`gh workflow run release.yml --ref master -f tag=vX.Y.Z` 重试现有标签。
+流程使用主分支发布工具构建原标签源码，保持标签不动；已正式发布的版本禁止覆盖。
 完整用法和 PowerShell 手动流程见 [项目命令速查](docs/commands.md)。
 
 `scripts/release.ps1` 要求变更级别、兼容性说明和更新说明，统一同步版本及递增构建号。
