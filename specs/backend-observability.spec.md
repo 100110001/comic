@@ -13,7 +13,7 @@ scope: feature
 ## 公开契约
 
 - `GET /api/admin/dashboard` 返回标准业务响应，数据包含 `timestamp`、`infrastructure`、`traffic`、`superResolution`，响应禁止缓存。
-- `infrastructure` 包含 `sampledAt`、`library`、`cache`、`redis`。库数量为漫画、章节和图片记录数；可用状态为 `ready`，读取失败或超时为 `unavailable` 且数量为 `null`。
+- `infrastructure` 包含 `sampledAt`、`library`、`cache`、`redis`。库数量只统计未软删除漫画及其关联的章节和图片；可用状态为 `ready`，读取失败或超时为 `unavailable` 且数量为 `null`。
 - `cache` 返回已发布超分文件的 `count`、`bytes`、配置上限 `maxBytes`；目录可读为 `ready`，不存在为 `missing` 且数量为零，不可读或探测超时为 `unavailable` 且数量为 `null`。只统计规范命名的已发布WebP，不包含临时文件。
 - `redis` 为 `ready` 或 `unavailable`，仅表达已有客户端连接状态；观测不主动重连。基础信息采样合并在途请求，结果复用15秒；等待至多3秒，超时仍保留底层在途探测以免后续刷新重复占用资源。
 - `traffic` 包含进程起始时间 `startedAt`、保留上限 `limit=500`、累计完成数 `total`、分类累计 `totals`、最近结束在前的 `records`。
