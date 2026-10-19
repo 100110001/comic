@@ -18,7 +18,7 @@ origin: specs/changes/2026-10-19-android-fixed-signing/define.md
 
 ## 实现单元
 
-### U1. 固定签名与发布配置
+### U1. 固定签名与发布配置（PR #81，已实现）
 
 依赖：无。
 文件：app/android/app/build.gradle.kts、.github/workflows/release.yml、.gitignore、docs/android-signing.md、Readme.md。
