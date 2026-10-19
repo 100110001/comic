@@ -15,6 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Restore Android signing key
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @('ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_ALIAS', 'ANDROID_KEY_PASSWORD')) {
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
+              throw "缺少签名 Secret：$name；参见 docs/android-signing.md"
+            }
+          }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'comic-release.jks'
+          [IO.File]::WriteAllBytes($keyPath, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+          "ANDROID_KEYSTORE_PATH=$keyPath" >> $env:GITHUB_ENV
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -29,7 +47,18 @@ jobs:
         run: flutter build windows --release
 
       - name: Build Android APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: flutter build apk --release
+
+      - name: Remove Android signing key
+        if: always()
+        shell: pwsh
+        run: |
+          $keyPath = Join-Path $env:RUNNER_TEMP 'comic-release.jks'
+          if (Test-Path -LiteralPath $keyPath) { Remove-Item -LiteralPath $keyPath -Force }
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
