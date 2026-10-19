@@ -598,7 +598,13 @@ void main() {
       await settleReader(tester);
       expectPage(tester, 1);
       final scrollable = tester.state<ScrollableState>(
-        find.byType(Scrollable).first,
+        find
+            .byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+            )
+            .first,
       );
       expect(scrollable.position.pixels, greaterThan(0));
       scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
@@ -617,7 +623,7 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
-  testWidgets('手机忽略旧分页偏好，双击控制层手动关闭且没有缩放入口', (tester) async {
+  testWidgets('手机忽略旧分页偏好，双击控制层手动关闭且正文不常驻缩放工具', (tester) async {
     await pumpReader(
       tester,
       width: 320,
@@ -648,6 +654,198 @@ void main() {
     await openReaderMenu(tester);
     expect(find.text('阅读设置'), findsOneWidget);
   });
+
+  testWidgets('连续缩放保留页内位置，恢复默认后仍能纵向滚动', (tester) async {
+    await pumpReader(tester);
+    final controller = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!;
+    controller.jumpTo(1350); // 第三页的四分之一。
+    await settleReader(tester);
+    expectPage(tester, 3);
+    await openReaderSettings(tester);
+    tester.widget<Slider>(find.byKey(const ValueKey('reader-zoom'))).onChanged!(
+      2,
+    );
+    await settleReader(tester);
+    expect(controller.offset, closeTo(2700, 1));
+    expect(tester.getSize(find.byType(ListView)).width, 800);
+    expectPage(tester, 3);
+    await tester.tap(find.text('恢复默认大小'));
+    await settleReader(tester);
+    expect(controller.offset, closeTo(1350, 1));
+    await tester.tap(find.byTooltip('关闭阅读设置'));
+    await settleReader(tester);
+    await tester.drag(find.byType(ListView), const Offset(0, -300));
+    await settleReader(tester);
+    expect(controller.offset, greaterThan(1350));
+  });
+
+  testWidgets('双指缩放后可横向查看，松手后恢复纵向阅读', (tester) async {
+    await pumpReader(tester);
+    final controller = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!;
+    controller.jumpTo(1350);
+    await settleReader(tester);
+    final first = await tester.startGesture(const Offset(120, 400), pointer: 1);
+    final second = await tester.startGesture(
+      const Offset(280, 400),
+      pointer: 2,
+    );
+    await tester.pump();
+    await first.moveTo(const Offset(40, 400));
+    await second.moveTo(const Offset(360, 400));
+    await tester.pump();
+    await first.up();
+    await second.up();
+    await settleReader(tester);
+    expect(tester.getSize(find.byType(ListView)).width, closeTo(800, 1));
+    expect(controller.offset, closeTo(2700, 1));
+    expectPage(tester, 3);
+    final horizontal = tester.widget<SingleChildScrollView>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is SingleChildScrollView &&
+            widget.scrollDirection == Axis.horizontal,
+      ),
+    );
+    final horizontalOffset = horizontal.controller!.offset;
+    await tester.dragFrom(const Offset(200, 400), const Offset(-150, 0));
+    await settleReader(tester);
+    expect(horizontal.controller!.offset, greaterThan(horizontalOffset));
+    expect(controller.offset, closeTo(2700, 1));
+    expectPage(tester, 3);
+    await tester.dragFrom(const Offset(200, 400), const Offset(0, -300));
+    await settleReader(tester);
+    expect(controller.offset, greaterThan(2700));
+  });
+
+  testWidgets('错误尺寸的初始跳页在解码校正后仍保持目标页', (tester) async {
+    await pumpReader(
+      tester,
+      initialPage: 4,
+      loadImages: (id) async => List.generate(
+        10,
+        (i) => ImageItem(
+          id: i,
+          filename: '$i.jpg',
+          pageNumber: i,
+          url: 'http://example.com/$i.jpg?v=1-1',
+          width: 800,
+          height: 2400,
+        ),
+      ),
+    );
+    expectPage(tester, 5);
+    final controller = tester
+        .widget<ListView>(find.byType(ListView))
+        .controller!;
+    final displayed = tester.widgetList<Image>(find.byType(Image)).toList();
+    for (final image in displayed) {
+      expect(tester.getSize(find.byWidget(image)).height, closeTo(600, 1));
+    }
+    await openReaderSettings(tester);
+    tester.widget<ReaderProgressBar>(find.byType(ReaderProgressBar)).onSeek(4);
+    await settleReader(tester);
+    expectPage(tester, 5);
+    expect(controller.offset, greaterThan(0));
+  });
+
+  testWidgets(
+    '放大后桌面支持鼠标横向拖动且不改变页码',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        preferences: const ReaderPreferences(mode: ReaderMode.continuous),
+      );
+      await openReaderSettings(tester);
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('reader-zoom')))
+          .onChanged!(2);
+      await settleReader(tester);
+      await tester.tap(find.byTooltip('关闭阅读设置'));
+      await settleReader(tester);
+      final horizontal = tester.widget<SingleChildScrollView>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is SingleChildScrollView &&
+              widget.scrollDirection == Axis.horizontal,
+        ),
+      );
+      final before = horizontal.controller!.offset;
+      final pointer = await tester.startGesture(
+        const Offset(600, 400),
+        kind: PointerDeviceKind.mouse,
+      );
+      await pointer.moveBy(const Offset(-50, 0));
+      await tester.pump();
+      await pointer.moveBy(const Offset(-100, 0));
+      await pointer.up();
+      await settleReader(tester);
+      expect(horizontal.controller!.offset, greaterThan(before));
+      expectPage(tester, 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets('未知及错误图片尺寸按解码比例衔接，不留下预估空白', (tester) async {
+    await pumpReader(
+      tester,
+      loadImages: (id) async => List.generate(
+        10,
+        (i) => ImageItem(
+          id: i,
+          filename: '$i.jpg',
+          pageNumber: i,
+          url: 'http://example.com/$i.jpg?v=1-1',
+          width: i == 0 ? null : 800,
+          height: i == 0 ? null : 2400,
+        ),
+      ),
+    );
+    final images = tester.widgetList<Image>(find.byType(Image)).toList();
+    expect(images.length, greaterThanOrEqualTo(2));
+    expect(tester.getSize(find.byWidget(images[0])).height, closeTo(600, 1));
+    expect(tester.getSize(find.byWidget(images[1])).height, closeTo(600, 1));
+    expect(
+      tester.getTopLeft(find.byWidget(images[1])).dy,
+      closeTo(tester.getBottomLeft(find.byWidget(images[0])).dy, 1),
+    );
+    expectPage(tester, 1);
+  });
+
+  testWidgets(
+    '桌面 Ctrl 滚轮缩放保持页内位置且不滚动或续章',
+    (tester) async {
+      await pumpReader(
+        tester,
+        width: 1200,
+        preferences: const ReaderPreferences(mode: ReaderMode.continuous),
+      );
+      final controller = tester
+          .widget<ListView>(find.byType(ListView))
+          .controller!;
+      controller.jumpTo(1600);
+      await settleReader(tester);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendEventToBinding(
+        const PointerScrollEvent(
+          position: Offset(400, 400),
+          scrollDelta: Offset(0, -120),
+        ),
+      );
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await settleReader(tester);
+      final width = tester.getSize(find.byType(ListView)).width;
+      expect(width, greaterThan(960));
+      expect(controller.offset, closeTo(1600 * width / 960, 1));
+      expectPage(tester, 2);
+      expectChapter(tester, 1);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   testWidgets(
     '桌面模式切换保留页码，连续滚动与键盘跳转同步本机断点',
@@ -994,6 +1192,10 @@ void main() {
       await settleReader(tester);
       expect(find.byType(ReaderScreen), findsOneWidget);
       await openReaderMenu(tester);
+      tester
+          .widget<Slider>(find.byKey(const ValueKey('reader-zoom')))
+          .onChanged!(2);
+      await settleReader(tester);
       await tester.dragFrom(const Offset(8, 100), const Offset(150, 0));
       await settleReader(tester);
       expect(find.text('阅读设置'), findsNothing);
@@ -1184,7 +1386,11 @@ void main() {
     final scrollable = tester.state<ScrollableState>(
       find.descendant(
         of: find.byType(ReaderScreen),
-        matching: find.byType(Scrollable),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+        ),
       ),
     );
     // 第 5 页（0 起始）的顶部偏移 = 5 × 600
@@ -1634,74 +1840,79 @@ class _FakeHttpHeaders implements HttpHeaders {
 class _FakeHttpClientResponse implements HttpClientResponse {
   _FakeHttpClientResponse({this.status = 200});
   final int status;
-  static final Uint8List _png = Uint8List.fromList(const [
-    0x89,
-    0x50,
-    0x4E,
-    0x47,
-    0x0D,
-    0x0A,
-    0x1A,
-    0x0A,
-    0x00,
-    0x00,
-    0x00,
-    0x0D,
-    0x49,
-    0x48,
-    0x44,
-    0x52,
-    0x00,
-    0x00,
-    0x00,
-    0x01,
-    0x00,
-    0x00,
-    0x00,
-    0x01,
-    0x08,
-    0x06,
-    0x00,
-    0x00,
-    0x00,
-    0x1F,
-    0x15,
-    0xC4,
-    0x89,
-    0x00,
-    0x00,
-    0x00,
-    0x0A,
-    0x49,
-    0x44,
-    0x41,
-    0x54,
-    0x78,
-    0x9C,
-    0x63,
-    0x00,
-    0x01,
-    0x00,
-    0x00,
-    0x05,
-    0x00,
-    0x01,
-    0x0D,
-    0x0A,
-    0x2D,
-    0xB4,
-    0x00,
-    0x00,
-    0x00,
-    0x00,
-    0x49,
-    0x45,
-    0x4E,
-    0x44,
-    0xAE,
-    0x42,
-    0x60,
-    0x82,
+  // 与常规章节元数据保持相同比例，尺寸校正另用不匹配的元数据覆盖。
+  static final Uint8List _png = Uint8List.fromList([
+    137,
+    80,
+    78,
+    71,
+    13,
+    10,
+    26,
+    10,
+    0,
+    0,
+    0,
+    13,
+    73,
+    72,
+    68,
+    82,
+    0,
+    0,
+    0,
+    8,
+    0,
+    0,
+    0,
+    12,
+    8,
+    6,
+    0,
+    0,
+    0,
+    95,
+    158,
+    252,
+    157,
+    0,
+    0,
+    0,
+    14,
+    73,
+    68,
+    65,
+    84,
+    120,
+    156,
+    99,
+    96,
+    24,
+    5,
+    131,
+    5,
+    0,
+    0,
+    1,
+    140,
+    0,
+    1,
+    1,
+    39,
+    32,
+    158,
+    0,
+    0,
+    0,
+    0,
+    73,
+    69,
+    78,
+    68,
+    174,
+    66,
+    96,
+    130,
   ]);
 
   @override

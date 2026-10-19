@@ -79,6 +79,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   String _title = '';
   bool _switchingComic = false;
   final _scrollController = ScrollController();
+  final _horizontalController = ScrollController();
+  double _readerZoom = 1;
+  double? _horizontalAnchor;
+  final Map<int, Offset> _touches = {};
+  double? _pinchDistance;
+  double _pinchZoom = 1;
+  final Map<String, double> _decodedRatios = {};
+  ({int page, double fraction})? _layoutAnchor;
   final List<double> _extents = [];
   double? _extentWidth;
   Size? _imageViewport;
@@ -89,7 +97,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   bool _fullscreen = false;
   bool _exiting = false;
   bool _allowPop = false;
-  double? _edgeBackDistance;
+  PointerDownEvent? _edgeBackStart;
+  final Set<int> _edgePointers = {};
   Timer? _autoTimer;
   bool _autoReading = false;
   double _scrollSpeed = 50;
@@ -169,6 +178,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     HardwareKeyboard.instance.removeHandler(_handleEscape);
     _autoTimer?.cancel();
     _scrollController.dispose();
+    _horizontalController.dispose();
     super.dispose();
   }
 
@@ -475,6 +485,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Future<void> _loadChapter(int chapterId, {int? initialPage}) async {
     _flowGeneration++;
+    _decodedRatios.clear();
+    _layoutAnchor = null;
+    _touches.clear();
+    _pinchDistance = null;
     _flow.clear();
     _flowChapters.clear();
     _flowLoading = false;
@@ -692,10 +706,111 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
+  void _captureLayoutAnchor() {
+    if (_layoutAnchor != null ||
+        _initialJumping ||
+        _pendingJumpPage != null ||
+        !_scrollController.hasClients ||
+        _extents.isEmpty ||
+        _extentWidth == null) {
+      return;
+    }
+    final offset = _scrollController.offset;
+    var page = 0;
+    while (page + 1 < _extents.length && _extents[page + 1] <= offset) {
+      page++;
+    }
+    _layoutAnchor = (
+      page: page,
+      fraction:
+          ((offset - _extents[page]) /
+                  _estimatedHeight(_scrollImages[page], _extentWidth!))
+              .clamp(0.0, 1.0),
+    );
+  }
+
+  void _setReaderZoom(double value) {
+    final zoom = value.clamp(0.5, 3.0);
+    if ((zoom - _readerZoom).abs() < 0.001) return;
+    _stopAutoReading();
+    _captureLayoutAnchor();
+    if (_horizontalController.hasClients && _horizontalAnchor == null) {
+      final viewport = _horizontalController.position.viewportDimension;
+      _horizontalAnchor =
+          (_horizontalController.offset + viewport / 2) / _readerZoom;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final anchor = _horizontalAnchor;
+        _horizontalAnchor = null;
+        if (!mounted || anchor == null || !_horizontalController.hasClients) {
+          return;
+        }
+        final position = _horizontalController.position;
+        _horizontalController.jumpTo(
+          (anchor * _readerZoom - position.viewportDimension / 2).clamp(
+            0.0,
+            position.maxScrollExtent,
+          ),
+        );
+      });
+    }
+    setState(() => _readerZoom = zoom);
+  }
+
+  void _touchDown(PointerDownEvent event) {
+    if (event.kind != PointerDeviceKind.touch) return;
+    _touches[event.pointer] = event.position;
+    if (_touches.length == 2) {
+      setState(() {});
+      _stopAutoReading();
+      _pinchDistance = (_touches.values.first - _touches.values.last).distance;
+      _pinchZoom = _readerZoom;
+    }
+  }
+
+  void _touchMove(PointerMoveEvent event) {
+    if (!_touches.containsKey(event.pointer)) return;
+    _touches[event.pointer] = event.position;
+    if (_touches.length == 2 && (_pinchDistance ?? 0) > 0) {
+      final distance = (_touches.values.first - _touches.values.last).distance;
+      _setReaderZoom(_pinchZoom * distance / _pinchDistance!);
+    }
+  }
+
+  void _touchEnd(PointerEvent event) {
+    final wasPinching = _touches.length >= 2;
+    _touches.remove(event.pointer);
+    if (_touches.length < 2) _pinchDistance = null;
+    if (wasPinching) setState(() {});
+  }
+
+  void _imageDecoded(ImageItem image, double ratio) {
+    if (!mounted ||
+        !_scrollReading ||
+        !ratio.isFinite ||
+        ratio <= 0 ||
+        !_scrollImages.any((item) => item.url == image.url)) {
+      return;
+    }
+    final previous =
+        _decodedRatios[image.url] ??
+        ((image.width ?? 0) > 0 && (image.height ?? 0) > 0
+            ? image.height! / image.width!
+            : null);
+    if (previous != null && (previous - ratio).abs() < 0.0001) return;
+    _captureLayoutAnchor();
+    setState(() {
+      // 当前列表中的比例保留至离开该内容，避免来回滚动反复修正高度。
+      _decodedRatios[image.url] = ratio;
+      _extentWidth = null;
+    });
+  }
+
   double _estimatedHeight(ImageItem img, double width) {
+    final ratio = _decodedRatios[img.url];
+    if (ratio != null) return width * ratio;
     final w = img.width;
     final h = img.height;
-    if (w != null && h != null && w > 0) return width * h / w;
+    if (w != null && h != null && w > 0 && h > 0) return width * h / w;
     return width * 4 / 3; // 未知尺寸时的兜底宽高比
   }
 
@@ -706,6 +821,18 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     for (final img in _scrollImages) {
       _extents.add(top);
       top += _estimatedHeight(img, width);
+    }
+
+    final anchor = _layoutAnchor;
+    if (_pendingJumpPage != null) _layoutAnchor = null;
+    if (anchor != null &&
+        _pendingJumpPage == null &&
+        anchor.page < _extents.length) {
+      _initialJumping = true;
+      final generation = ++_jumpGeneration;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restoreLayoutAnchor(anchor, generation, 0);
+      });
     }
 
     final target = _pendingJumpPage == null
@@ -719,6 +846,42 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         _performInitialJump(target, generation);
       });
     }
+  }
+
+  void _restoreLayoutAnchor(
+    ({int page, double fraction}) anchor,
+    int generation,
+    int attempt,
+  ) {
+    if (!mounted ||
+        generation != _jumpGeneration ||
+        !_scrollController.hasClients ||
+        anchor.page >= _extents.length) {
+      return;
+    }
+    final width = _extentWidth!;
+    final contentHeight =
+        _extents.last + _estimatedHeight(_scrollImages.last, width);
+    final target =
+        (_extents[anchor.page] +
+                anchor.fraction *
+                    _estimatedHeight(_scrollImages[anchor.page], width))
+            .clamp(0.0, math.max(0.0, contentHeight - _imageViewport!.height));
+    final max = _scrollController.position.maxScrollExtent;
+    final settled =
+        attempt > 0 &&
+        max + 1 >= target &&
+        (_scrollController.offset - target).abs() <= 1;
+    if (settled || attempt >= 120) {
+      _layoutAnchor = null;
+      _initialJumping = false;
+      return;
+    }
+    _scrollController.jumpTo(target.clamp(0.0, max).toDouble());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _restoreLayoutAnchor(anchor, generation, attempt + 1),
+    );
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   /// 目标页在图片真实加载完成前可能超出 maxScrollExtent，
@@ -846,6 +1009,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     if (!_scrollController.hasClients || _extents.isEmpty) return;
     if (page < 0 || page >= _extents.length) return;
     setState(() => _currentPage = page);
+    _layoutAnchor = null;
     _initialJumping = true;
     _jumpAttempts = 0;
     final generation = ++_jumpGeneration;
@@ -949,6 +1113,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         : 1;
     if (_scrollReading != continuous) {
       _scrollReading = continuous;
+      _layoutAnchor = null;
       _extentWidth = null;
       if (!_loading) _jumpGeneration++;
       _pendingJumpPage = continuous ? _currentPage : null;
@@ -1041,23 +1206,37 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
               child: Focus(autofocus: true, child: scaffold),
             )
           : defaultTargetPlatform == TargetPlatform.iOS
-          ? GestureDetector(
-              // PopScope 的保存门禁会禁用 iOS 原生返回手势，改为先保存再返回。
-              // 仅左侧 24px 起手且右滑至少 72px 生效；纵向手势仍交给正文。
-              onHorizontalDragDown: (details) {
-                _edgeBackDistance = details.localPosition.dx <= 24 ? 0 : null;
+          ? Listener(
+              // 原始指针保留边缘返回，不与放大后的横向滚动争抢手势。
+              onPointerDown: (event) {
+                _edgePointers.add(event.pointer);
+                _edgeBackStart =
+                    _edgePointers.length == 1 && event.position.dx <= 24
+                    ? event
+                    : null;
               },
-              onHorizontalDragUpdate: (details) {
-                if (_edgeBackDistance != null) {
-                  _edgeBackDistance = _edgeBackDistance! + details.delta.dx;
+              onPointerMove: (event) {
+                final start = _edgeBackStart;
+                if (start != null &&
+                    event.pointer == start.pointer &&
+                    (event.position.dy - start.position.dy).abs() > 24) {
+                  _edgeBackStart = null;
                 }
               },
-              onHorizontalDragEnd: (_) {
-                final distance = _edgeBackDistance;
-                _edgeBackDistance = null;
-                if (distance != null && distance >= 72) _requestBack();
+              onPointerUp: (event) {
+                _edgePointers.remove(event.pointer);
+                final start = _edgeBackStart;
+                _edgeBackStart = null;
+                if (start != null &&
+                    event.pointer == start.pointer &&
+                    event.position.dx - start.position.dx >= 72) {
+                  _requestBack();
+                }
               },
-              onHorizontalDragCancel: () => _edgeBackDistance = null,
+              onPointerCancel: (event) {
+                _edgePointers.remove(event.pointer);
+                _edgeBackStart = null;
+              },
               child: scaffold,
             )
           : scaffold,
@@ -1260,6 +1439,51 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_scrollReading) ...[
+          Text(
+            '画面缩放：${(_readerZoom * 100).round()}%',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          Slider(
+            key: const ValueKey('reader-zoom'),
+            value: _readerZoom,
+            min: 0.5,
+            max: 3,
+            divisions: 50,
+            label: '${(_readerZoom * 100).round()}%',
+            onChanged: _setReaderZoom,
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _readerZoom > 0.5
+                    ? () => _setReaderZoom(_readerZoom - 0.1)
+                    : null,
+                icon: const Icon(Icons.remove),
+                label: const Text('缩小'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _readerZoom < 3
+                    ? () => _setReaderZoom(_readerZoom + 0.1)
+                    : null,
+                icon: const Icon(Icons.add),
+                label: const Text('放大'),
+              ),
+              TextButton(
+                onPressed: () => _setReaderZoom(1),
+                child: const Text('恢复默认大小'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _mobile ? '双指捏合缩放，放大后可横向拖动' : 'Ctrl + 滚轮缩放，放大后可横向拖动',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const Divider(height: 32),
+        ],
         const ReaderSettingsControls(compact: true),
         const SizedBox(height: 4),
         Text(status, style: Theme.of(context).textTheme.bodySmall),
@@ -1371,6 +1595,8 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget _buildContinuousBody({required bool desktop}) =>
       NotificationListener<ScrollNotification>(
         onNotification: (notification) {
+          if (notification.metrics.axis != Axis.vertical) return false;
+          if (_touches.length >= 2) return false;
           if (notification is ScrollStartNotification &&
               notification.dragDetails != null) {
             _stopAutoReading();
@@ -1396,12 +1622,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   Widget _buildScrollBody({required bool desktop}) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final width = desktop
+        final baseWidth = desktop
             ? math.min(constraints.maxWidth, 960.0)
             : constraints.maxWidth;
+        final width = baseWidth * _readerZoom;
         if (_extentWidth != width ||
             _imageViewport?.height != constraints.maxHeight) {
-          if (_extentWidth != null) {
+          if (_extentWidth != null && _layoutAnchor == null) {
             _pendingJumpPage = _currentPage;
             _jumpGeneration++;
             _jumpAttempts = 0;
@@ -1412,73 +1639,117 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
         final images = _scrollImages;
         return Align(
           alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: width,
-            child: Listener(
-              onPointerSignal: (event) {
-                if (event is PointerScrollEvent) _stopAutoReading();
-                if (desktop &&
-                    event is PointerScrollEvent &&
-                    event.scrollDelta.dy > 0 &&
-                    !_initialJumping &&
-                    !_loading &&
-                    _scrollController.hasClients &&
-                    _scrollController.offset >=
-                        _scrollController.position.maxScrollExtent - 1) {
-                  _autoContinue();
-                }
-              },
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: EdgeInsets.zero,
-                // ignore: deprecated_member_use
-                cacheExtent: 800,
-                itemCount: images.length + (desktop ? 0 : 1),
-                itemBuilder: (ctx, i) {
-                  if (i == images.length) {
-                    return Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        children: [
-                          if (_flowLoading)
-                            const CircularProgressIndicator()
-                          else if (_flowLastChapter < _chapters.length - 1)
-                            TextButton(
-                              onPressed: _appendNextChapter,
-                              child: Text(
-                                _flowError == null ? '继续向下阅读' : '下一章加载失败，点击重试',
-                              ),
-                            )
-                          else ...[
-                            const Text('已读完'),
-                            TextButton(
-                              onPressed: _exitReader,
-                              child: const Text('返回上一页'),
-                            ),
-                            if (_hasComicSequence)
-                              TextButton(
-                                onPressed: _canNextComic && !_switchingComic
-                                    ? _nextComic
-                                    : null,
-                                child: const Text('下一本'),
-                              ),
-                          ],
-                        ],
-                      ),
-                    );
-                  }
-                  final image = images[i];
-                  return _LazyImage(
-                    key: ValueKey((
-                      desktop ? _chapterIndex : _flow[i].chapter,
-                      image.url,
-                    )),
-                    provider: _imageProvider(image),
-                    enhanced: _enhancedProvider(image),
-                    onEnhancedError: _enhancedFailure(image),
-                    height: _estimatedHeight(image, width),
-                  );
+          child: Listener(
+            onPointerDown: _touchDown,
+            onPointerMove: _touchMove,
+            onPointerUp: _touchEnd,
+            onPointerCancel: _touchEnd,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                dragDevices: {
+                  ...ScrollConfiguration.of(context).dragDevices,
+                  PointerDeviceKind.mouse,
                 },
+              ),
+              child: SingleChildScrollView(
+                controller: _horizontalController,
+                scrollDirection: Axis.horizontal,
+                physics: width > constraints.maxWidth
+                    ? const ClampingScrollPhysics()
+                    : const NeverScrollableScrollPhysics(),
+                child: SizedBox(
+                  width: width,
+                  height: constraints.maxHeight,
+                  child: Listener(
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent &&
+                          HardwareKeyboard.instance.isControlPressed) {
+                        GestureBinding.instance.pointerSignalResolver.register(
+                          event,
+                          (event) {
+                            final scroll = event as PointerScrollEvent;
+                            _setReaderZoom(
+                              _readerZoom *
+                                  math.exp(-scroll.scrollDelta.dy / 600),
+                            );
+                          },
+                        );
+                        return;
+                      }
+                      if (event is PointerScrollEvent) _stopAutoReading();
+                      if (desktop &&
+                          event is PointerScrollEvent &&
+                          event.scrollDelta.dy > 0 &&
+                          !_initialJumping &&
+                          !_loading &&
+                          _scrollController.hasClients &&
+                          _scrollController.offset >=
+                              _scrollController.position.maxScrollExtent - 1) {
+                        _autoContinue();
+                      }
+                    },
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: _ContinuousScrollPhysics(
+                        pinching: _touches.length >= 2,
+                      ),
+                      padding: EdgeInsets.zero,
+                      // ignore: deprecated_member_use
+                      cacheExtent: 800,
+                      itemCount: images.length + (desktop ? 0 : 1),
+                      itemBuilder: (ctx, i) {
+                        if (i == images.length) {
+                          return Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              children: [
+                                if (_flowLoading)
+                                  const CircularProgressIndicator()
+                                else if (_flowLastChapter <
+                                    _chapters.length - 1)
+                                  TextButton(
+                                    onPressed: _appendNextChapter,
+                                    child: Text(
+                                      _flowError == null
+                                          ? '继续向下阅读'
+                                          : '下一章加载失败，点击重试',
+                                    ),
+                                  )
+                                else ...[
+                                  const Text('已读完'),
+                                  TextButton(
+                                    onPressed: _exitReader,
+                                    child: const Text('返回上一页'),
+                                  ),
+                                  if (_hasComicSequence)
+                                    TextButton(
+                                      onPressed:
+                                          _canNextComic && !_switchingComic
+                                          ? _nextComic
+                                          : null,
+                                      child: const Text('下一本'),
+                                    ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }
+                        final image = images[i];
+                        return _LazyImage(
+                          key: ValueKey((
+                            desktop ? _chapterIndex : _flow[i].chapter,
+                            image.url,
+                          )),
+                          provider: _imageProvider(image),
+                          enhanced: _enhancedProvider(image),
+                          onEnhancedError: _enhancedFailure(image),
+                          height: _estimatedHeight(image, width),
+                          onDecoded: (ratio) => _imageDecoded(image, ratio),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
@@ -1645,12 +1916,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 class _LazyImage extends StatefulWidget {
   final ImageProvider<Object> provider;
   final double height;
+  final ValueChanged<double> onDecoded;
   final ImageProvider<Object>? enhanced;
   final VoidCallback onEnhancedError;
   const _LazyImage({
     super.key,
     required this.provider,
     required this.height,
+    required this.onDecoded,
     this.enhanced,
     required this.onEnhancedError,
   });
@@ -1662,6 +1935,40 @@ class _LazyImage extends StatefulWidget {
 class _LazyImageState extends State<_LazyImage> {
   bool _visible = false;
   int _retryTick = 0;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _listenImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _LazyImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) _listenImage();
+  }
+
+  void _listenImage() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    final provider = widget.provider;
+    _stream = provider.resolve(createLocalImageConfiguration(context));
+    _listener = ImageStreamListener((info, synchronous) {
+      final ratio = info.image.height / info.image.width;
+      info.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && provider == widget.provider) widget.onDecoded(ratio);
+      });
+    }, onError: (Object error, StackTrace? stack) {});
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -1673,8 +1980,7 @@ class _LazyImageState extends State<_LazyImage> {
 
   @override
   Widget build(BuildContext context) {
-    // 固定高度渲染：高度 = 视口宽 × 图片高/宽，与预估滚动偏移一致，
-    // 图片加载不改变布局，跳转可精确到页。
+    // 加载前使用元数据占位；首帧比例由父级统一校正高度与滚动锚点。
     return SizedBox(
       width: double.infinity,
       height: widget.height,
@@ -1718,6 +2024,7 @@ class _LazyImageState extends State<_LazyImage> {
     final provider = widget.provider;
     await provider.evict();
     if (!mounted || widget.provider != provider) return;
+    _listenImage();
     setState(() => _retryTick++);
   }
 
@@ -1748,4 +2055,23 @@ class _ImageRetryBox extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Ctrl+滚轮由阅读器处理缩放，不注册列表的滚动回调。
+class _ContinuousScrollPhysics extends ScrollPhysics {
+  const _ContinuousScrollPhysics({required this.pinching, super.parent});
+  final bool pinching;
+
+  @override
+  _ContinuousScrollPhysics applyTo(ScrollPhysics? ancestor) =>
+      _ContinuousScrollPhysics(
+        pinching: pinching,
+        parent: buildParent(ancestor),
+      );
+
+  @override
+  bool shouldAcceptUserOffset(ScrollMetrics position) =>
+      !pinching &&
+      !HardwareKeyboard.instance.isControlPressed &&
+      super.shouldAcceptUserOffset(position);
 }
