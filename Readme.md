@@ -146,6 +146,8 @@ flutter doctor
 
 ## 发版（检查更新）
 
+Android 发布前配置[固定签名](docs/android-signing.md)，后续版本始终复用同一份密钥。
+
 仓库为公开仓库，App 设置页"关于"区的"检查更新"会读取
 `app/lib/config.dart` 里配置的清单地址：
 `https://raw.githubusercontent.com/100110001/comic/master/releases/update.json`。

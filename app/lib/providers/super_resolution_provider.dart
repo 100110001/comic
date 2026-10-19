@@ -120,7 +120,7 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
   }) {
     if (targetWidths != null) _targetWidths = targetWidths;
     final signature =
-        '${state.mode}:$_lookahead:${images.map((image) => '${image.url}:${_targetWidths[image.url]}').join('\n')}';
+        '${state.mode}:$_lookahead:${images.map((image) => '${image.url}:${image.width}:${image.height}:${_targetWidths[image.url]}').join('\n')}';
     if (!retry && signature == _signature) return;
     _signature = signature;
     _candidates = images.take(superResolutionWindowSize).toList();
@@ -259,7 +259,7 @@ class SuperResolutionController extends Notifier<SuperResolutionState> {
     final unavailable = images
         .where(
           (image) => !RegExp(
-            r'^\d+-\d+$',
+            r'^\d+-\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$',
           ).hasMatch(Uri.parse(image.url).queryParameters['v'] ?? ''),
         )
         .toList();
