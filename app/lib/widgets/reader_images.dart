@@ -7,14 +7,6 @@ import '../theme.dart';
 import 'enhanced_image.dart';
 import 'loading_placeholders.dart';
 
-/// 阅读页与滚动偏移共用图片高度，未知尺寸沿用 4:3 占位比例。
-double readerImageHeight(ImageItem image, double width) {
-  final w = image.width;
-  final h = image.height;
-  if (w != null && h != null && w > 0) return width * h / w;
-  return width * 4 / 3;
-}
-
 /// 分页手势、双页槽位与方向按钮；阅读位置由页面持有。
 class ReaderPagedView extends StatelessWidget {
   const ReaderPagedView({
@@ -140,6 +132,7 @@ class ReaderPageImage extends StatelessWidget {
     required this.image,
     required this.page,
     required this.slot,
+    required this.fitWidthHeight,
     required this.fit,
     required this.provider,
     required this.imageKey,
@@ -151,6 +144,7 @@ class ReaderPageImage extends StatelessWidget {
   final ImageItem image;
   final int page;
   final Size slot;
+  final double fitWidthHeight;
   final BoxFit fit;
   final ImageProvider<Object> provider;
   final Key imageKey;
@@ -167,7 +161,7 @@ class ReaderPageImage extends StatelessWidget {
     final imageHeight = fit == BoxFit.none
         ? (image.height ?? slot.height * ratio) / ratio
         : fit == BoxFit.fitWidth
-        ? readerImageHeight(image, imageWidth)
+        ? fitWidthHeight
         : slot.height;
     final content = SizedBox(
       width: imageWidth,
@@ -215,12 +209,14 @@ class ReaderPageImage extends StatelessWidget {
 class ReaderScrollImage extends StatefulWidget {
   final ImageProvider<Object> provider;
   final double height;
+  final ValueChanged<double> onDecoded;
   final ImageProvider<Object>? enhanced;
   final VoidCallback onEnhancedError;
   const ReaderScrollImage({
     super.key,
     required this.provider,
     required this.height,
+    required this.onDecoded,
     this.enhanced,
     required this.onEnhancedError,
   });
@@ -232,6 +228,40 @@ class ReaderScrollImage extends StatefulWidget {
 class _ReaderScrollImageState extends State<ReaderScrollImage> {
   bool _visible = false;
   int _retryTick = 0;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _listenImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant ReaderScrollImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.provider != widget.provider) _listenImage();
+  }
+
+  void _listenImage() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    final provider = widget.provider;
+    _stream = provider.resolve(createLocalImageConfiguration(context));
+    _listener = ImageStreamListener((info, synchronous) {
+      final ratio = info.image.height / info.image.width;
+      info.dispose();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && provider == widget.provider) widget.onDecoded(ratio);
+      });
+    }, onError: (Object error, StackTrace? stack) {});
+    _stream!.addListener(_listener!);
+  }
+
+  @override
+  void dispose() {
+    if (_listener != null) _stream?.removeListener(_listener!);
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -243,8 +273,7 @@ class _ReaderScrollImageState extends State<ReaderScrollImage> {
 
   @override
   Widget build(BuildContext context) {
-    // 固定高度渲染：高度 = 视口宽 × 图片高/宽，与预估滚动偏移一致，
-    // 图片加载不改变布局，跳转可精确到页。
+    // 加载前使用元数据占位；首帧比例由父级统一校正高度与滚动锚点。
     return SizedBox(
       width: double.infinity,
       height: widget.height,
@@ -288,6 +317,7 @@ class _ReaderScrollImageState extends State<ReaderScrollImage> {
     final provider = widget.provider;
     await provider.evict();
     if (!mounted || widget.provider != provider) return;
+    _listenImage();
     setState(() => _retryTick++);
   }
 

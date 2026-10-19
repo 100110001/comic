@@ -66,7 +66,7 @@ class _ReaderSettingsControlsState
           if (!widget.compact) const Divider(height: 1),
           _row(
             '页面适配',
-            '用于单页与双页；连续阅读始终适应宽度',
+            '用于单页与双页；连续阅读可在阅读面板调整缩放',
             _choices(
               readerFitLabels,
               prefs.fit,

@@ -55,3 +55,11 @@ app/lib/generated_plugin_registrant.dart
 # OS
 .DS_Store
 Thumbs.db
+
+# 安卓发布密钥
+*.jks
+*.keystore
+app/android/key.properties
+
+# 本机签名备份（禁止提交）
+.android-signing/
