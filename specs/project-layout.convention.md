@@ -50,12 +50,17 @@ scope: convention
   推荐规则。TypeScript 文件检出时使用 LF，避免 Windows 换行转换造成格式误报。
 - 根级 `scripts/release.ps1` 协调应用版本、安装器版本、根级更新清单、更新日志、
   Git 提交与版本标签；Flutter 与安装器构建在 `app/` 内完成。
+- 版本分级、兼容性记录与最低支持版本统一见 `specs/versioning.convention.md`。
+  准备脚本要求变更级别和兼容性说明，递增构建号；`scripts/validate-release.ps1`
+  核对发布文件，`scripts/test-release.ps1` 只在临时仓库验证流程。
 - Android release 构建使用持久保存的固定发布密钥，本地与 CI 采用同一份签名。缺少
   密钥、密码、别名或密钥文件时停止发布，不回退调试签名；debug 开发不依赖发布密钥。
 - 签名密钥与凭据不进入版本控制；CI 从 GitHub Actions Secrets 恢复临时密钥，
   成功或失败均清理临时文件。维护者须独立备份密钥和密码，后续发布复用。
 - GitHub Release 对外提供 `comic-setup.exe` 和 `app-release.apk`；仓库内部目录调整
   不改变资产名称和更新清单中的公开下载地址。
+- 更新清单 `update.json` 作为第三份 Release 资产：CI 在草稿上传后重新下载核验，
+  核对清单和安装包哈希后才正式发布并设为 latest；已正式发布的版本禁止覆盖。
 - Flutter 生成文件和构建产物位于 `app/` 的项目边界内并保持忽略；已纳入版本控制
   的 Windows 安装包位于 `app/installer/`。
 - 项目自有的人类可读文档只使用中文，不为同一内容维护英文副本。代码标识、路径、

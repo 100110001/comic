@@ -1,9 +1,9 @@
 const String defaultServerUrl = 'http://192.168.124.4:8888';
 const Duration requestTimeout = Duration(seconds: 15);
 
-/// 更新清单地址（主仓库 releases/update.json，公开后免 token 访问）。
+/// 只读取已完成发布的 Release 清单，避免先公布版本后上传安装包。
 const String kUpdateManifestUrl =
-    'https://raw.githubusercontent.com/100110001/comic/master/releases/update.json';
+    'https://github.com/100110001/comic/releases/latest/download/update.json';
 
 /// 手动下载安装包的 GitHub 最新发布页。
 const String kReleasePageUrl =

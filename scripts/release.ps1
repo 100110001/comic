@@ -1,88 +1,101 @@
 param(
-  [Parameter(Mandatory = $true)]
-  [string]$Version,
-  [string]$Notes = "",
-  [switch]$Upload
+  [Parameter(Mandatory = $true)][string]$Version,
+  [Parameter(Mandatory = $true)][ValidateSet('patch', 'minor', 'major')][string]$ChangeType,
+  [Parameter(Mandatory = $true)][string]$CompatibilityNotes,
+  [Parameter(Mandatory = $true)][string]$Notes,
+  [string]$WindowsMinimumVersion = '',
+  [string]$AndroidMinimumVersion = '',
+  [string]$MinimumSupportReason = ''
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 $RepoRoot = Split-Path -Parent $PSScriptRoot
-$AppRoot = Join-Path $RepoRoot "app"
 Set-Location $RepoRoot
+$versionPattern = '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'
+if ($Version -notmatch $versionPattern) { throw '版本号格式必须为稳定的 X.Y.Z' }
+if ([string]::IsNullOrWhiteSpace($Notes) -or [string]::IsNullOrWhiteSpace($CompatibilityNotes)) {
+  throw '更新说明和兼容性说明不能为空'
+}
+$branch = git branch --show-current
+if ($LASTEXITCODE -ne 0 -or !$branch -or $branch -eq 'master') { throw '请在独立发版分支准备发布' }
+git diff --quiet
+if ($LASTEXITCODE -ne 0) { throw '已跟踪文件存在未提交修改' }
+git diff --cached --quiet
+if ($LASTEXITCODE -ne 0) { throw '暂存区必须为空' }
+$tags = git tag --list "v$Version"
+if ($LASTEXITCODE -ne 0 -or $tags) { throw '标签已存在或无法检查标签' }
 
-if ($Version -notmatch '^\d+\.\d+\.\d+$') {
-  throw "版本号格式应为 X.Y.Z，当前: $Version"
+$pubspecPath = Join-Path $RepoRoot 'app/pubspec.yaml'
+$pubspec = [IO.File]::ReadAllText($pubspecPath, [Text.Encoding]::UTF8)
+if ($pubspec -notmatch '(?m)^version: ([^+\s]+)\+(\d+)\s*$') { throw '无法读取当前版本及构建号' }
+$oldVersion = [version]$Matches[1]
+$buildNumber = [long]$Matches[2] + 1
+$nextVersion = [version]$Version
+if ($nextVersion -le $oldVersion -or $buildNumber -gt 2100000000) { throw '版本必须递增且构建号不能越界' }
+$actualChange = if ($nextVersion.Major -gt $oldVersion.Major) { 'major' }
+  elseif ($nextVersion.Minor -gt $oldVersion.Minor) { 'minor' } else { 'patch' }
+if ($actualChange -ne $ChangeType -or
+    ($ChangeType -eq 'minor' -and $nextVersion.Build -ne 0) -or
+    ($ChangeType -eq 'major' -and ($nextVersion.Minor -ne 0 -or $nextVersion.Build -ne 0))) {
+  throw '版本号与声明的变更级别不一致，主/次版本升级需重置低位版本'
+}
+$manifestPath = Join-Path $RepoRoot 'releases/update.json'
+$previous = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($previous.latestVersion -cne $oldVersion.ToString()) { throw '现有应用与清单版本不一致' }
+$installerPath = Join-Path $RepoRoot 'app/installer.iss'
+$installer = [IO.File]::ReadAllText($installerPath, [Text.Encoding]::UTF8)
+if ($installer -notmatch '(?m)^AppVersion=([^\r\n]+)' -or $Matches[1] -cne $oldVersion.ToString()) {
+  throw '现有安装器与应用版本不一致'
+}
+$changelogPath = Join-Path $RepoRoot 'CHANGELOG.md'
+$changelog = [IO.File]::ReadAllText($changelogPath, [Text.Encoding]::UTF8)
+$platforms = [ordered]@{}
+foreach ($platform in @('windows', 'android')) {
+  $oldMinimum = $previous.platforms.$platform.minimumSupportedVersion
+  if (!$oldMinimum) { $oldMinimum = '0.0.0' }
+  $minimum = if ($platform -eq 'windows') { $WindowsMinimumVersion } else { $AndroidMinimumVersion }
+  if (!$minimum) { $minimum = $oldMinimum }
+  if ($minimum -notmatch $versionPattern -or [version]$minimum -gt $nextVersion) {
+    throw "$platform 最低支持版本无效或高于最新版本"
+  }
+  $raised = [version]$minimum -gt [version]$oldMinimum
+  if ($raised -and [string]::IsNullOrWhiteSpace($MinimumSupportReason)) {
+    throw "$platform 提高最低版本必须提供 MinimumSupportReason"
+  }
+  $reason = if ($MinimumSupportReason) { $MinimumSupportReason } else {
+    $previous.platforms.$platform.minimumSupportReason
+  }
+  $asset = if ($platform -eq 'windows') { 'comic-setup.exe' } else { 'app-release.apk' }
+  $platforms[$platform] = [ordered]@{
+    downloadUrl = "https://github.com/100110001/comic/releases/download/v$Version/$asset"
+    minimumSupportedVersion = $minimum
+    minimumSupportReason = $reason
+  }
 }
 
-# 1. 同步 pubspec.yaml（build 号 +1，统一 UTF-8 读写避免乱码；单行写法兼容 PowerShell 5.1）
-$pubspecPath = Join-Path $AppRoot "pubspec.yaml"
-$pubspec = [System.IO.File]::ReadAllText($pubspecPath, [System.Text.Encoding]::UTF8)
-$pubspec = $pubspec -replace '(?m)^version: .*$', "version: $Version+1"
-[System.IO.File]::WriteAllText($pubspecPath, $pubspec, [System.Text.UTF8Encoding]::new($false))
-
-# 2. 同步 installer.iss
-$installerPath = Join-Path $AppRoot "installer.iss"
-$iss = [System.IO.File]::ReadAllText($installerPath, [System.Text.Encoding]::UTF8)
-$iss = $iss -replace '(?m)^AppVersion=.*$', "AppVersion=$Version"
-[System.IO.File]::WriteAllText($installerPath, $iss, [System.Text.UTF8Encoding]::new($false))
-
-# 3. 生成更新清单（随主仓库提交，raw 地址由 config.dart 指向）
-$update = @{
+# 所有参数校验完成后才写发布文件；只准备提交与本地标签，不发布线上更新。
+$utf8 = [Text.UTF8Encoding]::new($false)
+$pubspec = $pubspec -replace '(?m)^version: .*$', "version: $Version+$buildNumber"
+[IO.File]::WriteAllText($pubspecPath, $pubspec, $utf8)
+$installer = $installer -replace '(?m)^AppVersion=.*$', "AppVersion=$Version"
+[IO.File]::WriteAllText($installerPath, $installer, $utf8)
+$update = [ordered]@{
   latestVersion = $Version
-  platforms     = @{
-    windows = @{
-      downloadUrl = "https://github.com/100110001/comic/releases/download/v$Version/comic-setup.exe"
-    }
-    android = @{
-      downloadUrl = "https://github.com/100110001/comic/releases/download/v$Version/app-release.apk"
-    }
-  }
-  releaseNotes  = $Notes
-} | ConvertTo-Json -Depth 4
-New-Item -ItemType Directory -Force -Path releases | Out-Null
-[System.IO.File]::WriteAllText((Join-Path $RepoRoot "releases\update.json"), $update, [System.Text.UTF8Encoding]::new($false))
-
-# 4. CHANGELOG
-$changelogPath = Join-Path $RepoRoot "CHANGELOG.md"
-if (-not (Test-Path $changelogPath)) {
-  [System.IO.File]::WriteAllText($changelogPath, "# 更新日志`n`n## [Unreleased]`n", [System.Text.UTF8Encoding]::new($false))
-}
-$date = Get-Date -Format 'yyyy-MM-dd'
-$entry = if ($Notes) { "`n## [$Version] - $date`n`n$Notes`n" } else { "`n## [$Version] - $date`n" }
-$changelog = [System.IO.File]::ReadAllText($changelogPath, [System.Text.Encoding]::UTF8)
-[System.IO.File]::WriteAllText($changelogPath, $changelog + $entry, [System.Text.UTF8Encoding]::new($false))
-
-# 5. 提交并打 tag
+  buildNumber = $buildNumber
+  platforms = $platforms
+  releaseNotes = $Notes
+  changeType = $ChangeType
+  compatibilityNotes = $CompatibilityNotes
+} | ConvertTo-Json -Depth 5
+[IO.File]::WriteAllText($manifestPath, $update, $utf8)
+$entry = "`n## [$Version] - $(Get-Date -Format 'yyyy-MM-dd')`n`n$Notes`n`n兼容性（$ChangeType）：$CompatibilityNotes`n"
+if ($MinimumSupportReason) { $entry += "`n最低支持版本调整原因：$MinimumSupportReason`n" }
+[IO.File]::WriteAllText($changelogPath, $changelog + $entry, $utf8)
+& (Join-Path $PSScriptRoot 'validate-release.ps1') -Version $Version
 git add app/pubspec.yaml app/installer.iss releases/update.json CHANGELOG.md
+if ($LASTEXITCODE -ne 0) { throw '暂存发布文件失败' }
 git commit -m "chore(release): v$Version"
+if ($LASTEXITCODE -ne 0) { throw '提交发布文件失败' }
 git tag "v$Version"
-
-Write-Host ""
-Write-Host "已同步版本 $Version：app/pubspec / app/installer.iss / releases/update.json / CHANGELOG / tag v$Version"
-Write-Host ""
-Write-Host "构建与上传（或加 -Upload 自动执行）："
-Write-Host "  Push-Location app"
-Write-Host "  flutter build windows --release"
-Write-Host "  flutter build apk --release"
-Write-Host "  ISCC installer.iss"
-Write-Host "  Pop-Location"
-Write-Host "  gh release create v$Version app/installer/comic-setup.exe app/build/app/outputs/flutter-apk/app-release.apk --title v$Version"
-Write-Host "  git push && git push origin v$Version"
-
-if ($Upload) {
-  Write-Host ""
-  Write-Host "开始自动构建上传…"
-  Push-Location $AppRoot
-  try {
-    flutter build windows --release
-    flutter build apk --release
-    ISCC installer.iss
-  } finally {
-    Pop-Location
-  }
-  gh release create "v$Version" app/installer/comic-setup.exe app/build/app/outputs/flutter-apk/app-release.apk --title "v$Version" --notes $Notes
-  git push
-  git push origin "v$Version"
-  Write-Host "update.json 已随主仓库推送，无需单独同步"
-  Write-Host "完成：v$Version 已发布"
-}
+if ($LASTEXITCODE -ne 0) { throw '创建本地发布标签失败' }
+Write-Host "已准备 v$Version+$buildNumber；请推送发版分支并创建 PR，合并后再推送标签。"

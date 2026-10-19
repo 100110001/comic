@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'platform.dart';
 import 'providers/comics_providers.dart';
-import 'providers/progress_lifecycle_provider.dart';
+import 'providers/update_provider.dart';
 import 'providers/server_provider.dart';
 import 'providers/settings_provider.dart';
 import 'screens/home_screen.dart';
@@ -16,6 +16,7 @@ import 'widgets/pressable.dart';
 import 'widgets/page_heading.dart';
 import 'widgets/reading_lists.dart';
 import 'widgets/window_title_bar.dart';
+import 'widgets/app_update_gate.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -58,7 +59,6 @@ class ComicApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(progressLifecycleProvider);
     final themeMode = ref.watch(themeModeProvider);
     return MaterialApp(
       title: 'Comic',
@@ -72,15 +72,19 @@ class ComicApp extends ConsumerWidget {
             ? Column(
                 children: [
                   const WindowTitleBar(),
-                  Expanded(child: child!),
+                  Expanded(child: AppUpdateGate(child: child!)),
                 ],
               )
-            : child!;
+            : AppUpdateGate(child: child!);
         return Listener(
           behavior: HitTestBehavior.translucent,
           // 鼠标侧键（后退键）触发页面返回
           onPointerDown: (event) {
-            if (event.buttons & kBackMouseButton != 0) {
+            final update = ref.read(appUpdateProvider);
+            if (!update.required &&
+                !update.startupPending &&
+                !(update.available && !update.dismissed) &&
+                event.buttons & kBackMouseButton != 0) {
               _navigatorKey.currentState?.maybePop();
             }
           },

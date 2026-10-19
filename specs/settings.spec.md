@@ -36,7 +36,11 @@ scope: feature
 
 - 浅色/深色双套颜色令牌由 `app/lib/theme.dart` 的 `AppColors`（`ThemeExtension`）提供，组件经 `context.appColors` 取色；`MaterialApp` 同时注册浅/深主题并按 `themeMode` 切换。
 - 阅读器默认背景与工具栏跟随主题；用户可全局覆盖阅读画布背景，工具栏仍沿用主题。
-- 版本单一事实源为 `app/pubspec.yaml`；发布用 `scripts/release.ps1` 同步 `app/installer.iss` 版本、生成 `releases/update.json`（公开 releases 仓）并打 tag；更新清单地址在 `app/lib/config.dart` 集中配置。
+- 版本单一事实源为 `app/pubspec.yaml`；发布用 `scripts/release.ps1` 同步 `app/installer.iss` 版本、生成 `releases/update.json` 并创建本地 tag；CI 完成安装包后将清单作为正式 Release 资产发布。更新清单地址在 `app/lib/config.dart` 集中配置。
 - 更新清单地址独立于漫画服务器地址；切换漫画服务器不会改变应用更新来源。
+
+- 版本与强制更新统一遵循 `specs/versioning.convention.md`；设置页与启动检查共享状态，按平台最低支持版本决定拦截，不以主版本号单独决定。最近有效清单跨重启恢复，检查失败保持已确认的强更，首次失败无有效要求时放行。
+- 普通更新允许稍后处理；强更在应用根部显示下载、重新检查和退出，取消安装不解除。Android 安装器返回后仍按当前运行版本判断，不把唤起安装器视为更新完成。
+- 新更新源为正式 GitHub Release 的 `latest/download/update.json`，安装包核验就绪后才公布；旧清单缺少最低版本时仅提示普通更新。
 
 - 阅读器内另提供本次会话的自动阅读操作：连续模式调节滚动速度，分页模式调节翻页间隔；图片信息与超分当前状态只在阅读器内显示。章内进度与跳页统一位于阅读设置面板顶部，与目录、换章和返回等操作共用一个面板。

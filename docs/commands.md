@@ -157,8 +157,8 @@ Push-Location backend
 npm run lint
 npm run test
 Pop-Location
-# 全部检查通过后再继续
-.\scripts\release.ps1 -Version 1.0.6 -Notes "本次更新内容"
+# 版本号按实际情况替换，先按版本与更新规范汇总变更
+.\scripts\release.ps1 -Version 1.0.6 -ChangeType patch -CompatibilityNotes "兼容旧客户端，无需提高最低版本" -Notes "本次更新内容"
 git push -u origin codex/release-1.0.6
 gh pr create --base master --title "发布 v1.0.6" --body "更新版本号及发布说明"
 ```
@@ -169,13 +169,12 @@ gh pr create --base master --title "发布 v1.0.6" --body "更新版本号及发
 git push origin v1.0.6
 ```
 
-GitHub Actions 的 `Release` 工作流会构建并上传 `comic-setup.exe` 与 `app-release.apk`。
-推送标签只是触发构建，工作流成功且两个资产均上传后才算发布完成。
-`-Upload` 会直接在本机构建、上传并推送，正常走 CI 与 PR 流程时不使用。
+GitHub Actions 的 `Release` 工作流将 `comic-setup.exe`、`app-release.apk` 和 `update.json`
+上传到草稿 Release，重新下载核验后才发布并设为 latest。推送标签只是触发构建，
+三个资产就绪且正式发布才算完成。失败草稿可重试，正式 Release 禁止覆盖。
 
-需要手动补传已构建的安装包时，先在 `app/` 执行 Windows、APK 与安装器构建，
-再回到仓库根目录执行（版本号按实际情况替换）：
+提高最低支持版本时增加对应平台参数及原因，不能自动跟随最新版本：
 
 ```powershell
-gh release upload v1.0.6 --clobber app/installer/comic-setup.exe app/build/app/outputs/flutter-apk/app-release.apk
+.\scripts\release.ps1 -Version 1.0.7 -ChangeType patch -CompatibilityNotes "协议兼容，旧 Android 版本有严重缺陷" -Notes "修复严重缺陷" -AndroidMinimumVersion 1.0.7 -MinimumSupportReason "旧版存在严重缺陷，需要更新"
 ```

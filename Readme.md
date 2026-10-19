@@ -148,17 +148,21 @@ flutter doctor
 
 Android 发布前配置[固定签名](docs/android-signing.md)，后续版本始终复用同一份密钥。
 
-仓库为公开仓库，App 设置页"关于"区的"检查更新"会读取
-`app/lib/config.dart` 里配置的清单地址：
-`https://raw.githubusercontent.com/100110001/comic/master/releases/update.json`。
-发现新版本后，Windows 静默安装、Android 唤起系统安装器。
+版本分级、开发兼容性记录与发版要求统一见[版本与更新规范](specs/versioning.convention.md)。
+Windows/Android 正式构建启动自动检查，设置页也可手动检查。
+当前版本低于本平台最低支持版本时必须更新；其余新版本可以稍后更新。
+Windows 静默安装、Android 唤起系统安装器；取消安装不会解除强更。
+
+更新源为 `https://github.com/100110001/comic/releases/latest/download/update.json`，
+只有安装包上传并核验后才公布。已确认的更新要求会本地保存，断网不会解除；首次检查失败允许进入。
+从未安装过此机制的历史客户端仍只能手动检查。
 
 在 Claude Code 中使用 `/release X.Y.Z 更新说明` 准备发版 PR；自行合并到 `master`
 后，使用 `/release publish X.Y.Z` 推送标签，触发 CI 自动构建并上传安装包。
 完整用法和 PowerShell 手动流程见 [项目命令速查](docs/commands.md)。
 
-`scripts/release.ps1` 统一同步应用版本、安装器版本、更新清单和更新日志。
-发布完成后，App 的“检查更新”即可检测到新版本。
+`scripts/release.ps1` 要求变更级别、兼容性说明和更新说明，统一同步版本及递增构建号。
+提高最低版本必须给出原因，默认继承旧门槛。CI 通过草稿发布上传三个资产，核验后才正式发布。
 
 ## 本地漫画超分（可选）
 

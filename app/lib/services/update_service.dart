@@ -2,12 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import '../config.dart';
 import '../models/update_info.dart';
 
-/// 拉取更新清单；清单不存在或解析失败返回 null。
+/// 拉取并校验清单；未发布清单返回 null，网络或格式错误交给统一状态处理。
 Future<UpdateInfo?> fetchUpdateInfo() async {
   final res = await http
       .get(Uri.parse(kUpdateManifestUrl))
@@ -17,6 +18,35 @@ Future<UpdateInfo?> fetchUpdateInfo() async {
   final info = UpdateInfo.fromJson(data);
   if (info.latestVersion.isEmpty) return null;
   return info;
+}
+
+bool get supportsAppUpdates =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.android);
+
+Future<void> exitForUpdate() async {
+  if (!supportsAppUpdates) return;
+  if (defaultTargetPlatform == TargetPlatform.windows) exit(0);
+  await SystemNavigator.pop();
+}
+
+String? minimumVersionFor(UpdateInfo info) => switch (defaultTargetPlatform) {
+  TargetPlatform.windows => info.windowsMinimumVersion,
+  TargetPlatform.android => info.androidMinimumVersion,
+  _ => null,
+};
+
+String? minimumReasonFor(UpdateInfo info) => switch (defaultTargetPlatform) {
+  TargetPlatform.windows => info.windowsMinimumReason,
+  TargetPlatform.android => info.androidMinimumReason,
+  _ => null,
+};
+
+bool requiresUpdate(UpdateInfo info, String current) {
+  if (!supportsAppUpdates || updateUrlFor(info) == null) return false;
+  final minimum = minimumVersionFor(info);
+  return minimum != null && compareVersions(current, minimum) < 0;
 }
 
 /// 数字段版本比较（忽略 build/prerelease）：latest 高于 current 返回 true。
