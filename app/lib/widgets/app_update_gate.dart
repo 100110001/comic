@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/progress_lifecycle_provider.dart';
@@ -131,7 +130,7 @@ class AppUpdatePage extends ConsumerWidget {
                           child: const Text('稍后更新'),
                         ),
                       TextButton(
-                        onPressed: () => exitForUpdate(SystemNavigator.pop),
+                        onPressed: exitForUpdate,
                         child: const Text('退出应用'),
                       ),
                     ],

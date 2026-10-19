@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:comic/models/update_info.dart';
 import 'dart:convert';
 import 'package:comic/providers/update_provider.dart';
+import 'package:comic/providers/progress_lifecycle_provider.dart';
 import 'package:comic/widgets/app_update_gate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,8 +128,12 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     SharedPreferences.setMockInitialValues({});
+    var lifecycleDisposed = false;
     final container = ProviderContainer(
       overrides: [
+        progressLifecycleProvider.overrideWith((ref) {
+          ref.onDispose(() => lifecycleDisposed = true);
+        }),
         appUpdateProvider.overrideWith(
           () => AppUpdateNotifier(
             fetch: () async => mandatory,
@@ -160,6 +165,7 @@ void main() {
     expect(find.text('需要更新后继续使用'), findsOneWidget);
     expect(find.text('详情页'), findsNothing);
     expect(nav.currentState, isNull);
+    expect(lifecycleDisposed, isTrue);
     expect(find.text('稍后更新'), findsNothing);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();

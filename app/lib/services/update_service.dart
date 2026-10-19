@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:open_filex/open_filex.dart';
 import '../config.dart';
@@ -24,10 +25,10 @@ bool get supportsAppUpdates =>
     (defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.android);
 
-Future<void> exitForUpdate(Future<void> Function() exitAndroid) async {
+Future<void> exitForUpdate() async {
   if (!supportsAppUpdates) return;
   if (defaultTargetPlatform == TargetPlatform.windows) exit(0);
-  await exitAndroid();
+  await SystemNavigator.pop();
 }
 
 String? minimumVersionFor(UpdateInfo info) => switch (defaultTargetPlatform) {

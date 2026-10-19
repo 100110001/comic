@@ -7,6 +7,9 @@ on:
 jobs:
   build-and-upload:
     runs-on: windows-latest
+    concurrency:
+      group: comic-release
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: app
@@ -14,6 +17,19 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate release policy
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & ../scripts/test-release.ps1
+          $previous = git describe --tags --match 'v*' --abbrev=0 "$env:RELEASE_TAG^"
+          if ($LASTEXITCODE -ne 0) { throw '无法确定上一发布标签' }
+          & ../scripts/validate-release.ps1 -Version $env:RELEASE_TAG.Substring(1) -PreviousRef $previous
 
       - name: Restore Android signing key
         shell: pwsh
@@ -66,8 +82,42 @@ jobs:
       - name: Build installer
         run: ISCC installer.iss
 
-      - name: Upload release assets
+      - name: Stage and publish complete release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          gh release create "${{ github.ref_name }}" installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk --title "${{ github.ref_name }}" || gh release upload "${{ github.ref_name }}" installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk --clobber
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:RELEASE_TAG
+          $version = $tag.Substring(1)
+          $pages = gh api --paginate --slurp "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw '无法检查现有发布' }
+          $existing = @($pages | ForEach-Object { $_ })
+          foreach ($published in $existing) {
+            if (!$published.draft -and !$published.prerelease -and $published.tag_name -match '^v(\d+\.\d+\.\d+)$' -and [version]$Matches[1] -gt [version]$version) {
+              throw '已有更高正式版本，禁止将旧版本设为 latest'
+            }
+          }
+          $release = @($existing | Where-Object { $_.tag_name -eq $tag })
+          if ($release.Count -gt 0 -and !$release[0].draft) { throw '正式 Release 禁止覆盖' }
+          if ($release.Count -eq 0) {
+            $notes = (Get-Content ../releases/update.json -Raw -Encoding UTF8 | ConvertFrom-Json).releaseNotes
+            gh release create $tag --draft --verify-tag --title $tag --notes $notes
+            if ($LASTEXITCODE -ne 0) { throw '创建草稿 Release 失败' }
+          }
+          gh release upload $tag installer/comic-setup.exe build/app/outputs/flutter-apk/app-release.apk ../releases/update.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw '上传草稿资产失败' }
+          $verified = Join-Path $env:RUNNER_TEMP 'comic-release-verification'
+          New-Item -ItemType Directory -Force -Path $verified | Out-Null
+          gh release download $tag --dir $verified --pattern comic-setup.exe --pattern app-release.apk --pattern update.json --clobber
+          if ($LASTEXITCODE -ne 0) { throw '下载核验发布资产失败' }
+          & ../scripts/validate-release.ps1 -Version $version -AssetDirectory $verified
+          # 对比远端实际资产与本次构建，避免复用其他构建遗留资产。
+          foreach ($pair in @(@('installer/comic-setup.exe', 'comic-setup.exe'), @('build/app/outputs/flutter-apk/app-release.apk', 'app-release.apk'))) {
+            if ((Get-FileHash $pair[0]).Hash -ne (Get-FileHash (Join-Path $verified $pair[1])).Hash) {
+              throw "远端资产与构建不一致：$($pair[1])"
+            }
+          }
+          gh release edit $tag --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw '发布 Release 失败，清单未公布' }

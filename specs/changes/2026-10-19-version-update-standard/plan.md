@@ -41,6 +41,8 @@ type: plan
 
 ### U2. 发布校验与清单公布
 
+状态：已实现并通过五项门禁及发布流程集成测试，PR #85。
+
 - 依赖：U1 的清单契约。覆盖 R2、R4。
 - 文件：`scripts/release.ps1`、新增发布校验脚本、`.github/workflows/release.yml`、`.claude/commands/release.md`、PR 模板、`AGENTS.md`、`Readme.md`、`docs/commands.md`。
 - 做法：脚本在任何写入前检查版本级别、构建号和清单；发布 CI 在创建可见 Release 前核验资产，已有正式版本不原地替换。

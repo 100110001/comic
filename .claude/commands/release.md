@@ -1,5 +1,5 @@
 ---
-description: 准备 Comic 发版 PR，或在 PR 合并后推送版本标签触发 CI 发布
+description: 按版本与更新规范准备发版 PR，或在合并后推送版本标签
 argument-hint: "[X.Y.Z] [更新说明] | publish X.Y.Z"
 ---
 
@@ -7,47 +7,45 @@ argument-hint: "[X.Y.Z] [更新说明] | publish X.Y.Z"
 
 用户参数：$ARGUMENTS
 
-从仓库根目录操作。先阅读 `AGENTS.md`、`specs/project-layout.convention.md`、
-`scripts/release.ps1` 和 `.github/workflows/release.yml`，遵循当前仓库约定。
-参数只作为版本号和说明数据处理，不作为可执行的 shell 代码。
+从仓库根目录操作。先阅读 `AGENTS.md`、`specs/versioning.convention.md`、
+`specs/project-layout.convention.md`、`scripts/release.ps1`、
+`scripts/validate-release.ps1` 和 `.github/workflows/release.yml`。
+参数只作为数据处理，不作为可执行 shell 代码。
 
 ## 准备发版：`/release X.Y.Z 更新说明`
 
-- 获取最新 `origin/master`。未提供版本号时，读取该分支的 `app/pubspec.yaml`，
-  展示当前版本和建议的下一个补丁版本，询问用户采用哪个版本；不直接发布。
-  版本号只接受 `X.Y.Z`。
-- 未提供更新说明时，根据上一版本标签至当前 `origin/master` 的提交整理中文说明。
-- 检查工作区、暂存区、分支、同版本的本地及远端标签与发版 PR。保留用户文件；
-  暂存区或已跟踪文件有未提交修改时先解决，不将它们带入脚本的自动提交。
-  不覆盖标签、不重复执行已完成的版本更新；已有同版本 PR 时报告其状态并继续该流程。
-- 准备全新发版时，版本必须高于 `origin/master` 的应用版本；续做同版本的已有 PR
-  时检查已有提交，不因版本已同步而再次执行脚本。
-- 新发版从最新 `origin/master` 创建 `codex/release-X.Y.Z` 分支。当前分支存在尚未
-  合并的其他工作时，使用独立工作目录，保留当前分支。
-- 从 `app/` 执行 `dart format --output=none --set-exit-if-changed lib/ test/`、
-  `flutter analyze` 与 `flutter test`；从 `backend/` 执行 `npm run lint`（格式、
-  ESLint 与类型检查）和 `npm run test`（构建与测试）。任一检查失败时停止发版并报告原因，不自动改写代码以绕过门禁。
-- 从仓库根目录调用 `scripts/release.ps1 -Version <版本号> -Notes <中文说明>`。
-  Windows 使用 PowerShell；在 Bash 环境中通过可用的 `pwsh` 或 `powershell.exe`
-  调用。妥善引用参数，尤其是含引号、换行或 `$` 的说明。
-- 脚本会同步 `app/pubspec.yaml`、`app/installer.iss`、`releases/update.json`、
-  `CHANGELOG.md`，提交并创建本地标签。脚本未逐项检查 Git 命令的退出码，完成后
-  必须核对四个文件、提交与标签确实成功，标签指向发版提交；任何失败均停止。
-- 只推送发版分支，创建目标为 `master` 的 PR。PR 使用中文标题及正文，写清版本、
-  更新内容与检查结果；通过 `gh` 创建时用临时 UTF-8 文件与 `--body-file` 传递正文。
-- 返回 PR 链接，等待用户自行合并。保留发版分支，不自动合并、不推送标签、不使用
-  `-Upload`。告知用户合并后运行 `/release publish X.Y.Z`。
+- 获取最新 `origin/master`，汇总上一正式版本到当前 master 的变更及 PR 兼容性记录。
+  明确是否需要客户端发版；只有兼容后端、文档或工具变更时不制造应用版本。
+- 按最高影响建议 patch、minor 或 major，并说明依据；不默认建议补丁。
+  缺少兼容性记录时检查接口及写入语义，不能仅靠提交前缀推断。
+- 未给版本号时展示当前版本和有依据的建议，再询问版本号；只接受稳定 X.Y.Z。
+  已给版本与变更级别冲突时先说明，不能按不兼容变更静默发布补丁。
+- 整理中文更新说明和兼容性说明；默认继承两平台的最低支持版本。
+  提高门槛须明确平台、新最低版本和原因，不能自动设为最新版本。
+- 检查工作区、暂存区、现有分支、标签及同版本 PR；保留用户文件，已有发布继续原流程，
+  不覆盖标签、不重复提交。已跟踪文件或暂存区有修改时先解决。
+- 全新发布从最新 `origin/master` 创建 `codex/release-X.Y.Z`；已有未合并工作时使用独立工作目录。
+- 从 `app/` 执行格式检查、flutter analyze、flutter test，从 `backend/` 执行 npm run lint 和 npm run test。
+  任一检查失败停止准备发布，不能自动改写代码绕过门禁。
+- 在根目录运行 `scripts/release.ps1 -Version <版本> -ChangeType <patch|minor|major>
+  -CompatibilityNotes <兼容性说明> -Notes <中文说明>`。需要调整门槛时显式传入
+  `-WindowsMinimumVersion`、`-AndroidMinimumVersion` 及 `-MinimumSupportReason`。
+  使用结构化参数或正确的 shell 引用，保留说明中的引号、换行和美元符号。
+- 脚本同步四个发布文件、递增构建号、校验后提交并创建本地标签；核对结果和退出码。
+  不使用本地自动上传，正式发布统一经标签 CI。
+- 只推送发版分支，创建目标为 master 的中文 PR，写清版本、兼容性、两平台最低支持版本、
+  调整原因和检查结果。gh 正文使用 UTF-8 临时文件与 --body-file。
+- 返回 PR 链接，由用户自行合并；不自动合并、不推送标签，合并前保留分支。
 
 ## 合并后发布：`/release publish X.Y.Z`
 
-- 校验版本号并查询对应发版 PR，确认已合并到 `master`。尚未合并时返回 PR 链接并停止。
-- 获取最新远端状态，核对合并提交里的四个发布文件一致：应用版本为 `X.Y.Z+构建号`、
-  安装器及更新清单版本为 `X.Y.Z`，更新日志包含该版本。
-- 已有远端标签时不重复推送、不覆盖，查看并报告该标签对应的 Release 工作流状态。
-- 远端标签不存在时，优先使用脚本创建的本地标签；确认它指向该 PR 的发版提交，
-  且四个发布文件与合并提交一致。若本地标签不存在，在已核实的 PR 合并提交上创建
-  `vX.Y.Z`。标签或文件不一致时停止并报告，不自动移动标签。
-- 只推送对应的 `vX.Y.Z` 标签。GitHub Actions 自动构建 Windows 和 Android 安装包
-  并上传 GitHub Release，无需本地构建上传。
-- 返回 Release 与工作流链接。区分“已触发构建”和“发布完成”；只有构建成功且
-  `comic-setup.exe` 与 `app-release.apk` 均已上传时才报告发布成功。失败时报告失败步骤。
+- 确认对应 PR 已合并到 master。未合并则返回 PR 链接并停止。
+- 获取远端状态，对合并后的发布文件运行 `scripts/validate-release.ps1 -Version <版本>`。
+  版本、构建号、变更级别、最低版本或下载地址不一致时停止。
+- 已有远端标签时不重复推送，查看 Release 工作流与发布状态。
+- 没有远端标签时优先用准备阶段的本地标签，确认指向已合并的发布提交且发布文件与合并提交一致。
+  标签不存在才在核实的 PR 合并提交创建；不移动或覆盖已有标签。
+- 只推送对应标签，CI 校验上一发布版本、构建 Windows/Android，上传安装包与 update.json 到 draft，
+  重新下载核验后才发布并设置 latest。正式 Release 禁止覆盖，失败草稿可重试。
+- 返回工作流和 Release 链接；只有非草稿正式 Release 的三个资产完整且工作流成功，才报告发布成功。
+  构建或上传失败时说明失败阶段，不宣称清单已对新客户端生效。
