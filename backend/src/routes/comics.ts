@@ -12,6 +12,7 @@ import {
 
 export function comicQuery() {
   return db("comics")
+    .whereNull("comics.deleted_at")
     .select(
       "comics.id",
       "comics.title",
@@ -72,16 +73,24 @@ comicsRouter.get(
 
       let query = comicQuery();
       if (keyword) {
-        query = query
-          .where("comics.title", "like", `%${keyword}%`)
-          .orWhere("comics.author", "like", `%${keyword}%`);
+        query = query.where(function () {
+          this.where("comics.title", "like", `%${keyword}%`).orWhere(
+            "comics.author",
+            "like",
+            `%${keyword}%`,
+          );
+        });
       }
 
-      let totalQuery = db("comics");
+      let totalQuery = db("comics").whereNull("comics.deleted_at");
       if (keyword) {
-        totalQuery = totalQuery
-          .where("comics.title", "like", `%${keyword}%`)
-          .orWhere("comics.author", "like", `%${keyword}%`);
+        totalQuery = totalQuery.where(function () {
+          this.where("comics.title", "like", `%${keyword}%`).orWhere(
+            "comics.author",
+            "like",
+            `%${keyword}%`,
+          );
+        });
       }
       const total = await totalQuery
         .countDistinct({ total: "comics.id" })
@@ -176,6 +185,7 @@ comicsRouter.post(
     if (!Number.isSafeInteger(id) || id <= 0) return fail(res, "漫画 ID 无效");
     try {
       const comic = await db("comics")
+        .whereNull("deleted_at")
         .select("cover_path")
         .where({ id })
         .first();
@@ -211,6 +221,12 @@ comicsRouter.put("/:id/progress", async (req: Request, res: Response) => {
       return fail(res, "chapterId and pageNumber are required");
     }
 
+    const comic = await db("comics")
+      .where({ id })
+      .whereNull("deleted_at")
+      .first();
+    if (!comic) return fail(res, "Comic not found", 1, 404);
+
     const chapter = await db("chapters")
       .where({ id: chapterId, comic_id: id })
       .first();
@@ -235,7 +251,10 @@ comicsRouter.post("/:id/favorite", async (req: Request, res: Response) => {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
 
-    const comic = await db("comics").where({ id }).first();
+    const comic = await db("comics")
+      .where({ id })
+      .whereNull("deleted_at")
+      .first();
     if (!comic) return fail(res, "Comic not found", 1, 404);
 
     await db("favorites")
@@ -254,6 +273,12 @@ comicsRouter.delete("/:id/favorite", async (req: Request, res: Response) => {
   try {
     const id = parseInt(String(req.params.id));
     if (isNaN(id)) return fail(res, "Invalid id");
+
+    const comic = await db("comics")
+      .where({ id })
+      .whereNull("deleted_at")
+      .first();
+    if (!comic) return fail(res, "Comic not found", 1, 404);
 
     await db("favorites").where({ comic_id: id }).del();
     await invalidateApiCache(["catalog", "favorites", `detail:${id}`]);

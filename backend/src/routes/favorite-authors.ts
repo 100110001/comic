@@ -17,7 +17,9 @@ favoriteAuthorsRouter.get(
   async (_req: Request, res: Response) => {
     try {
       const rows = await db("favorite_authors as fa")
-        .leftJoin("comics as c", "c.author", "fa.author")
+        .leftJoin("comics as c", function () {
+          this.on("c.author", "=", "fa.author").onNull("c.deleted_at");
+        })
         .select(
           "fa.author",
           db.raw("COUNT(DISTINCT c.id) as comic_count"),

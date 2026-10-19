@@ -190,18 +190,29 @@ class RecentReadingWithLocal
       // 待同步断点无需等网络超时才可用于续读。
       if (local.isNotEmpty &&
           (currentSourceState.value == null || !remoteState.hasValue)) {
-        return local.map((p) => p.entry).toList();
+        return local
+            .where((p) => !client.isComicDeleted(p.entry.comic.id))
+            .map((p) => p.entry)
+            .toList();
       }
       final remote = ref.watch(recentReadingProvider.future);
       try {
         final entries = await remote;
-        final ids = local.map((p) => p.entry.comic.id).toSet();
+        final visibleLocal = local
+            .where((p) => !client.isComicDeleted(p.entry.comic.id))
+            .toList();
+        final ids = visibleLocal.map((p) => p.entry.comic.id).toSet();
         return [
-          ...local.map((p) => p.entry),
+          ...visibleLocal.map((p) => p.entry),
           ...entries.where((p) => !ids.contains(p.comic.id)),
         ];
       } catch (_) {
-        if (local.isNotEmpty) return local.map((p) => p.entry).toList();
+        if (local.isNotEmpty) {
+          return local
+              .where((p) => !client.isComicDeleted(p.entry.comic.id))
+              .map((p) => p.entry)
+              .toList();
+        }
         rethrow;
       }
     });

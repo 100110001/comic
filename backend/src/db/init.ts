@@ -4,7 +4,7 @@ import path from "path";
 import dotenv from "dotenv";
 dotenv.config();
 
-async function init() {
+export async function init() {
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST ?? "localhost",
     port: Number(process.env.DB_PORT ?? 3306),
@@ -13,32 +13,49 @@ async function init() {
     multipleStatements: true,
   });
 
-  const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
-  await conn.query(sql);
+  try {
+    const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
+    await conn.query(sql);
 
-  // 对已存在的旧表补充新增的唯一约束（schema.sql 的 CREATE TABLE 只对全新库生效）
-  await ensureUniqueKey(
-    conn,
-    "comics",
-    "uq_comics_title_author",
-    "title, author",
-  );
-  await ensureUniqueKey(
-    conn,
-    "chapters",
-    "uq_chapters_comic_title",
-    "comic_id, title",
-  );
-  await ensureUniqueKey(
-    conn,
-    "images",
-    "uq_images_chapter_filename",
-    "chapter_id, filename",
-  );
+    for (const [column, definition] of [
+      ["source_root", "VARCHAR(500) DEFAULT NULL"],
+      ["deleted_at", "DATETIME DEFAULT NULL"],
+    ]) {
+      const [rows] = await conn.execute<mysql.RowDataPacket[]>(
+        "SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'comics' AND COLUMN_NAME = ?",
+        [column],
+      );
+      if (Number(rows[0]!.cnt) === 0) {
+        await conn.query(
+          `ALTER TABLE comics ADD COLUMN ${column} ${definition}`,
+        );
+      }
+    }
 
-  await conn.end();
+    // 对已存在的旧表补充新增的唯一约束（schema.sql 的 CREATE TABLE 只对全新库生效）
+    await ensureUniqueKey(
+      conn,
+      "comics",
+      "uq_comics_title_author",
+      "title, author",
+    );
+    await ensureUniqueKey(
+      conn,
+      "chapters",
+      "uq_chapters_comic_title",
+      "comic_id, title",
+    );
+    await ensureUniqueKey(
+      conn,
+      "images",
+      "uq_images_chapter_filename",
+      "chapter_id, filename",
+    );
 
-  console.log("Database initialized successfully");
+    console.log("Database initialized successfully");
+  } finally {
+    await conn.end();
+  }
 }
 
 async function ensureUniqueKey(
@@ -60,7 +77,8 @@ async function ensureUniqueKey(
   console.log(`Added unique key ${indexName} on ${table}`);
 }
 
-init().catch((err) => {
-  console.error("Init failed:", err);
-  process.exit(1);
-});
+if (require.main === module)
+  void init().catch((err) => {
+    console.error("Init failed:", err);
+    process.exit(1);
+  });

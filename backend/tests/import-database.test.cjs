@@ -20,7 +20,7 @@ function fixture({ comics = [], chapters = [], images = [], fail } = {}) {
     if (sql === "SELECT id, cover_path, author FROM comics WHERE title = ?") {
       return [state.comics.filter(c => c.title.toLowerCase() === params[0].toLowerCase()).map(c => ({ ...c }))];
     }
-    if (sql === "SELECT id, title, author FROM comics") return [structuredClone(state.comics)];
+    if (sql === "SELECT id, title, author, cover_path, source_root, deleted_at FROM comics") return [structuredClone(state.comics)];
     if (sql.startsWith("SELECT id, comic_id, title, sort_order FROM chapters")) {
       return [structuredClone(state.chapters.filter(c => params.includes(c.comic_id)))];
     }
@@ -36,6 +36,12 @@ function fixture({ comics = [], chapters = [], images = [], fail } = {}) {
       return [{ insertId: id }];
     }
     if (sql.startsWith("UPDATE comics")) {
+      if (sql.includes("source_root")) {
+        const row = state.comics.find(c => c.id === params[1]);
+        row.source_root = params[0];
+        row.deleted_at = sql.includes("deleted_at = NULL") ? null : "已删除";
+        return [{}];
+      }
       state.comics.find(c => c.id === params[1]).cover_path = params[0];
       return [{}];
     }
@@ -73,7 +79,12 @@ function fixture({ comics = [], chapters = [], images = [], fail } = {}) {
     }
     throw new Error("未处理 SQL: " + sql);
   }
-  const conn = { execute: run, query: run, end: async () => { closed++; } };
+  let snapshot;
+  const conn = { execute: run, query: run, end: async () => { closed++; },
+    beginTransaction: async () => { snapshot = structuredClone(state); },
+    commit: async () => { snapshot = undefined; },
+    rollback: async () => { Object.assign(state, snapshot); snapshot = undefined; },
+  };
   const module = { exports: {} };
   const filename = path.resolve(__dirname, "../dist/scripts/seed.js");
   vm.runInNewContext(fs.readFileSync(filename, "utf8"), {
@@ -82,6 +93,7 @@ function fixture({ comics = [], chapters = [], images = [], fail } = {}) {
     require(name) {
       if (name === "mysql2/promise") return { createConnection: async () => conn };
       if (name === "dotenv") return { config() {} };
+      if (name === "node:path") return path;
       if (name === "../utils/progress") return { progress() {}, done: text => logs.push(text) };
       if (name === "../utils/image-metadata") return { readImageDimensions: async imagePath => {
         reads.push(imagePath);
@@ -112,6 +124,59 @@ function book(count, chapterCount = 1) {
     })),
   };
 }
+
+test("完整同步软删除旧漫画，恢复原 ID，隔离其他库及无法归属的记录", async () => {
+  const root = path.resolve("/library");
+  const h = fixture({ comics: [
+    { id: 1, title: "旧漫画", author: null, cover_path: path.join(root, "old", "001.jpg") },
+    { id: 2, title: "其他库", author: null, source_root: path.resolve("/other"), deleted_at: null },
+    { id: 3, title: "未知归属", author: null, cover_path: null, deleted_at: null },
+  ] });
+  const input = book(1);
+  await h.seed([input], root);
+  assert.equal(h.state.comics.find(c => c.id === 1).deleted_at, "已删除");
+  assert.equal(h.state.comics.find(c => c.id === 2).deleted_at, null);
+  assert.equal(h.state.comics.find(c => c.id === 3).deleted_at, null);
+  const snapshot = structuredClone(h.state);
+  h.calls.length = 0;
+  await h.seed([input], root);
+  assert.deepEqual(h.state, snapshot);
+  assert.equal(h.writes().length, 0);
+  await h.seed([input, { ...book(1), title: "旧漫画" }], root);
+  assert.equal(h.state.comics.find(c => c.id === 1).deleted_at, null);
+  assert.equal(h.state.comics.filter(c => c.title === "旧漫画").length, 1);
+});
+
+test("空扫描拒绝同步；导入失败与标记事务失败不改变原删除状态", async () => {
+  const empty = fixture();
+  await assert.rejects(empty.seed([], "/library"), /扫描未发现漫画/);
+  assert.equal(empty.calls.length, 0);
+  const old = { id: 1, title: "缺失", author: null, source_root: path.resolve("/library"), deleted_at: null };
+  const failed = fixture({ comics: [old], fail: sql => sql.startsWith("INSERT INTO images") });
+  await assert.rejects(failed.seed([book(1)], "/library"), /数据库失败/);
+  assert.equal(failed.state.comics[0].deleted_at, null);
+  assert(!failed.calls.some(c => c.sql.includes("UPDATE comics SET source_root")));
+  let updates = 0;
+  const rollback = fixture({ comics: [old], fail: sql => sql.includes("UPDATE comics SET source_root") && ++updates === 2 });
+  await assert.rejects(rollback.seed([book(1)], "/library"), /数据库失败/);
+  assert.equal(rollback.state.comics[0].deleted_at, null);
+  assert.equal(rollback.closed, 1);
+});
+
+test("已扫描 ID 用于缺失判定，不因数据库标题大小写匹配而误删", async () => {
+  const root = path.resolve("/library");
+  const h = fixture({ comics: [{ id: 1, title: "BOOK", author: null, source_root: root, deleted_at: null }] });
+  await h.seed([{ ...book(1), title: "book" }], root);
+  assert.equal(h.state.comics.length, 1);
+  assert.equal(h.state.comics[0].deleted_at, null);
+});
+
+test("Windows 漫画库路径大小写变化不影响缺失判定", { skip: process.platform !== "win32" }, async () => {
+  const root = path.resolve("/library");
+  const h = fixture({ comics: [{ id: 1, title: "缺失", author: null, source_root: root.toUpperCase(), deleted_at: null }] });
+  await h.seed([book(1)], root.toLowerCase());
+  assert.equal(h.state.comics[0].deleted_at, "已删除");
+});
 
 test("401 张新图片分三批写入空尺寸，重导入零写入且不读取尺寸", async () => {
   const h = fixture();

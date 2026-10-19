@@ -12,6 +12,8 @@ import 'package:comic/services/progress_storage_io.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'helpers/progress_storage.dart';
 
 const origin = 'http://example.com';
@@ -52,6 +54,61 @@ ProviderContainer container(MemoryProgressStorage storage) => ProviderContainer(
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('服务端确认软删除后隐藏本机断点，离线保留隐藏，恢复后重新展示', () async {
+    var deleted = true;
+    var offline = false;
+    final client = ApiClient(
+      baseUrl: origin,
+      generation: 0,
+      client: MockClient((request) async {
+        if (offline) throw http.ClientException('断网');
+        return http.Response(
+          jsonEncode({
+            'code': 0,
+            'data': [],
+            'deletedComicIds': deleted ? [1] : [],
+          }),
+          200,
+        );
+      }),
+    );
+    final storage = MemoryProgressStorage();
+    final c = ProviderContainer(
+      overrides: [
+        progressStorageProvider.overrideWithValue(storage),
+        serverSessionProvider.overrideWith(
+          () => ServerSessionNotifier(initialUrl: origin),
+        ),
+        apiClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(c.dispose);
+    final sub = c.listen(recentReadingWithLocalProvider, (_, _) {});
+    addTearDown(sub.close);
+    await c.read(readingProgressQueueProvider.notifier).record(position(4));
+    await c.read(recentReadingProvider.future);
+    expect(await c.read(recentReadingWithLocalProvider.future), isEmpty);
+    expect(
+      c.read(readingProgressQueueProvider).requireValue.single.entry.pageNumber,
+      4,
+    );
+    offline = true;
+    c.invalidate(recentReadingProvider);
+    try {
+      await c.read(recentReadingProvider.future);
+    } catch (_) {}
+    expect(await c.read(recentReadingWithLocalProvider.future), isEmpty);
+    expect(c.read(readingProgressQueueProvider).requireValue, hasLength(1));
+    offline = false;
+    deleted = false;
+    c.invalidate(recentReadingProvider);
+    await c.read(recentReadingProvider.future);
+    expect(
+      (await c.read(recentReadingWithLocalProvider.future)).single.pageNumber,
+      4,
+    );
+    expect(c.read(readingProgressQueueProvider).requireValue, hasLength(1));
+  });
   test('最近阅读切换来源后等待与失败均不显示旧来源，当前本机记录仍可续读', () async {
     final nextRemote = Completer<List<ReadingProgressEntry>>();
     final c = ProviderContainer(

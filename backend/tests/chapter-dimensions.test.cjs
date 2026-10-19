@@ -23,7 +23,7 @@ async function fixture(t, count = 1) {
     await write(file, 320, 480);
     rows.push({ id: i + 1, chapter_id: 1, filename: `${i}.gif`, path: file, page_number: i, width: null, height: null });
   }
-  const state = { reads: 0, writes: 0, onRead: null };
+  const state = { reads: 0, writes: 0, onRead: null, deleted: false };
   const cache = new Map();
   function db(table) {
     let filters = {};
@@ -31,11 +31,12 @@ async function fixture(t, count = 1) {
     let first = false;
     const query = {
       where(value) { filters = { ...filters, ...value }; return this; },
+      whereNull(key) { filters[key] = null; return this; },
       select() { return this; }, orderBy() { return this; },
       first() { first = true; return this; },
       update(value) { update = value; return this; },
       then(resolve, reject) {
-        const selected = (table === "chapters" ? [{ id: 1 }] : rows)
+        const selected = (table === "chapters" ? [{ id: 1, comic_id: 1 }] : table === "comics" ? [{ id: 1, deleted_at: state.deleted ? "已删除" : null }] : rows)
           .filter(row => Object.entries(filters).every(([key, value]) => row[key] === value));
         let result;
         if (update) {
@@ -77,11 +78,11 @@ async function fixture(t, count = 1) {
   }, { filename });
   return {
     rows, state, cache, write,
-    async request() {
+    async request(expectedCode = 0) {
       let body;
       const res = { locals: {}, status() { return this; }, json(value) { body = value; } };
       await handler({ params: { id: "1" } }, res);
-      assert.equal(body.code, 0);
+      assert.equal(body.code, expectedCode);
       return body.data;
     },
   };
@@ -107,6 +108,17 @@ test("阅读补齐真实图片尺寸，同名替换绕过旧缓存，未变化�
   assert.equal(h.state.writes, 2);
   await h.request();
   assert.equal(h.state.reads, 2);
+});
+
+test("软删除漫画即使章节图片已有缓存也不能继续读取，恢复后可读", async t => {
+  const h = await fixture(t);
+  await h.request();
+  const reads = h.state.reads;
+  h.state.deleted = true;
+  assert.equal(await h.request(1), null);
+  assert.equal(h.state.reads, reads);
+  h.state.deleted = false;
+  assert.equal((await h.request()).length, 1);
 });
 
 test("既有尺寸首次使用会验证文件，但相同尺寸不重复更新数据库", async t => {

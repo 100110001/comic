@@ -8,7 +8,7 @@ async function librarySnapshot() {
   try {
     const rows = await db
       .raw(
-        "SELECT (SELECT COUNT(*) FROM comics) AS comics, (SELECT COUNT(*) FROM chapters) AS chapters, (SELECT COUNT(*) FROM images) AS images",
+        "SELECT (SELECT COUNT(*) FROM comics WHERE deleted_at IS NULL) AS comics, (SELECT COUNT(*) FROM chapters ch JOIN comics c ON c.id = ch.comic_id WHERE c.deleted_at IS NULL) AS chapters, (SELECT COUNT(*) FROM images i JOIN chapters ch ON ch.id = i.chapter_id JOIN comics c ON c.id = ch.comic_id WHERE c.deleted_at IS NULL) AS images",
       )
       .timeout(2500);
     const row = rows[0][0];
