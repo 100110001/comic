@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import '../models/update_info.dart';
+import '../providers/update_provider.dart';
 import '../providers/server_data.dart';
 import '../providers/server_provider.dart';
 import '../providers/settings_provider.dart';
@@ -10,8 +10,6 @@ import '../services/update_service.dart';
 import '../theme.dart';
 import '../widgets/reader_settings_controls.dart';
 import '../utils/user_error.dart';
-
-enum _UpdateStatus { idle, checking, latest, available, error, downloading }
 
 enum _ServerTestStatus { idle, testing, success, error }
 
@@ -30,9 +28,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   String? _serverSaveMessage;
   bool _serverSaving = false;
   int _serverTestSerial = 0;
-  _UpdateStatus _status = _UpdateStatus.idle;
-  UpdateInfo? _info;
-  String? _error;
 
   @override
   void initState() {
@@ -425,6 +420,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _buildAboutSection(AppColors c) {
+    final update = ref.watch(appUpdateProvider);
+    final notifier = ref.read(appUpdateProvider.notifier);
+    final busy = update.checking || update.installing;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,153 +431,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           builder: (context, snap) => _settingRow(
             title: 'Comic',
             description: '当前版本 v${snap.data ?? '…'}',
-            control: kIsWeb
+            control: !supportsAppUpdates
                 ? const SizedBox.shrink()
                 : FilledButton.tonal(
-                    onPressed:
-                        _status == _UpdateStatus.checking ||
-                            _status == _UpdateStatus.downloading
-                        ? null
-                        : _checkUpdate,
-                    child: Text(
-                      _status == _UpdateStatus.checking ? '检查中…' : '检查更新',
-                    ),
+                    onPressed: busy ? null : notifier.check,
+                    child: Text(update.checking ? '检查中…' : '检查更新'),
                   ),
           ),
         ),
-        ..._buildUpdateStatus(c),
+        if (busy) const LinearProgressIndicator(minHeight: 2),
+        if (update.message != null) Text(update.message!),
+        if (update.info != null &&
+            !update.available &&
+            !update.checking &&
+            update.message == null)
+          const Text('已是最新版本'),
+        if (update.available) ...[
+          Text('发现新版本 v${update.info!.latestVersion}'),
+          if (update.info!.releaseNotes?.isNotEmpty == true)
+            Text(update.info!.releaseNotes!),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: busy ? null : notifier.install,
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('下载并更新'),
+          ),
+        ],
       ],
     );
   }
 
   Future<String> _loadVersion() async {
     try {
-      final info = await PackageInfo.fromPlatform();
-      return info.version;
+      return (await PackageInfo.fromPlatform()).version;
     } catch (_) {
       return '未知';
-    }
-  }
-
-  List<Widget> _buildUpdateStatus(AppColors c) {
-    switch (_status) {
-      case _UpdateStatus.idle:
-        return const [];
-      case _UpdateStatus.checking:
-        return [
-          LinearProgressIndicator(
-            minHeight: 2,
-            color: c.accent,
-            backgroundColor: c.border,
-          ),
-        ];
-      case _UpdateStatus.latest:
-        return [Text('已是最新版本', style: TextStyle(color: c.text2, fontSize: 14))];
-      case _UpdateStatus.available:
-        final info = _info!;
-        return [
-          Text(
-            '发现新版本 v${info.latestVersion}',
-            style: TextStyle(
-              color: c.accent,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (info.releaseNotes != null && info.releaseNotes!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              info.releaseNotes!,
-              style: TextStyle(color: c.text2, fontSize: 14),
-            ),
-          ],
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            icon: const Icon(Icons.download, size: 18),
-            label: const Text('下载并更新'),
-            onPressed: _downloadAndInstall,
-          ),
-        ];
-      case _UpdateStatus.error:
-        return [
-          Text(
-            _error ?? '检查更新失败',
-            style: TextStyle(color: c.text2, fontSize: 14),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(onPressed: _checkUpdate, child: const Text('重试')),
-        ];
-      case _UpdateStatus.downloading:
-        return [
-          Text('正在下载更新…', style: TextStyle(color: c.text2, fontSize: 14)),
-          const SizedBox(height: 8),
-          const LinearProgressIndicator(minHeight: 2),
-        ];
-    }
-  }
-
-  Future<void> _checkUpdate() async {
-    setState(() => _status = _UpdateStatus.checking);
-    try {
-      final info = await fetchUpdateInfo();
-      if (!mounted) return;
-      if (info == null) {
-        setState(() {
-          _status = _UpdateStatus.error;
-          _error = '无法获取更新信息，请检查网络或稍后重试';
-        });
-        return;
-      }
-      final current = await PackageInfo.fromPlatform();
-      if (!mounted) return;
-      if (isNewerVersion(info.latestVersion, current.version)) {
-        setState(() {
-          _status = _UpdateStatus.available;
-          _info = info;
-        });
-      } else {
-        setState(() => _status = _UpdateStatus.latest);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _status = _UpdateStatus.error;
-        _error = '检查更新失败，请稍后重试';
-      });
-    }
-  }
-
-  Future<void> _downloadAndInstall() async {
-    final info = _info;
-    if (info == null) return;
-    final url = updateUrlFor(info);
-    if (url == null) {
-      setState(() {
-        _status = _UpdateStatus.error;
-        _error = '当前平台暂无更新包';
-      });
-      return;
-    }
-    setState(() => _status = _UpdateStatus.downloading);
-    try {
-      final platform = defaultTargetPlatform == TargetPlatform.android
-          ? 'android'
-          : 'windows';
-      final path = await downloadUpdate(url, platform: platform);
-      if (!mounted) return;
-      if (defaultTargetPlatform == TargetPlatform.android) {
-        await installAndroidUpdate(path);
-        if (!mounted) return;
-        setState(() => _status = _UpdateStatus.idle);
-      } else {
-        await installWindowsUpdate(path);
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _status = _UpdateStatus.error;
-        _error = '更新失败：$e';
-      });
     }
   }
 }

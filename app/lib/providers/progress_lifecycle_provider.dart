@@ -5,7 +5,7 @@ import '../tray/close_to_tray.dart';
 import 'reading_progress_provider.dart';
 import 'server_provider.dart';
 
-final progressLifecycleProvider = Provider<void>((ref) {
+final progressLifecycleProvider = Provider.autoDispose<void>((ref) {
   final queue = ref.read(readingProgressQueueProvider.notifier);
   void sync() {
     if (!ref.mounted) return;
