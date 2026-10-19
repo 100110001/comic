@@ -301,8 +301,17 @@ class ApiClient {
     return list.first;
   }
 
-  Future<List<ImageItem>> getChapterImages(int chapterId) async {
-    final data = await _request('GET', '/api/chapters/$chapterId/images');
+  Future<List<ImageItem>> getChapterImages(
+    int chapterId, {
+    List<int>? dimensions,
+  }) async {
+    final suffix = dimensions == null
+        ? ''
+        : '?dimensions=${dimensions.join(',')}';
+    final data = await _request(
+      'GET',
+      '/api/chapters/$chapterId/images$suffix',
+    );
     return _parse(
       () => (data['data'] as List)
           .map((item) => ImageItem.fromJson(item, serverUrl: baseUrl))
