@@ -78,10 +78,10 @@ async function fixture(t, count = 1) {
   }, { filename });
   return {
     rows, state, cache, write,
-    async request(expectedCode = 0) {
+    async request(expectedCode = 0, query = {}) {
       let body;
-      const res = { locals: {}, status() { return this; }, json(value) { body = value; } };
-      await handler({ params: { id: "1" } }, res);
+      const res = { locals: {}, setHeader() {}, status() { return this; }, json(value) { body = value; } };
+      await handler({ params: { id: "1" }, query }, res);
       assert.equal(body.code, expectedCode);
       return body.data;
     },
@@ -158,4 +158,23 @@ test("大章节先返回前十六张尺寸，其余后台补齐，下一次读�
   const second = await h.request();
   assert(second.every(image => image.width === 320));
   assert.equal(h.state.reads, 20);
+});
+
+
+test("定向补齐只读取请求窗口并写入数据库，不污染整章缓存", async t => {
+  const h = await fixture(t, 24);
+  const data = await h.request(0, { dimensions: "20,21" });
+  assert.deepEqual(data.map(image => image.id), [20, 21]);
+  assert.equal(h.state.reads, 2);
+  assert.equal(h.rows[19].width, 320);
+  assert.equal(h.rows[0].width, null);
+  assert.equal((await h.request()).length, 24);
+});
+
+test("定向补齐拒绝重复、越界和过大窗口", async t => {
+  const h = await fixture(t, 24);
+  for (const dimensions of ["1,1", "25", Array.from({ length: 12 }, (_, i) => i + 1).join(",")]) {
+    await h.request(1, { dimensions });
+  }
+  assert.equal(h.state.reads, 0);
 });

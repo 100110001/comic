@@ -26,7 +26,7 @@ imagesRouter.post("/resolve", async (req, res) => {
         !Number.isSafeInteger(item.id) ||
         item.id <= 0 ||
         typeof item.version !== "string" ||
-        !/^\d+-\d+$/.test(item.version) ||
+        !/^\d+-\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$/.test(item.version) ||
         (item.priority !== undefined &&
           (!Number.isSafeInteger(item.priority) ||
             item.priority < 0 ||
@@ -64,7 +64,12 @@ imagesRouter.post("/resolve", async (req, res) => {
       )
         return fail(res, "图片来源无效", 1, 400);
       const stat = await fs.stat(real);
-      if (`${stat.size}-${Math.trunc(stat.mtimeMs)}` !== item.version)
+      if (
+        ![
+          `${stat.size}-${Math.trunc(stat.mtimeMs)}`,
+          `${stat.size}-${stat.mtimeMs}-${stat.ctimeMs}`,
+        ].includes(item.version)
+      )
         return fail(res, "原图已更新，请重新打开章节", 1, 409);
       const relative = path.relative(
         path.resolve(config.comicRoot),

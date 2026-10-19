@@ -178,7 +178,7 @@ export class SuperResolutionService {
       relative !== ".." &&
       !relative.startsWith(`..${path.sep}`) &&
       !path.isAbsolute(relative) &&
-      /^\d+-\d+$/.test(source.version);
+      /^\d+-\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$/.test(source.version);
     const record: RequestRecord = {
       id: ++this.requestCount,
       imageId: source.id,
@@ -291,7 +291,10 @@ export class SuperResolutionService {
     const stat = await fs.stat(resolved);
     if (
       !stat.isFile() ||
-      source.version !== `${stat.size}-${Math.trunc(stat.mtimeMs)}`
+      ![
+        `${stat.size}-${Math.trunc(stat.mtimeMs)}`,
+        `${stat.size}-${stat.mtimeMs}-${stat.ctimeMs}`,
+      ].includes(source.version)
     ) {
       throw new SuperResolutionError("原图版本已变化，请重新加载章节");
     }
