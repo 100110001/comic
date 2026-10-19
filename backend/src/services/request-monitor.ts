@@ -15,7 +15,9 @@ interface RecordEntry {
   cache: CacheOutcome;
 }
 const startedAt = new Date().toISOString();
+const recordLimit = 500;
 const records: RecordEntry[] = [];
+let nextRecordIndex = 0;
 let sequence = 0;
 const totals = Object.fromEntries(
   (["api", "image", "upscale"] as const).map((category) => [
@@ -99,8 +101,9 @@ export const observeRequests: RequestHandler = (req, res, next) => {
       bytes,
       cache,
     };
-    records.unshift(entry);
-    if (records.length > 500) records.pop();
+    // 循环覆盖最旧记录，避免每次请求都搬移整个数组。
+    records[nextRecordIndex] = entry;
+    nextRecordIndex = (nextRecordIndex + 1) % recordLimit;
     const total = totals[category];
     total.requests++;
     if (aborted || status >= 400) total.failed++;
@@ -118,9 +121,15 @@ export const observeRequests: RequestHandler = (req, res, next) => {
 export function requestSnapshot() {
   return {
     startedAt,
-    limit: 500,
+    limit: recordLimit,
     total: sequence,
     totals,
-    records: records.slice(),
+    records: Array.from(
+      { length: records.length },
+      (_, index) =>
+        records[
+          (nextRecordIndex - 1 - index + records.length) % records.length
+        ],
+    ),
   };
 }
