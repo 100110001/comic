@@ -67,7 +67,45 @@ try {
   [IO.File]::WriteAllText((Join-Path $fixtureRoot 'assets/update.json'), '{}', $utf8)
   Expect-Failure { & ./scripts/validate-release.ps1 -Version 1.3.0 -AssetDirectory assets } '远端清单不一致应阻止发布'
   Expect-Failure { & ./scripts/validate-release.ps1 -Version 1.3.1 } '标签与清单不同应阻止发布'
+
+  # 模拟压缩合并：上一正式标签与目标发布提交没有祖先关系。
+  $historyTree = git rev-parse 'v1.2.1^{tree}'
+  $detachedHistory = git -c commit.gpgsign=false commit-tree $historyTree -m '独立的历史发版提交'
+  if ($LASTEXITCODE -ne 0) { throw '构造非祖先发布失败' }
+  git tag -f v1.2.1 $detachedHistory
+  if ($LASTEXITCODE -ne 0) { throw '构造历史标签失败' }
+  git merge-base --is-ancestor v1.2.1 v1.2.2
+  Assert-True ($LASTEXITCODE -eq 1) '回归场景必须包含非祖先标签'
+  $published = @(
+    @{ tag_name = 'v1.1.2'; draft = $false; prerelease = $false },
+    @{ tag_name = 'v1.2.1'; draft = $false; prerelease = $false },
+    @{ tag_name = 'v1.3.0'; draft = $true; prerelease = $false },
+    @{ tag_name = 'v2.0.0'; draft = $false; prerelease = $true },
+    @{ tag_name = 'v1.9.0-beta.1'; draft = $false; prerelease = $false },
+    @{ tag_name = 'v1.2.2'; draft = $true; prerelease = $false }
+  )
+  # 与 gh api --paginate --slurp 一致的多页结构。
+  $pages = ConvertTo-Json -InputObject @(@($published[0]), @($published[1..5])) -Depth 5
+  $selection = & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson $pages
+  Assert-True ($selection.PreviousTag -ceq 'v1.2.1') '应选择最高的较低正式稳定版本，不依赖祖先关系或 API 顺序'
+  Assert-True ($selection.PreviousCommit -ceq $detachedHistory) '应固定上一标签解析出的提交'
+  Assert-True ($selection.Commit -ceq (git rev-parse v1.2.2)) '目标源码应固定为现有标签提交'
+  & (Join-Path $sourceRoot 'scripts/validate-release.ps1') -Root $fixtureRoot -Version 1.3.0 -PreviousRef $selection.PreviousCommit
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag '../master' -ReleasesJson $pages } '非法标签应拒绝'
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.9 -ReleasesJson $pages } '不存在的目标标签应拒绝'
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson '[]' } '没有上一正式版本应拒绝'
+  $alreadyPublished = ConvertTo-Json -InputObject @(@{ tag_name = 'v1.2.2'; draft = $false; prerelease = $false })
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson $alreadyPublished } '已公布的目标应拒绝覆盖'
+  $newerPublished = ConvertTo-Json -InputObject @(@{ tag_name = 'v1.3.0'; draft = $false; prerelease = $false })
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson $newerPublished } '已有更高正式版本应拒绝回退'
+  $missingPrevious = ConvertTo-Json -InputObject @(@{ tag_name = 'v1.2.0'; draft = $false; prerelease = $false })
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson $missingPrevious } '上一正式版本标签缺失应拒绝'
+  git tag v1.2.0 v1.2.1
+  if ($LASTEXITCODE -ne 0) { throw '构造版本不匹配标签失败' }
+  Expect-Failure { & (Join-Path $sourceRoot 'scripts/resolve-release.ps1') -Root $fixtureRoot -Tag v1.2.2 -ReleasesJson $missingPrevious } '上一标签与应用版本不一致应拒绝'
   Write-Host '发布准备与资产校验集成测试通过（临时测试资产不是真实安装包）。'
+  # 预期失败的 Git 调用不能让 Actions 将整组成功测试判为失败。
+  $global:LASTEXITCODE = 0
 } finally {
   Set-Location $originalLocation
   # 仅清理由本次测试生成、位于系统临时目录内的固定前缀目录。
