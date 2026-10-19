@@ -22,7 +22,7 @@ import '../providers/reader_providers.dart';
 import '../providers/settings_provider.dart';
 import '../widgets/reader_settings_controls.dart';
 import '../providers/super_resolution_provider.dart';
-import '../widgets/enhanced_image.dart';
+import '../widgets/reader_images.dart';
 import '../theme.dart';
 import '../utils/user_error.dart';
 import '../utils/display_image_provider.dart';
@@ -692,20 +692,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
   }
 
-  double _estimatedHeight(ImageItem img, double width) {
-    final w = img.width;
-    final h = img.height;
-    if (w != null && h != null && w > 0) return width * h / w;
-    return width * 4 / 3; // 未知尺寸时的兜底宽高比
-  }
-
   void _buildExtents(double width) {
     _extentWidth = width;
     _extents.clear();
     var top = 0.0;
     for (final img in _scrollImages) {
       _extents.add(top);
-      top += _estimatedHeight(img, width);
+      top += readerImageHeight(img, width);
     }
 
     final target = _pendingJumpPage == null
@@ -735,7 +728,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     final max = _scrollController.position.maxScrollExtent;
     final contentHeight =
-        _extents.last + _estimatedHeight(_scrollImages.last, _extentWidth!);
+        _extents.last + readerImageHeight(_scrollImages.last, _extentWidth!);
     final targetOffset = _extents[target].clamp(
       0.0,
       math.max(0.0, contentHeight - _imageViewport!.height),
@@ -1471,7 +1464,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     );
                   }
                   final image = images[i];
-                  return _LazyImage(
+                  return ReaderScrollImage(
                     key: ValueKey((
                       desktop ? _chapterIndex : _flow[i].chapter,
                       image.url,
@@ -1479,7 +1472,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
                     provider: _imageProvider(image),
                     enhanced: _enhancedProvider(image),
                     onEnhancedError: _enhancedFailure(image),
-                    height: _estimatedHeight(image, width),
+                    height: readerImageHeight(image, width),
                   );
                 },
               ),
@@ -1490,143 +1483,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     );
   }
 
-  Widget _buildPagedBody(BuildContext context) {
-    final page = _currentPage.clamp(0, _images.length - 1).toInt();
-    final List<int?> pages = [
-      page,
-      if (_spreadCount == 2) page + 1 < _images.length ? page + 1 : null,
-    ];
-    final ordered = _rightToLeft ? pages.reversed.toList() : pages;
-    return GestureDetector(
-      onHorizontalDragStart: (_) => _stopAutoReading(),
-      onHorizontalDragEnd: (details) {
-        final velocity = details.primaryVelocity ?? 0;
-        if (velocity.abs() < 100) return;
-        if ((velocity < 0) != _rightToLeft) {
-          _nextPage();
-        } else {
-          _prevPage();
-        }
-      },
-      child: Listener(
-        onPointerSignal: (event) {
-          if (event is PointerScrollEvent && event.scrollDelta.dy != 0) {
-            _stopAutoReading();
-            GestureBinding.instance.pointerSignalResolver.register(event, (_) {
-              if (event.scrollDelta.dy > 0) {
-                _nextPage();
-              } else {
-                _prevPage();
-              }
-            });
-          }
-        },
-        child: Column(
-          children: [
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final slot = Size(
-                    constraints.maxWidth / _spreadCount,
-                    constraints.maxHeight,
-                  );
-                  _updateImageLayout(slot, desktop: true);
-                  return Stack(
-                    children: [
-                      ColoredBox(
-                        color: _readerBackground,
-                        child: Row(
-                          children: [
-                            for (final index in ordered)
-                              SizedBox(
-                                width: slot.width,
-                                height: slot.height,
-                                child: index == null
-                                    ? null
-                                    : _buildPageImage(index, slot),
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (_chromeVisible) ...[
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton.filledTonal(
-                            tooltip: _rightToLeft ? '下一页' : '上一页',
-                            onPressed: _rightToLeft ? _nextPage : _prevPage,
-                            icon: const Icon(Icons.chevron_left),
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton.filledTonal(
-                            tooltip: _rightToLeft ? '上一页' : '下一页',
-                            onPressed: _rightToLeft ? _prevPage : _nextPage,
-                            icon: const Icon(Icons.chevron_right),
-                          ),
-                        ),
-                      ],
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildPagedBody(BuildContext context) => ReaderPagedView(
+    currentPage: _currentPage,
+    imageCount: _images.length,
+    spreadCount: _spreadCount,
+    rightToLeft: _rightToLeft,
+    backgroundColor: _readerBackground,
+    controlsVisible: _chromeVisible,
+    onInteraction: _stopAutoReading,
+    onNextPage: _nextPage,
+    onPrevPage: _prevPage,
+    onLayout: (slot) => _updateImageLayout(slot, desktop: true),
+    pageBuilder: _buildPageImage,
+  );
 
   Widget _buildPageImage(int page, Size slot) {
     final image = _images[page];
-    final fit = _pageFit;
-    final ratio = MediaQuery.devicePixelRatioOf(context);
-    final imageWidth = fit == BoxFit.none
-        ? (image.width ?? slot.width * ratio) / ratio
-        : slot.width;
-    final imageHeight = fit == BoxFit.none
-        ? (image.height ?? slot.height * ratio) / ratio
-        : fit == BoxFit.fitWidth
-        ? _estimatedHeight(image, imageWidth)
-        : slot.height;
-    final content = SizedBox(
-      width: imageWidth,
-      height: imageHeight,
-      child: EnhancedImage(
-        enhanced: _enhancedProvider(image),
-        fit: fit == BoxFit.none ? BoxFit.contain : fit,
-        onError: _enhancedFailure(image),
-        original: Image(
-          image: _imageProvider(image),
-          key: ValueKey('page-img-$page-$_imageRetryTick'),
-          fit: fit == BoxFit.none ? BoxFit.contain : fit,
-          frameBuilder: (context, child, frame, synchronous) => imageFrame(
-            context,
-            child,
-            frame,
-            synchronous,
-            placeholder: const ImageLoadingPlaceholder(),
-          ),
-          loadingBuilder: (_, child, progress) => progress == null
-              ? child
-              : ImageLoadingPlaceholder(progress: progress),
-          errorBuilder: (_, _, _) => GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _retryPageImage(page),
-            child: const _ImageRetryBox(),
-          ),
-        ),
-      ),
-    );
-    if (fit == BoxFit.contain) return content;
-    final vertical = SingleChildScrollView(
-      key: ValueKey((page, fit, slot)),
-      child: Align(alignment: Alignment.topCenter, child: content),
-    );
-    if (fit == BoxFit.fitWidth) return vertical;
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(width: math.max(imageWidth, slot.width), child: vertical),
+    return ReaderPageImage(
+      image: image,
+      page: page,
+      slot: slot,
+      fit: _pageFit,
+      provider: _imageProvider(image),
+      imageKey: ValueKey('page-img-$page-$_imageRetryTick'),
+      onRetry: () => _retryPageImage(page),
+      enhanced: _enhancedProvider(image),
+      onEnhancedError: _enhancedFailure(image),
     );
   }
 
@@ -1642,113 +1524,5 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     setState(() => _imageRetryTick++);
-  }
-}
-
-class _LazyImage extends StatefulWidget {
-  final ImageProvider<Object> provider;
-  final double height;
-  final ImageProvider<Object>? enhanced;
-  final VoidCallback onEnhancedError;
-  const _LazyImage({
-    super.key,
-    required this.provider,
-    required this.height,
-    this.enhanced,
-    required this.onEnhancedError,
-  });
-
-  @override
-  State<_LazyImage> createState() => _LazyImageState();
-}
-
-class _LazyImageState extends State<_LazyImage> {
-  bool _visible = false;
-  int _retryTick = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _visible = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 固定高度渲染：高度 = 视口宽 × 图片高/宽，与预估滚动偏移一致，
-    // 图片加载不改变布局，跳转可精确到页。
-    return SizedBox(
-      width: double.infinity,
-      height: widget.height,
-      child: ClipRect(
-        child: !_visible
-            ? _loadingBox()
-            : EnhancedImage(
-                enhanced: widget.enhanced,
-                fit: BoxFit.fitWidth,
-                onError: widget.onEnhancedError,
-                original: Image(
-                  image: widget.provider,
-                  key: ValueKey(_retryTick),
-                  width: double.infinity,
-                  height: widget.height,
-                  fit: BoxFit.fitWidth,
-                  frameBuilder: (context, child, frame, synchronous) =>
-                      imageFrame(
-                        context,
-                        child,
-                        frame,
-                        synchronous,
-                        placeholder: const ImageLoadingPlaceholder(),
-                      ),
-                  loadingBuilder: (_, child, progress) {
-                    if (progress == null) return child;
-                    return _loadingBox(progress: progress);
-                  },
-                  errorBuilder: (_, _, _) => GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _retry,
-                    child: const _ImageRetryBox(),
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-
-  Future<void> _retry() async {
-    final provider = widget.provider;
-    await provider.evict();
-    if (!mounted || widget.provider != provider) return;
-    setState(() => _retryTick++);
-  }
-
-  Widget _loadingBox({ImageChunkEvent? progress}) =>
-      ImageLoadingPlaceholder(progress: progress);
-}
-
-/// 单图失败占位：显示可点击的"重试"提示。
-class _ImageRetryBox extends StatelessWidget {
-  const _ImageRetryBox();
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: context.appColors.readerBar,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.broken_image, color: context.appColors.text2, size: 48),
-            const SizedBox(height: 6),
-            Text(
-              '点击重试',
-              style: TextStyle(color: context.appColors.text2, fontSize: 12),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
