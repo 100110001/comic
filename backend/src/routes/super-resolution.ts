@@ -28,7 +28,7 @@ superResolutionRouter.post("/jobs", async (req, res) => {
         !Number.isSafeInteger(item.id) ||
         item.id <= 0 ||
         typeof item.version !== "string" ||
-        !/^\d+-\d+$/.test(item.version),
+        !/^\d+-\d+(?:\.\d+)?(?:-\d+(?:\.\d+)?)?$/.test(item.version),
     )
   ) {
     return fail(res, "请提交最多十一张图片及原图版本");

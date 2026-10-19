@@ -66,6 +66,63 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   late int _chapterId;
   List<Chapter> _chapters = [];
   List<ImageItem> _images = [];
+  final Map<String, ImageItem> _dimensionSnapshots = {};
+  final Set<String> _dimensionAttempts = {};
+
+  ImageItem _withDimensions(ImageItem image) =>
+      _dimensionSnapshots[image.url] ?? image;
+
+  Future<void> _refreshWindowDimensions(int page) async {
+    final chapter = _chapterId;
+    final generation = _jumpGeneration;
+    final serverGeneration = ref.read(serverSessionProvider).generation;
+    final missing = _images
+        .skip(page)
+        .take(superResolutionWindowSize)
+        .where(
+          (image) =>
+              image.width == null &&
+              !_dimensionSnapshots.containsKey(image.url) &&
+              _dimensionAttempts.add(image.url),
+        )
+        .toList();
+    while (_dimensionAttempts.length > 128) {
+      _dimensionAttempts.remove(_dimensionAttempts.first);
+    }
+    if (missing.isEmpty) return;
+    try {
+      final refreshed = await ref
+          .read(apiClientProvider)
+          .getChapterImages(
+            chapter,
+            dimensions: missing.map((image) => image.id).toList(),
+          );
+      if (!mounted ||
+          chapter != _chapterId ||
+          generation != _jumpGeneration ||
+          serverGeneration != ref.read(serverSessionProvider).generation) {
+        return;
+      }
+      setState(() {
+        for (final image in refreshed) {
+          if (image.width != null &&
+              image.height != null &&
+              missing.any(
+                (old) => old.id == image.id && old.url == image.url,
+              )) {
+            _dimensionSnapshots[image.url] = image;
+          }
+        }
+      });
+      while (_dimensionSnapshots.length > 32) {
+        _dimensionSnapshots.remove(_dimensionSnapshots.keys.first);
+      }
+      _precacheAround(_currentPage);
+    } catch (_) {
+      // 保留原图，每个文件版本仅自动尝试一次。
+    }
+  }
+
   int _chapterIndex = 0;
   int _currentPage = 0;
   int? _pendingJumpPage;
@@ -578,10 +635,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
   /// 显示与相邻页预加载使用同一尺寸缓存，布局确定前不预加载原图。
   void _precacheAround(int page) {
     if (_images.isEmpty) return;
+    unawaited(_refreshWindowDimensions(page));
     ref
         .read(superResolutionProvider.notifier)
         .setWindow(
-          _images.skip(page).take(superResolutionWindowSize).toList(),
+          _images
+              .skip(page)
+              .take(superResolutionWindowSize)
+              .map(_withDimensions)
+              .toList(),
           targetWidths: _superResolutionTargets(page),
         );
     if (_imageViewport == null) return;
@@ -601,7 +663,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     final viewport = _imageViewport;
     if (viewport == null) return {};
     return {
-      for (final image in _images.skip(page).take(superResolutionWindowSize))
+      for (final image
+          in _images
+              .skip(page)
+              .take(superResolutionWindowSize)
+              .map(_withDimensions))
         image.url:
             ((_desktopImages && _pageFit == BoxFit.none && image.width != null
                         ? image.width! / _imagePixelRatio
@@ -661,13 +727,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
     }
     if (action == 'retry') {
       if (_images.isEmpty) return;
+      _dimensionAttempts.clear();
+      await _refreshWindowDimensions(_currentPage);
+      if (!mounted) return;
       for (final image
           in _images.skip(_currentPage).take(superResolutionWindowSize)) {
         await _enhancedProvider(image)?.evict();
       }
       if (!mounted) return;
       controller.setWindow(
-        _images.skip(_currentPage).take(superResolutionWindowSize).toList(),
+        _images
+            .skip(_currentPage)
+            .take(superResolutionWindowSize)
+            .map(_withDimensions)
+            .toList(),
         retry: true,
         targetWidths: _superResolutionTargets(_currentPage),
       );
@@ -1246,7 +1319,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
 
   Widget _settingsContents() {
     final sr = ref.watch(superResolutionProvider);
-    final image = _images.isEmpty ? null : _images[_currentPage];
+    final image = _images.isEmpty
+        ? null
+        : _withDimensions(_images[_currentPage]);
     final job = sr.results[image?.url];
     final status = !sr.enabled
         ? '超分关闭 · 原图'

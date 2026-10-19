@@ -795,6 +795,42 @@ void main() {
     variant: const TargetPlatformVariant({TargetPlatform.windows}),
   );
 
+  testWidgets('未知尺寸按窗口补齐后自动超分，正文高度和断点保持稳定', (tester) async {
+    final client = _DimensionProgressClient();
+    final image = ImageItem(
+      id: 20,
+      filename: '20.jpg',
+      pageNumber: 0,
+      url: 'http://example.com/20.jpg?v=1-2.5-3.5',
+    );
+    await pumpReader(
+      tester,
+      srClient: client,
+      defaultMode: SuperResolutionMode.adaptive,
+      loadImages: (_) async => [image],
+    );
+    final before = tester.getSize(find.byType(EnhancedImage).first);
+    final position = positionOf(tester);
+    expect(client.dimensionIds, [20]);
+    expect(client.requested, isEmpty);
+    client.dimensions.complete([
+      ImageItem(
+        id: 20,
+        filename: '20.jpg',
+        pageNumber: 0,
+        url: image.url,
+        width: 200,
+        height: 300,
+      ),
+    ]);
+    await settleReader(tester);
+    expect(client.requested.map((item) => item.id), [20]);
+    expect(tester.getSize(find.byType(EnhancedImage).first), before);
+    expect(positionOf(tester).pageNumber, position.pageNumber);
+    await openReaderSettings(tester);
+    expect(find.textContaining('200 × 300'), findsOneWidget);
+  });
+
   testWidgets('自适应随 DPR 改变重判，即使原图解码缓存尺寸没有改变', (tester) async {
     final client = _UpscaleProgressClient();
     await pumpReader(
@@ -1782,4 +1818,17 @@ class _UpscaleProgressClient extends _ProgressClient {
         )
         .toList(),
   );
+}
+
+class _DimensionProgressClient extends _UpscaleProgressClient {
+  final dimensions = Completer<List<ImageItem>>();
+  List<int>? dimensionIds;
+  @override
+  Future<List<ImageItem>> getChapterImages(
+    int chapterId, {
+    List<int>? dimensions,
+  }) {
+    dimensionIds = dimensions;
+    return this.dimensions.future;
+  }
 }

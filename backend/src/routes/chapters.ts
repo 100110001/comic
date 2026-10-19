@@ -127,6 +127,17 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
       .select("id", "filename", "path", "page_number", "width", "height")
       .orderBy("page_number");
 
+    const requested = req.query.dimensions;
+    if (requested !== undefined) {
+      res.setHeader("Cache-Control", "no-store");
+      if (typeof requested !== "string" || !/^\d+(,\d+){0,10}$/.test(requested))
+        return fail(res, "尺寸请求最多包含十一张图片", 1, 400);
+      const ids = requested.split(",").map(Number);
+      const selected = images.filter((image) => ids.includes(image.id));
+      if (selected.length !== ids.length)
+        return fail(res, "图片不属于当前章节", 1, 400);
+      images.splice(0, images.length, ...selected);
+    }
     const files = await mapImages(images, (img) => inspectImage(img.path));
     if (images.length && files.every((file) => file.version === null)) {
       return fail(
@@ -144,7 +155,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
         ),
       )
       .digest("hex");
-    const cacheKey = `chapter:${id}:images:${fingerprint}`;
+    const cacheKey = `chapter:${id}:images:${fingerprint}:${requested ?? "all"}`;
     const cached = await cacheGet<unknown[]>(cacheKey);
     res.locals.cacheOutcome =
       cached.generation === null
@@ -152,7 +163,7 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
         : cached.value
           ? "hit"
           : "miss";
-    if (cached.value) return ok(res, cached.value);
+    if (cached.value && requested === undefined) return ok(res, cached.value);
 
     const pending = images.map((img, index) => {
       const version = files[index]!.version;
@@ -175,7 +186,8 @@ chaptersRouter.get("/:id/images", async (req: Request, res: Response) => {
     const missing = pending.filter(
       (img) => img.width == null && img.version !== "",
     );
-    if (!dimensionJobs.has(id)) await fillDimensions(missing.slice(0, 16));
+    if (requested !== undefined || !dimensionJobs.has(id))
+      await fillDimensions(missing.slice(0, requested !== undefined ? 11 : 16));
 
     const data = pending.map((img, index) => ({
       id: img.id,
