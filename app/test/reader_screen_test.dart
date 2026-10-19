@@ -1191,6 +1191,28 @@ void main() {
     expect(scrollable.position.pixels, closeTo(5 * 600, 1));
   });
 
+  testWidgets('连续页码定位保留页顶容差并支持向前及向后跳跃', (tester) async {
+    await pumpReader(tester);
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byType(ReaderScreen),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    for (final (offset, page) in [
+      (598.0, 1),
+      (599.0, 2),
+      (600.0, 2),
+      (3000.0, 6),
+      (1799.0, 4),
+      (0.0, 1),
+    ]) {
+      scrollable.position.jumpTo(offset);
+      await settleReader(tester);
+      expectPage(tester, page);
+    }
+  });
+
   testWidgets('移动端滚动一页后页码更新', (tester) async {
     await pumpReader(tester);
     expectPage(tester, 1);

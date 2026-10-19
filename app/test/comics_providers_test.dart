@@ -410,6 +410,38 @@ void main() {
     expect(session.canPrev(0), isFalse);
   });
 
+  test('阅读序列增量索引去重且消费位置包含重复条目', () async {
+    final notifier = await randomLibrary();
+    final session = notifier.readingSession();
+    final next = session.next(29);
+    client.requests.last.result.complete((
+      list: const [
+        Comic(id: 29, title: '重复旧条目'),
+        Comic(id: 30, title: '新条目'),
+        Comic(id: 30, title: '重复新条目'),
+      ],
+      total: 34,
+    ));
+    expect((await next)?.id, 30);
+    expect((await session.prev(30))?.id, 29);
+    expect(session.canNext(-1), isFalse);
+    expect(await session.prev(-1), isNull);
+    final last = session.next(30);
+    expect(client.requests.last.page, 2);
+    client.requests.last.result.complete((
+      list: const [
+        Comic(id: 29, title: '已消费'),
+        Comic(id: 30, title: '已消费'),
+        Comic(id: 30, title: '已消费'),
+        Comic(id: 31, title: '最后一本'),
+      ],
+      total: 34,
+    ));
+    expect((await last)?.id, 31);
+    expect(session.canNext(31), isFalse);
+    expect((await session.prev(31))?.id, 30);
+  });
+
   test('最近阅读序列续页保留排序，服务器变化淘汰在途响应', () async {
     SharedPreferences.setMockInitialValues({});
     container.read(librarySortProvider.notifier).select(LibrarySort.recent);

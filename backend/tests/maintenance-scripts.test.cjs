@@ -93,6 +93,41 @@ test("链接漫画库保留配置路径，图片相对路径与打开目录校�
   }
 });
 
+test("扫描复用目录项类型，保留根图片、自然章节排序及链接章节", (t) => {
+  const root = fixture(t);
+  const book = path.join(root, "[作者] 漫画");
+  fs.mkdirSync(book);
+  for (const name of ["第10話", "第2話", "番外編", "目录.jpg"]) {
+    fs.mkdirSync(path.join(book, name));
+    fs.writeFileSync(path.join(book, name, "002.PNG"), "image");
+    fs.writeFileSync(path.join(book, name, "001.jpg"), "image");
+    fs.writeFileSync(path.join(book, name, "说明.txt"), "text");
+  }
+  fs.writeFileSync(path.join(book, "封面.webp"), "image");
+  const linked = path.join(book, "第3話");
+  fs.symlinkSync(path.join(book, "第2話"), linked,
+    process.platform === "win32" ? "junction" : "dir");
+  const stat = fs.statSync;
+  const calls = [];
+  t.mock.method(fs, "statSync", (...args) => {
+    calls.push(args[0]);
+    return stat(...args);
+  });
+  const [comic] = scanComics(root);
+  assert.equal(comic.title, "漫画");
+  assert.equal(comic.author, "作者");
+  assert.deepEqual(comic.chapters.map((chapter) => chapter.name),
+    ["默认", "第2話", "第3話", "第10話", "番外編", "目录.jpg"]);
+  assert.deepEqual(comic.chapters[0].images.map((image) => image.filename), ["封面.webp"]);
+  for (const chapter of comic.chapters.slice(1)) {
+    assert.deepEqual(chapter.images.map((image) => image.filename), ["001.jpg", "002.PNG"]);
+    assert.equal(chapter.images[0].path, path.join(chapter.path, "001.jpg"));
+    assert.equal(chapter.images[0].width, null);
+  }
+  // 普通图片和目录不逐个 stat；仅检查库入口及需要跟随的链接。
+  assert.deepEqual(calls, [root, linked]);
+});
+
 for (const platform of ["linux", "darwin"]) {
   test(`${platform} 运行端口清理入口成功跳过，不执行系统命令`, () => {
     const entry = { exports: {} };

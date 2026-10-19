@@ -798,12 +798,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen>
       return;
     }
     final offset = _scrollController.offset;
+    // 页顶偏移有序；滚动时二分定位，避免长章节每帧从第一页扫描。
     var page = 0;
-    for (var i = 1; i < _extents.length; i++) {
-      if (_extents[i] <= offset + 1) {
-        page = i;
+    var end = _extents.length;
+    while (page + 1 < end) {
+      final middle = (page + end) ~/ 2;
+      if (_extents[middle] <= offset + 1) {
+        page = middle;
       } else {
-        break;
+        end = middle;
       }
     }
     final atEnd = offset >= _scrollController.position.maxScrollExtent - 1;

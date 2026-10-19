@@ -38,15 +38,22 @@ function parseFolderName(name: string): {
   return { author: null, title: name.trim() };
 }
 
-function collectImages(dir: string): ImageFile[] {
-  return fs
-    .readdirSync(dir)
-    .filter((f) => IMAGE_EXTS.has(path.extname(f).toLowerCase()))
+function entryType(dir: string, entry: fs.Dirent): fs.Dirent | fs.Stats {
+  // 链接仍按目标类型识别，普通文件与目录直接复用目录项信息。
+  return entry.isSymbolicLink()
+    ? fs.statSync(path.join(dir, entry.name))
+    : entry;
+}
+
+function collectImages(dir: string, entries: fs.Dirent[]): ImageFile[] {
+  return entries
+    .filter((entry) => IMAGE_EXTS.has(path.extname(entry.name).toLowerCase()))
+    .filter((entry) => entryType(dir, entry).isFile())
+    .map((entry) => entry.name)
     .sort()
-    .filter((f) => fs.statSync(path.join(dir, f)).isFile())
-    .map((f) => {
-      const fullPath = path.join(dir, f);
-      return { filename: f, path: fullPath, width: null, height: null };
+    .map((filename) => {
+      const fullPath = path.join(dir, filename);
+      return { filename, path: fullPath, width: null, height: null };
     });
 }
 
@@ -58,11 +65,12 @@ export function scanComics(root: string): Comic[] {
   root = path.resolve(root);
   const comics: Comic[] = [];
   const allDirs = fs
-    .readdirSync(root)
+    .readdirSync(root, { withFileTypes: true })
     .filter(
-      (n) =>
-        !n.startsWith(".") && fs.statSync(path.join(root, n)).isDirectory(),
-    );
+      (entry) =>
+        !entry.name.startsWith(".") && entryType(root, entry).isDirectory(),
+    )
+    .map((entry) => entry.name);
   const total = allDirs.length;
 
   for (let i = 0; i < allDirs.length; i++) {
@@ -78,9 +86,9 @@ export function scanComics(root: string): Comic[] {
       path: comicPath,
       chapters: [],
     };
-    const entries = fs.readdirSync(comicPath).sort(compareChapterTitle);
+    const entries = fs.readdirSync(comicPath, { withFileTypes: true });
 
-    const rootImages = collectImages(comicPath);
+    const rootImages = collectImages(comicPath, entries);
     if (rootImages.length > 0) {
       comic.chapters.push({
         name: "默认",
@@ -89,10 +97,15 @@ export function scanComics(root: string): Comic[] {
       });
     }
 
-    for (const chapterName of entries) {
+    const chapters = entries
+      .filter((entry) => entryType(comicPath, entry).isDirectory())
+      .sort((a, b) => compareChapterTitle(a.name, b.name));
+    for (const { name: chapterName } of chapters) {
       const chapterPath = path.join(comicPath, chapterName);
-      if (!fs.statSync(chapterPath).isDirectory()) continue;
-      const images = collectImages(chapterPath);
+      const images = collectImages(
+        chapterPath,
+        fs.readdirSync(chapterPath, { withFileTypes: true }),
+      );
       if (images.length > 0) {
         comic.chapters.push({ name: chapterName, path: chapterPath, images });
       }
